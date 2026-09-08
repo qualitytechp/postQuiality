@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { BRAND } from '../../shared/brand';
 import { randomUUID, createHash, type KeyLike } from 'crypto';
 import Decimal from 'decimal.js';
 import { getDatabase, getSettingValue, now, upsertSettings, withTxn } from '../db';
@@ -453,7 +454,7 @@ export function validationChecklist(
     && pack.version === version.version && pack.effectiveFrom === version.effective_from,
   'Valid, internally consistent version and effective-date range');
   add(4, semverAtLeast(APP_VERSION, pack.minFloVersion),
-    `FloCafe ${APP_VERSION} satisfies minimum compatible version ${pack.minFloVersion}`);
+    `${BRAND.productName} ${APP_VERSION} satisfies minimum compatible version ${pack.minFloVersion}`);
   add(5, version.digest === createHash('sha256').update(signedArtifactJson).digest('hex'), 'Stored artifact digest matches');
   const bundledDefinition = BUNDLED_PACKS_BY_ID.get(pack.id);
   const legacyTrustedDigest = LEGACY_TRUSTED_PACK_DIGESTS[pack.id];

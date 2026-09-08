@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BRAND } from '@shared/brand';
+import { BRAND, CLOUD_SERVICES_ENABLED } from '@shared/brand';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { usePosSettingsStore } from '@/store/pos-settings';
@@ -117,7 +117,7 @@ export default function SetupPage() {
   const [masterPinConfirm, setMasterPinConfirm] = useState('');
   const masterPinValid = /^\d{4}$/.test(masterPin) && masterPin === masterPinConfirm;
 
-  const cloudEnabled = true;
+  const cloudEnabled = CLOUD_SERVICES_ENABLED;
   const [cloudServerUrl, setCloudServerUrl] = useState(DEFAULT_CLOUD_SERVER_URL);
 
   const isPasswordValid = (password: string) => {
@@ -691,7 +691,7 @@ export default function SetupPage() {
                   })}
                 </div>
 
-                <Button onClick={() => setStep(5)} className="w-full" size="lg">
+                <Button onClick={() => setStep(CLOUD_SERVICES_ENABLED ? 5 : 6)} className="w-full" size="lg">
                   {t('continue')} <ArrowRight className="w-4 h-4 ms-2 rtl-flip" />
                 </Button>
               </div>
@@ -755,7 +755,7 @@ export default function SetupPage() {
             {step === 6 && (
               <div className="space-y-6">
                 <button
-                  onClick={() => setStep(5)}
+                  onClick={() => setStep(CLOUD_SERVICES_ENABLED ? 5 : 4)}
                   className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <ArrowLeft className="w-4 h-4 rtl-flip" /> {t('back')}

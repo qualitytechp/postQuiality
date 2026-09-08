@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { BRAND } from '../shared/brand';
 import type { Request, Response, NextFunction } from 'express';
 import * as path from 'path';
 import * as os from 'os';
@@ -11,7 +12,6 @@ import { BUNDLED_COUNTRY_PACKS, bundledPackVersionId } from './tax-packs/bundled
 import { SHUTDOWN_TIMEOUT_MS } from './shutdown';
 import { resolveContainedPath } from './lib/path-containment';
 import { serializeMerchantTemplatePayload, validateMerchantTemplateText } from '../shared/print';
-import { TELEMETRY_ENABLED } from '../shared/brand';
 import { ROLE_KEYS } from '../shared/role-permissions';
 import { getCurrencyFractionDigits } from './countries';
 
@@ -82,7 +82,7 @@ function createDatabaseMissingError(dbPath: string): Error & { code: string } {
   const error = new Error(
     `Database file is missing at ${dbPath}, but this install was previously initialized. ` +
     'Refusing to start with a new, empty database to avoid silently losing existing data. ' +
-    'Restore from a backup (Settings → Backup & Restore, or the backups folder) and restart Flo Cafe.'
+    `Restore from a backup (Settings → Backup & Restore, or the backups folder) and restart ${BRAND.productName}.`
   ) as Error & { code: string };
   error.code = 'ERR_DATABASE_MISSING';
   return error;
@@ -711,7 +711,6 @@ export function ensureTelemetryAnonId(): string {
 
 /** Anonymous telemetry toggle; enabled by default, reconfigurable in Settings > Privacy. */
 export function isTelemetryEnabled(): boolean {
-  if (!TELEMETRY_ENABLED) return false;
   return getSettingValue('telemetry_enabled') === 'true';
 }
 
@@ -4094,7 +4093,7 @@ export class SchemaVersionMismatchError extends Error {
     super(
       `Database schema (v${dbVersion}) is newer than this app version supports (v${appVersion}). ` +
       `This usually means another device or a previous update already upgraded this database. ` +
-      `Please update Flo Cafe to the latest version before continuing.`
+      `Please update ${BRAND.productName} to the latest version before continuing.`
     );
     this.name = 'SchemaVersionMismatchError';
   }

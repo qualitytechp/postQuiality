@@ -374,8 +374,8 @@ jobs:
         run: |
           npm run build:frontend && npm run build && npx electron-builder --linux AppImage deb rpm snap --publish never \
             -c.publish.channel="${{ needs.create-release.outputs.manifest_prefix }}" \
-            -c.linux.artifactName="flocafe-\${version}-linux-\${env.FLO_LINUX_ARCH}.\${ext}" \
-            -c.appImage.artifactName="flocafe-\${version}-linux-\${env.FLO_LINUX_ARCH}.appimage"
+            -c.linux.artifactName="qualitytech-pos-\${version}-linux-\${env.FLO_LINUX_ARCH}.\${ext}" \
+            -c.appImage.artifactName="qualitytech-pos-\${version}-linux-\${env.FLO_LINUX_ARCH}.appimage"
           node scripts/assert-release-artifact-names.cjs release
         env:
           SNAPCRAFT_BUILD_ENVIRONMENT: lxd
@@ -428,7 +428,7 @@ jobs:
             echo "::error::SNAPCRAFT_STORE_CREDENTIALS not set — refusing to silently skip requested Snap Store publish for ${{ matrix.arch }}"
             exit 1
           fi
-          SNAP_NAME="flocafe"
+          SNAP_NAME="qualitytech-pos"
           SNAP=$(find release -maxdepth 1 -type f -name '*.snap' -print -quit)
           [ -n "$SNAP" ] || { echo "::error::No .snap produced by electron-builder for ${{ matrix.arch }}"; exit 1; }
           # #468: the SNAPCRAFT_STORE_CREDENTIALS macaroon is restricted to

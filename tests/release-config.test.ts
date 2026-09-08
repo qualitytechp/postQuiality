@@ -181,16 +181,6 @@ function run() {
 
   const winTargets = (build?.win?.target || []).map((target: any) => target.target);
   assert.ok(winTargets.includes('nsis'), 'win build target must include nsis for electron-updater');
-  assert.equal(
-    pkg.scripts?.['build:appx'],
-    'npm run build:frontend && npm run build && electron-builder --win appx --x64 --arm64 --config.npmRebuild=false',
-    'build:appx must preserve local x64 and arm64 Store builds'
-  );
-  assert.ok(build?.appx?.identityName, 'build.appx.identityName must be set');
-  assert.ok(build?.appx?.publisher, 'build.appx.publisher must be set');
-  assert.ok(winTargets.includes('appx'), 'win build target must include appx');
-  const appxConfig = (build?.win?.target || []).find((target: any) => target.target === 'appx');
-  assert.ok(appxConfig?.arch?.includes('arm64'), 'win appx target must include arm64');
 
   assert.equal(build?.snapcraft?.base, 'core24', 'snapcraft must use core24');
   const snapPlugs = build?.snapcraft?.core24?.plugs || [];
@@ -199,8 +189,8 @@ function run() {
   assert.equal(build?.snapcraft?.core24?.environment?.TMPDIR, '$XDG_RUNTIME_DIR', 'snapcraft must use a writable runtime temp directory');
   assert.ok(typeof build?.linux?.synopsis === 'string' && build.linux.synopsis.length > 0 && build.linux.synopsis.length <= 78, 'linux synopsis must be present and short');
 
-  assert.equal(build?.linux?.artifactName, 'flocafe-${version}-linux.${ext}', 'Linux package artifact template must remain deterministic');
-  assert.equal(build?.appImage?.artifactName, 'flocafe-${version}-linux.appimage', 'AppImage artifact extension must be lowercase');
+  assert.equal(build?.linux?.artifactName, 'qualitytech-pos-${version}-linux.${ext}', 'Linux package artifact template must remain deterministic');
+  assert.equal(build?.appImage?.artifactName, 'qualitytech-pos-${version}-linux.appimage', 'AppImage artifact extension must be lowercase');
   assert.equal(builderUtil.getArtifactArchName(builderUtil.Arch.x64, 'AppImage'), 'x86_64', 'electron-builder AppImage x64 macro spelling must be documented');
   assert.equal(builderUtil.getArtifactArchName(builderUtil.Arch.arm64, 'AppImage'), 'arm64', 'electron-builder AppImage arm64 macro spelling must be documented');
   for (const artifact of [build?.linux?.artifactName, build?.appImage?.artifactName]) {
@@ -222,37 +212,8 @@ function run() {
   const workflow = loadWorkflow('release.yml');
   const jobs = workflow.jobs;
   const triggers = workflow.on || workflow['true'];
-  const masWorkflow = loadWorkflow('publish-mas.yml');
-  const masTriggers = masWorkflow.on || masWorkflow['true'];
-  const masJob = masWorkflow.jobs['publish-mas'];
-  assert.equal(masTriggers.workflow_dispatch.inputs.release_tag.required, true);
-  assert.equal(masTriggers.workflow_dispatch.inputs.release_tag.type, 'string');
-  const masCheckouts = masJob.steps.filter((step: any) => step.uses?.startsWith('actions/checkout@'));
-  assert.equal(masCheckouts[0]?.with?.ref, 'main', 'MAS provenance must use current main verifier code');
-  assert.equal(masCheckouts[1]?.with?.ref, '${{ github.sha }}', 'MAS build must use the validated event commit');
-  assert.equal(masCheckouts[0]?.with?.['persist-credentials'], false, 'MAS verifier checkout must not persist credentials');
-  assert.equal(masCheckouts[1]?.with?.['persist-credentials'], false, 'MAS build checkout must not persist credentials');
-  const masProvenance = findStep(masJob, 'Validate MAS release provenance');
-  assertShellStep(masJob, 'Validate MAS release provenance');
-  assert.equal(masProvenance.env.GH_TOKEN, '${{ github.token }}');
-  assert.equal(masProvenance.env.RELEASE_TAG, '${{ inputs.release_tag }}');
-  const masProvenanceExecution = executeWorkflowStep(masProvenance, {
-    env: { RELEASE_REF_NAME: '3.4.0', RELEASE_REF_TYPE: 'tag', RELEASE_TAG: '3.4.0' },
-    expressions: { 'github.repository': 'FreeOpenSourcePOS/FloCafe', 'github.sha': 'a'.repeat(40) },
-    fakeCommands: { node: captureNodeArgs },
-  });
-  assert.equal(masProvenanceExecution.status, 0, masProvenanceExecution.stderr);
-  assert.equal(
-    masProvenanceExecution.log.trim(),
-    `node scripts/release-gate/validate-release-ref.cjs --repo FreeOpenSourcePOS/FloCafe --tag 3.4.0 --commit ${'a'.repeat(40)} --main-ref main`,
-  );
-  const masBranchExecution = executeWorkflowStep(masProvenance, {
-    env: { RELEASE_REF_NAME: 'main', RELEASE_REF_TYPE: 'branch', RELEASE_TAG: '3.4.0' },
-    expressions: { 'github.repository': 'FreeOpenSourcePOS/FloCafe', 'github.sha': 'a'.repeat(40) },
-    fakeCommands: { node: captureNodeArgs },
-  });
-  assert.notEqual(masBranchExecution.status, 0, 'MAS publishing must reject non-tag workflow refs');
-  assert.match(masBranchExecution.stdout, /must run from the selected release tag/);
+  // Mac App Store y Tienda de Windows quedan fuera de esta distribución:
+  // se entrega por instalador directo desde los releases del repositorio.
   const createRelease = jobs['create-release'];
   for (const jobName of ['create-release', 'release-linux', 'release-mac', 'release-windows', 'verify-release', 'publish-release']) {
     const checkout = jobs[jobName].steps.find((step: any) => step.uses?.startsWith('actions/checkout@'));
@@ -714,19 +675,19 @@ exit 1
     ['linux-x64', 'macos-arm64', 'macos-x64', 'windows-x64'].sort()
   );
   const matrixUpload = findStep(matrixJob, 'Upload build artifacts');
-  assert.equal(matrixUpload.with.name, 'flocafe-build-${{ matrix.name }}');
+  assert.equal(matrixUpload.with.name, 'qualitytech-build-${{ matrix.name }}');
 
   const ciWorkflow = loadWorkflow('ci.yml');
   const e2eJob = ciWorkflow.jobs['e2e-playwright'];
   const releaseRegression = findStep(e2eJob, 'Run renderer and printer regression suites');
   assertShellStep(e2eJob, 'Run renderer and printer regression suites');
   assert.equal(releaseRegression.env.REQUIRE_VISUAL_EVIDENCE, '1');
-  assert.equal(releaseRegression.env.EVIDENCE_DIR, '${{ runner.temp }}/flocafe-release-regressions');
+  assert.equal(releaseRegression.env.EVIDENCE_DIR, '${{ runner.temp }}/qualitytech-release-regressions');
   const evidenceUpload = (e2eJob.steps || []).find((step: any) => step.with?.name === 'release-regression-evidence');
   assert.ok(evidenceUpload, 'CI must upload release regression evidence');
-  assert.equal(evidenceUpload.with.path, '${{ runner.temp }}/flocafe-release-regressions/');
+  assert.equal(evidenceUpload.with.path, '${{ runner.temp }}/qualitytech-release-regressions/');
 
-  const metaFilePath = path.join(__dirname, '../assets/com.flo.desktop.metainfo.xml');
+  const metaFilePath = path.join(__dirname, '../assets/com.qualitytech.pos.metainfo.xml');
   const originalMetaContent = fs.readFileSync(metaFilePath, 'utf8');
   const testNotesPath = path.join(os.tmpdir(), `flocafe-release-notes-${Date.now()}.md`);
   try {

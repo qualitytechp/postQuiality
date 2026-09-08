@@ -2,6 +2,10 @@
 // Used for macOS App Store sandboxed builds without shelling out to lp/lpstat.
 
 import * as http from 'http';
+import { BRAND } from '../../shared/brand';
+
+/** Nombre de usuario que ve la cola de la impresora: sin espacios ni mayúsculas. */
+const IPP_REQUESTING_USER = BRAND.shortName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
 const CUPS_HOST = '127.0.0.1';
 const CUPS_PORT = 631;
@@ -239,7 +243,7 @@ const REQUESTED_PRINTER_ATTRIBUTES: IppAttribute = {
 /** Enumerates every printer CUPS knows about (queues for USB and network printers alike). */
 export async function ippGetPrinters(signal?: AbortSignal): Promise<IppAttributeGroup[]> {
   const response = await ippRequest('/', OP_CUPS_GET_PRINTERS, [
-    { tag: VALUE_TAG.nameWithoutLanguage, name: 'requesting-user-name', values: ['flocafe'] },
+    { tag: VALUE_TAG.nameWithoutLanguage, name: 'requesting-user-name', values: [IPP_REQUESTING_USER] },
     REQUESTED_PRINTER_ATTRIBUTES,
   ], undefined, signal);
   return response.groups;
@@ -248,7 +252,7 @@ export async function ippGetPrinters(signal?: AbortSignal): Promise<IppAttribute
 /** Returns the CUPS-configured default printer's name, or null if none is set. */
 export async function ippGetDefaultPrinterName(signal?: AbortSignal): Promise<string | null> {
   const response = await ippRequest('/', OP_CUPS_GET_DEFAULT, [
-    { tag: VALUE_TAG.nameWithoutLanguage, name: 'requesting-user-name', values: ['flocafe'] },
+    { tag: VALUE_TAG.nameWithoutLanguage, name: 'requesting-user-name', values: [IPP_REQUESTING_USER] },
     REQUESTED_PRINTER_ATTRIBUTES,
   ], undefined, signal);
   const name = response.groups[0]?.['printer-name']?.[0];
@@ -264,7 +268,7 @@ export interface IppPrinterAttributes {
 export async function ippGetPrinterAttributes(printerName: string, signal?: AbortSignal): Promise<IppPrinterAttributes> {
   const response = await ippRequest(`/printers/${encodeURIComponent(printerName)}`, OP_GET_PRINTER_ATTRIBUTES, [
     { tag: VALUE_TAG.uri, name: 'printer-uri', values: [`ipp://localhost/printers/${encodeURIComponent(printerName)}`] },
-    { tag: VALUE_TAG.nameWithoutLanguage, name: 'requesting-user-name', values: ['flocafe'] },
+    { tag: VALUE_TAG.nameWithoutLanguage, name: 'requesting-user-name', values: [IPP_REQUESTING_USER] },
     { tag: VALUE_TAG.keyword, name: 'requested-attributes', values: ['printer-state', 'printer-is-accepting-jobs'] },
   ], undefined, signal);
   const group = response.groups[0] || {};
@@ -287,8 +291,8 @@ export interface IppPrintResult {
 export async function ippPrintRaw(printerName: string, data: Buffer, signal?: AbortSignal): Promise<IppPrintResult> {
   const response = await ippRequest(`/printers/${encodeURIComponent(printerName)}`, OP_PRINT_JOB, [
     { tag: VALUE_TAG.uri, name: 'printer-uri', values: [`ipp://localhost/printers/${encodeURIComponent(printerName)}`] },
-    { tag: VALUE_TAG.nameWithoutLanguage, name: 'requesting-user-name', values: ['flocafe'] },
-    { tag: VALUE_TAG.nameWithoutLanguage, name: 'job-name', values: ['FloCafe receipt'] },
+    { tag: VALUE_TAG.nameWithoutLanguage, name: 'requesting-user-name', values: [IPP_REQUESTING_USER] },
+    { tag: VALUE_TAG.nameWithoutLanguage, name: 'job-name', values: [`${BRAND.shortName} receipt`] },
     { tag: VALUE_TAG.mimeMediaType, name: 'document-format', values: ['application/octet-stream'] },
   ], data, signal);
 

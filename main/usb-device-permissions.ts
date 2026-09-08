@@ -1,4 +1,5 @@
 import { app, dialog, type Session } from 'electron';
+import { BRAND } from '../shared/brand';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -84,7 +85,7 @@ export function registerUsbDevicePermissions(session: Session, trustedOrigin: st
       defaultId: 0,
       cancelId: 1,
       title: 'Connect USB printer',
-      message: 'FloCafe wants to connect to a USB device',
+      message: `${BRAND.productName} wants to connect to a USB device`,
       detail: deviceLabel,
     }).then((result) => {
       if (result.response === 0) {

@@ -9,7 +9,7 @@ import { BETA_CHANNEL_SETTING_KEY, parseStoredBetaChannelEnabled, resolveUpdateC
 import { computeTaxPackUpdates, fetchRemoteTaxPackCatalog } from './tax-packs/catalog';
 import { startServer, stopServer, getLocalIP, isServerRunning, getServerPort } from './server';
 import { cloudSync } from './services/cloud-sync';
-import { telemetry, sendEvent as sendTelemetryEvent } from './services/telemetry';
+import { telemetry, sendEvent as sendTelemetryEventUnchecked } from './services/telemetry';
 import { googleDrive } from './services/google-drive';
 import { startKdsServer, stopKdsServer, getKdsPort, isKdsServerRunning } from './kds-server';
 import { startServerApp, stopServerApp, getServerAppPort, isServerAppRunning } from './server-app';
@@ -20,7 +20,12 @@ import { authorizeMasterPin } from './services/master-pin';
 import { initFromDb as initWhatsAppFromDb, requestShutdown as requestWhatsAppShutdown, shutdown as shutdownWhatsApp } from './services/whatsapp';
 import log from 'electron-log/main';
 import { autoUpdater } from 'electron-updater';
+import { BRAND, CLOUD_SERVICES_ENABLED, TELEMETRY_ENABLED } from '../shared/brand';
 import { isAllowedLocalWindowUrl, isSafeExternalUrl } from './security/url-allowlist';
+
+/** Esta distribución no envía telemetría; los emisores quedan intactos. */
+const sendTelemetryEvent = (eventType: string, payload?: Record<string, unknown>): Promise<boolean> =>
+  TELEMETRY_ENABLED ? sendTelemetryEventUnchecked(eventType, payload) : Promise.resolve(false);
 import {
   classifyUpdateError,
   initialUpdateState,
@@ -938,7 +943,7 @@ function createTray(): void {
         },
       ]);
 
-      tray.setToolTip('Flo Cafe');
+      tray.setToolTip(BRAND.productName);
       tray.setContextMenu(linuxMenu);
       // Single-click also shows the window on Linux (no double-click standard).
       tray.on('click', () => {
@@ -1106,7 +1111,7 @@ function createMenu(): void {
     {
       label: 'Window',
       submenu: [
-        { label: 'Flo Cafe', click: () => { if (showMainWindow()) mainWindow?.focus(); } },
+        { label: BRAND.productName, click: () => { if (showMainWindow()) mainWindow?.focus(); } },
         { type: 'separator' },
         { role: 'minimize' },
         ...(process.platform === 'darwin' ? [
@@ -1149,7 +1154,7 @@ function showAbout(): void {
   dialog.showMessageBox({
     type: 'info',
     title: 'About Flo',
-    message: 'Flo Cafe',
+    message: BRAND.productName,
     detail: [
       `Version: ${app.getVersion()}`,
       `Electron: ${process.versions.electron}`,
@@ -1183,8 +1188,9 @@ async function initialize(): Promise<void> {
     await startServer();
     if (isShutdownRequested()) return;
 
-    cloudSync.start();
-    telemetry.start();
+    // Esta distribución no incluye servicios de nube del proveedor.
+    if (CLOUD_SERVICES_ENABLED) cloudSync.start();
+    if (TELEMETRY_ENABLED) telemetry.start();
     googleDrive.start();
 
     console.log('[Flo] Starting KDS server on port 3002...');

@@ -55,6 +55,9 @@ async function run() {
     const db = getDatabase();
     const owner = seedOwnerUser(db);
     const manager = seedManagerUser(db);
+    // The distribution ships no vendor cloud endpoint, so the suite supplies
+    // its own for the mocked upstream instead of relying on a seeded default.
+    setSettings({ cloud_server_url: 'https://cloud.test.local' });
     const app = createApp({ '/api/settings': settingsRoutes });
 
     const managerAccount = await request(app)

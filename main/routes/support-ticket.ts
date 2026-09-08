@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { BRAND } from '../../shared/brand';
 import { randomUUID } from 'crypto';
 import * as os from 'os';
 import { requireRole } from '../middleware/security';
@@ -144,7 +145,7 @@ router.post('/', requireRole(...ROLE_ACCESS.allStaff), asyncHandler(async (req: 
     ...queued,
     status: queued.queued ? 'queued' : 'unavailable',
     message: queued.queued
-      ? 'Your request is queued and will be sent when FloCafe is online.'
+      ? `Your request is queued and will be sent when ${BRAND.productName} is online.`
       : 'Cloud data deletion is in progress; please try again later.',
   });
 }));

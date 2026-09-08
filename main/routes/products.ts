@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { BRAND } from '../../shared/brand';
 import { getDatabase, now, generateShortId, getSettingValue } from '../db';
 import { requireRole, isBlockedSsrfTarget } from '../middleware/security';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
@@ -110,7 +111,7 @@ function fetchPinnedHttps(
       port: parsedUrl.port || 443,
       path: `${parsedUrl.pathname}${parsedUrl.search}`,
       method: 'GET',
-      headers: { 'User-Agent': 'FloCafe-ImageProxy/1.0' },
+      headers: { 'User-Agent': `${BRAND.shortName}-ImageProxy/1.0` },
       servername: parsedUrl.hostname,
       signal,
       lookup: ((_hostname, options, callback) => {

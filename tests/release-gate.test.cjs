@@ -49,12 +49,12 @@ const releaseAssets = [
   asset('beta-linux-arm64.yml', 104),
   asset('uninstall-macos.sh', 105),
   asset('uninstall-windows.ps1', 106),
-  asset('flocafe-3.3.1-beta.1-win-x64.exe', 107),
-  asset('flocafe-3.3.1-beta.1-win-x64.exe.blockmap', 108),
-  asset('flocafe-3.3.1-beta.1-mac-x64.zip', 109),
-  asset('flocafe-3.3.1-beta.1-mac-x64.zip.blockmap', 110),
-  asset('flocafe-3.3.1-beta.1-linux-x64.appimage', 111),
-  asset('flocafe-3.3.1-beta.1-linux-arm64.appimage', 112),
+  asset('qualitytech-pos-3.3.1-beta.1-win-x64.exe', 107),
+  asset('qualitytech-pos-3.3.1-beta.1-win-x64.exe.blockmap', 108),
+  asset('qualitytech-pos-3.3.1-beta.1-mac-x64.zip', 109),
+  asset('qualitytech-pos-3.3.1-beta.1-mac-x64.zip.blockmap', 110),
+  asset('qualitytech-pos-3.3.1-beta.1-linux-x64.appimage', 111),
+  asset('qualitytech-pos-3.3.1-beta.1-linux-arm64.appimage', 112),
   asset('snap-publication-x64.json', 113),
   asset('snap-publication-arm64.json', 114),
 ];
@@ -113,8 +113,8 @@ function releaseRefRequest({
   const windowsAsset = manifest.assets.find((entry) => entry.platform === 'windows' && entry.kind === 'installer');
   assert.equal(windowsAsset.signing.status, 'unsigned');
   assert.equal(windowsAsset.signing.smartScreen, 'not-run');
-  assert.equal(classifyAsset('flocafe-3.3.1-beta.1-win-x64.exe.blockmap').kind, 'blockmap');
-  assert.equal(classifyAsset('flocafe-3.3.1-beta.1-mac-x64.zip.blockmap').kind, 'blockmap');
+  assert.equal(classifyAsset('qualitytech-pos-3.3.1-beta.1-win-x64.exe.blockmap').kind, 'blockmap');
+  assert.equal(classifyAsset('qualitytech-pos-3.3.1-beta.1-mac-x64.zip.blockmap').kind, 'blockmap');
   assert.equal(windowsAsset.sha256, crypto.createHash('sha256').update(payloads.get(windowsAsset.name)).digest('hex'));
   assert.equal(windowsAsset.sha512.length, 128);
 
@@ -239,10 +239,10 @@ function releaseRefRequest({
   const stableVersion = '3.3.0';
   const stablePayloads = new Map(expectedArtifactNames(stableVersion).map((name) => [name, Buffer.from(`stable:${name}`)]));
   const stableManifestFiles = {
-    'latest.yml': [`flocafe-${stableVersion}-win-x64.exe`],
-    'latest-mac.yml': [`flocafe-${stableVersion}-mac-x64.zip`, `flocafe-${stableVersion}-mac-arm64.zip`],
-    'latest-linux.yml': [`flocafe-${stableVersion}-linux-x64.appimage`],
-    'latest-linux-arm64.yml': [`flocafe-${stableVersion}-linux-arm64.appimage`],
+    'latest.yml': [`qualitytech-pos-${stableVersion}-win-x64.exe`],
+    'latest-mac.yml': [`qualitytech-pos-${stableVersion}-mac-x64.zip`, `qualitytech-pos-${stableVersion}-mac-arm64.zip`],
+    'latest-linux.yml': [`qualitytech-pos-${stableVersion}-linux-x64.appimage`],
+    'latest-linux-arm64.yml': [`qualitytech-pos-${stableVersion}-linux-arm64.appimage`],
   };
   for (const [manifestName, fileNames] of Object.entries(stableManifestFiles)) {
     const manifestText = [
@@ -326,7 +326,7 @@ function releaseRefRequest({
     /missing:.*snap-publication-arm64/,
   );
 
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'flocafe-release-assets-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qualitytech-pos-release-assets-'));
   try {
     const reusableFile = path.join(tempDir, 'reusable.bin');
     fs.writeFileSync(reusableFile, 'same bytes');

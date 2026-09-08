@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { BRAND, SUPPORT_EMAIL_URL, SUPPORT_WHATSAPP_URL } from '@shared/brand';
+import { BRAND, CLOUD_SERVICES_ENABLED, SUPPORT_EMAIL_URL, SUPPORT_WHATSAPP_URL, TELEMETRY_ENABLED } from '@shared/brand';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
@@ -3649,7 +3649,7 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-            {isOwner && (
+            {isOwner && CLOUD_SERVICES_ENABLED && (
               <div className={`rounded-xl border p-6 ${cloudAccountAvailable && cloudAccount?.email && !cloudAccount.verified ? 'border-red-200 bg-red-50/40' : 'border-border bg-card'}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -3697,6 +3697,7 @@ export default function SettingsPage() {
                 </div>
               </div>
 
+              {TELEMETRY_ENABLED && (<>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -3708,6 +3709,7 @@ export default function SettingsPage() {
                 <span className="text-sm text-foreground">{t('anonymousTelemetry')}</span>
               </label>
               <p className="text-xs text-muted-foreground">{t('anonymousTelemetryHint')}</p>
+              </>)}
 
               <div className="border-t border-border pt-4">
                 <label className="flex items-center gap-3 cursor-pointer">
@@ -3724,7 +3726,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {isOwner && (
+            {isOwner && CLOUD_SERVICES_ENABLED && (
               <div className="rounded-xl border border-border bg-card p-6">
                 <h2 className="font-semibold text-foreground">{t('cloudPrivacyControls')}</h2>
                 <p className="mt-2 text-sm text-muted-foreground">{t('cloudStopReversible')}</p>
@@ -4731,6 +4733,7 @@ export default function SettingsPage() {
             <h2 className="text-lg font-semibold text-foreground">{t('tabMobileAccess')}</h2>
 
             {/* FloAdmin — reporting sync */}
+            {CLOUD_SERVICES_ENABLED && (
             <div className="bg-card rounded-xl border border-border p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <Cloud size={20} className="text-brand" />
@@ -4825,6 +4828,7 @@ export default function SettingsPage() {
                 </>
               )}
             </div>
+            )}
 
             {/* RevFlo — consolidated: download/QR + app (pairing) code + paired devices */}
             <div className="bg-card rounded-xl border border-border p-6 space-y-5">

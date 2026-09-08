@@ -175,7 +175,7 @@ function expectedManifestNames(channel) {
 }
 
 function assertManifestPlatformMapping(manifestName, version, files, selectedPath) {
-  const base = `flocafe-${version}`;
+  const base = `qualitytech-pos-${version}`;
   const urls = files.map((file) => file.url);
   let allowed;
   let required;
@@ -231,14 +231,12 @@ function assertManifestPlatformMapping(manifestName, version, files, selectedPat
 }
 
 function expectedArtifactNames(version) {
-  const base = `flocafe-${version}`;
+  const base = `qualitytech-pos-${version}`;
   return [
     'uninstall-macos.sh',
     'uninstall-windows.ps1',
     `${base}-win-x64.exe`,
     `${base}-win-x64.exe.blockmap`,
-    `${base}-win-x64.appx`,
-    `${base}-win-arm64.appx`,
     `${base}-mac-x64.dmg`,
     `${base}-mac-arm64.dmg`,
     `${base}-mac-x64.zip`,

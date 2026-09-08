@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Prepends a <release> entry to assets/com.flo.desktop.metainfo.xml at release
+// Prepends a <release> entry to assets/com.qualitytech.pos.metainfo.xml at release
 // time so the AppImage ships with an up-to-date AppStream release history.
 // Reads version from package.json and release notes from RELEASE_NOTES_FILE,
 // /tmp/release-notes.md, git-cliff, or CHANGELOG.md (via scripts/changelog-notes.sh).
@@ -11,7 +11,7 @@ const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
-const META_FILE = path.join(ROOT, 'assets/com.flo.desktop.metainfo.xml');
+const META_FILE = path.join(ROOT, 'assets/com.qualitytech.pos.metainfo.xml');
 const NOTES_HELPER = path.join(ROOT, 'scripts/changelog-notes.sh');
 
 const pkg = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8'));

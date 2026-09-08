@@ -1,6 +1,7 @@
 /** Optional Google Drive integration for automated, off-device DB backups via OAuth loopback. */
 
 import { app, shell, safeStorage } from 'electron';
+import { BRAND } from '../../shared/brand';
 import { isSafeExternalUrl } from '../security/url-allowlist';
 import * as http from 'http';
 import * as fs from 'fs';
@@ -15,7 +16,7 @@ import { SHUTDOWN_TIMEOUT_MS } from '../shutdown';
 type OAuth2Client = InstanceType<typeof googleAuth.OAuth2>;
 
 export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-export const DRIVE_BACKUP_FOLDER_NAME = 'FloCafe Backups';
+export const DRIVE_BACKUP_FOLDER_NAME = `${BRAND.shortName} Backups`;
 
 const DEFAULT_RETENTION = 10;
 const MIN_RETENTION = 1;
@@ -362,7 +363,7 @@ class GoogleDriveService {
     if (!tokens.refresh_token) {
       // Google only issues a refresh_token on first consent (or with prompt=consent,
       // which we always pass) — without it we can't run unattended scheduled backups.
-      throw new Error('Google did not return a refresh token. Revoke FloCafe access at myaccount.google.com/permissions and try connecting again.');
+      throw new Error(`Google did not return a refresh token. Revoke ${BRAND.productName} access at myaccount.google.com/permissions and try connecting again.`);
     }
     this.writeTokens(tokens);
 
@@ -650,8 +651,8 @@ class GoogleDriveService {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(
           error || !code || returnedState !== state
-            ? '<html><body>Google Drive connection failed. You can close this window and try again in Flo Cafe.</body></html>'
-            : '<html><body>Google Drive connected. You can close this window and return to Flo Cafe.</body></html>'
+            ? `<html><body>Google Drive connection failed. You can close this window and try again in ${BRAND.productName}.</body></html>`
+            : `<html><body>Google Drive connected. You can close this window and return to ${BRAND.productName}.</body></html>`
         );
 
         if (error) return finish(() => reject(new Error(`Google authorization failed: ${error}`)));

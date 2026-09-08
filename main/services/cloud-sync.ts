@@ -1,7 +1,6 @@
 /** Outbound-only cloud bridge for pushing local events and polling signed commands. */
 
 import * as crypto from 'crypto';
-import { CLOUD_SERVICES_ENABLED } from '../../shared/brand';
 import * as os from 'os';
 import log from 'electron-log';
 import { WebSocket, type RawData } from 'ws';
@@ -158,6 +157,7 @@ function apiPath(pathname: string): string {
 }
 
 function endpoint(serverUrl: string, pathname: string): URL {
+  if (!serverUrl) throw new Error('No cloud server URL is configured');
   const base = new URL(serverUrl);
   const basePath = base.pathname.replace(/\/+$/g, '');
   // Strip query string before pathname assignment to avoid percent-encoding '?'.
@@ -287,7 +287,6 @@ export class CloudSyncService {
   private runtimeStarted = false;
 
   start() {
-    if (!CLOUD_SERVICES_ENABLED) return;
     if (this.cloudDeletionInProgress) return;
     this.shutdownRequested = false;
     this.shutdownPromise = null;
@@ -462,6 +461,7 @@ export class CloudSyncService {
     }
     const { posHash, deviceSecret } = ensureCloudIdentity();
     const serverUrl = normalizeCloudServerUrl(settings.cloud_server_url || DEFAULT_CLOUD_SERVER_URL);
+    if (!serverUrl) throw new Error('No cloud server URL is configured');
     const owner = db.prepare(
       "SELECT name FROM users WHERE role = 'owner' AND is_active = 1 ORDER BY created_at ASC LIMIT 1"
     ).get() as { name?: string } | undefined;
@@ -1300,6 +1300,8 @@ export class CloudSyncService {
     }
     if (this.cloudDeletionInProgress || isCloudDeletionBlocking(settings.cloud_deletion_status)
       || settings.cloud_sync_enabled !== '1' || settings.cloud_services_disabled_by_user === 'true') return;
+    // Sin endpoint configurado no hay registro que intentar.
+    if (!normalizeCloudServerUrl(settings.cloud_server_url || DEFAULT_CLOUD_SERVER_URL)) return;
     if (this.autoRegisterTimer || this.autoRegisterInFlight) return;
     this.autoRegisterInFlight = true;
     this.runBackground(this.register()
