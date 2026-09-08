@@ -89,7 +89,7 @@ assert.equal(getCurrentSchemaVersion(), MIGRATIONS[MIGRATIONS.length - 1].versio
   assert.equal(count('products'), 0, 'fresh install starts with no sample products');
   assert.equal(count('tables'), 0, 'fresh install starts with no sample tables');
   assert.equal(count('printers'), 0, 'fresh install starts with no default printer');
-  assert.equal(setting('cloud_server_url'), 'https://blue.flopos.com/', 'cloud server URL is seeded');
+  assert.equal(setting('cloud_server_url'), '', 'no vendor cloud endpoint is seeded');
   assert.match(setting('cloud_pos_hash') || '', /^pos_[a-f0-9]{40}$/, 'fresh install has a POS hash');
   assert.ok((setting('cloud_device_secret') || '').length >= 32, 'fresh install has a local cloud secret');
   assert.equal(count('cloud_sync_outbox'), 0, 'fresh install starts with an empty cloud outbox');
@@ -278,7 +278,7 @@ assert.equal(getCurrentSchemaVersion(), MIGRATIONS[MIGRATIONS.length - 1].versio
     // '1', not 'true' — cloud-sync.ts reads this key with a strict '1' check
     // everywhere, matching FloAdmin's own `stores` table.
     assert.equal(setting('cloud_sync_enabled'), '1', 'cloud coordination is enabled automatically on v2 setup');
-    assert.equal(setting('cloud_server_url'), 'https://blue.flopos.com', 'cloud server URL keeps the default');
+    assert.equal(setting('cloud_server_url'), '', 'cloud server URL keeps the empty default');
     console.log('   ✓ setup endpoint enables cloud coordination automatically');
   } finally {
     cloudSync.refreshRegistrationProfile = originalRefreshRegistrationProfile;

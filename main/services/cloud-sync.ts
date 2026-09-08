@@ -1,6 +1,7 @@
 /** Outbound-only cloud bridge for pushing local events and polling signed commands. */
 
 import * as crypto from 'crypto';
+import { CLOUD_SERVICES_ENABLED } from '../../shared/brand';
 import * as os from 'os';
 import log from 'electron-log';
 import { WebSocket, type RawData } from 'ws';
@@ -9,7 +10,7 @@ import { getDatabase, now, parseItemJson, attachEffectiveAddons, ensureCloudIden
 import { getTenantCurrency } from './refund';
 import { getCurrencyMinorUnitFactor } from '../countries';
 
-export const DEFAULT_CLOUD_SERVER_URL = 'https://blue.flopos.com/';
+export const DEFAULT_CLOUD_SERVER_URL = '';
 
 const HEARTBEAT_INTERVAL_MS = 5 * 60_000;
 const OUTBOX_INTERVAL_MS = 15_000;
@@ -139,7 +140,10 @@ function isLocalDevUrl(url: URL): boolean {
 }
 
 export function normalizeCloudServerUrl(raw?: string | null): string {
-  const url = new URL(raw && raw.trim() ? raw.trim() : DEFAULT_CLOUD_SERVER_URL);
+  const candidate = raw && raw.trim() ? raw.trim() : DEFAULT_CLOUD_SERVER_URL;
+  // No endpoint configured: this distribution ships without vendor cloud services.
+  if (!candidate) return '';
+  const url = new URL(candidate);
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && isLocalDevUrl(url))) {
     throw new Error('Cloud server URL must use HTTPS');
   }
@@ -283,6 +287,7 @@ export class CloudSyncService {
   private runtimeStarted = false;
 
   start() {
+    if (!CLOUD_SERVICES_ENABLED) return;
     if (this.cloudDeletionInProgress) return;
     this.shutdownRequested = false;
     this.shutdownPromise = null;

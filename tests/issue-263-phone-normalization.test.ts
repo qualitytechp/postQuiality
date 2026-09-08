@@ -382,7 +382,7 @@ describe('Issue #263: Phone Normalization, Validation, and Privacy', () => {
 
   test('Privacy guarantee: telemetry payloads never include phone numbers', async () => {
     const { sendEvent, TELEMETRY_URL } = require('../main/services/telemetry');
-    assert.equal(TELEMETRY_URL, 'https://telemetry.flopos.com/collect');
+    assert.equal(TELEMETRY_URL, '');
 
     const db = getDatabase();
     db.prepare("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('telemetry_enabled', 'true', datetime('now'))").run();

@@ -1,30 +1,30 @@
 <div align="center">
-  <h1>FloCafe</h1>
+  <h1>QualityTech POS</h1>
   <p><a href="README.es.md">Español</a> · <a href="README.pt.md">Português</a> · <a href="README.fr.md">Français</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.fil.md">Filipino</a> · <a href="README.de.md">Deutsch</a></p>
   <p><strong>Free, open-source, offline-first point of sale for cafés, restaurants, and small kitchens.</strong></p>
   <p>
-    <a href="https://flopos.com">Website</a> ·
-    <a href="https://github.com/FreeOpenSourcePOS/FloCafe/releases">Download</a> ·
-    <a href="https://github.com/FreeOpenSourcePOS/FloCafe/issues">Report a bug</a>
+    <a href="">Website</a> ·
+    <a href="/releases">Download</a> ·
+    <a href="/issues">Report a bug</a>
   </p>
   <p>
-    <a href="https://github.com/FreeOpenSourcePOS/FloCafe/releases"><img src="https://img.shields.io/github/v/release/FreeOpenSourcePOS/FloCafe?label=latest%20release" alt="Latest release"></a>
-    <a href="https://github.com/FreeOpenSourcePOS/FloCafe/releases"><img src="https://img.shields.io/github/downloads/FreeOpenSourcePOS/FloCafe/total?label=release%20downloads" alt="Total release downloads"></a>
-    <a href="https://github.com/FreeOpenSourcePOS/FloCafe/blob/main/LICENSE"><img src="https://img.shields.io/github/license/FreeOpenSourcePOS/FloCafe" alt="MIT License"></a>
+    <a href="/releases"><img src="https://img.shields.io/github/v/release/FreeOpenSourcePOS/QualityTech POS?label=latest%20release" alt="Latest release"></a>
+    <a href="/releases"><img src="https://img.shields.io/github/downloads/FreeOpenSourcePOS/QualityTech POS/total?label=release%20downloads" alt="Total release downloads"></a>
+    <a href="/blob/main/LICENSE"><img src="https://img.shields.io/github/license/FreeOpenSourcePOS/QualityTech POS" alt="MIT License"></a>
     <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue" alt="Windows, macOS, and Linux">
-    <a href="https://github.com/FreeOpenSourcePOS/FloCafe/actions/workflows/ci.yml"><img src="https://github.com/FreeOpenSourcePOS/FloCafe/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+    <a href="/actions/workflows/ci.yml"><img src="/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   </p>
 </div>
 
 <p align="center">
-  <img src="docs/images/flo-cafe-pos.webp" alt="FloCafe POS screen showing product selection and an active dine-in order" width="100%">
+  <img src="docs/images/flo-cafe-pos.webp" alt="QualityTech POS POS screen showing product selection and an active dine-in order" width="100%">
 </p>
 
-FloCafe runs directly on the business's own computer. Orders, customers, receipts, and backups are stored in a local SQLite database, allowing counter service and kitchen displays to continue operating without an internet connection. No hosted or cloud account is required for core POS operation. Optional integrations—such as Google Drive backup, WhatsApp bill delivery, and cloud-connected reporting—can be enabled when needed.
+QualityTech POS runs directly on the business's own computer. Orders, customers, receipts, and backups are stored in a local SQLite database, allowing counter service and kitchen displays to continue operating without an internet connection. No hosted or cloud account is required for core POS operation. Optional integrations—such as Google Drive backup, WhatsApp bill delivery, and cloud-connected reporting—can be enabled when needed.
 
-## Get FloCafe
+## Get QualityTech POS
 
-Download the latest installer from [GitHub Releases](https://github.com/FreeOpenSourcePOS/FloCafe/releases), or install through your platform's app store:
+Download the latest installer from [GitHub Releases](/releases), or install through your platform's app store:
 
 <p>
   <a href="https://apps.apple.com/in/app/flo-cafe/id6763136018">
@@ -51,7 +51,7 @@ installation and support](docs/linux.md).
 | Memory | 4 GB RAM |
 | Storage | 500 MB free space, plus room for local backups |
 
-Node.js is only required to develop FloCafe, not to run a packaged release.
+Node.js is only required to develop QualityTech POS, not to run a packaged release.
 
 <details>
 <summary>Uninstall a direct-download build</summary>
@@ -60,14 +60,14 @@ App Store and Microsoft Store installs should be removed through the relevant st
 
 ```sh
 # macOS
-curl -fsSL https://github.com/FreeOpenSourcePOS/FloCafe/releases/latest/download/uninstall-macos.sh -o uninstall-macos.sh
+curl -fsSL /releases/latest/download/uninstall-macos.sh -o uninstall-macos.sh
 chmod +x uninstall-macos.sh
 ./uninstall-macos.sh
 ```
 
 ```powershell
 # Windows PowerShell
-irm https://github.com/FreeOpenSourcePOS/FloCafe/releases/latest/download/uninstall-windows.ps1 -OutFile uninstall-windows.ps1
+irm /releases/latest/download/uninstall-windows.ps1 -OutFile uninstall-windows.ps1
 powershell -ExecutionPolicy Bypass -File .\uninstall-windows.ps1
 ```
 
@@ -87,19 +87,19 @@ Both scripts ask whether to keep application data. Do not choose their data-purg
 
 ## Project status
 
-FloCafe is actively developed and already used in real deployments. Core customer data and upgrade safety are treated carefully, including explicit database migrations and recovery mechanisms. Some internal and extension-facing architecture is still evolving, so implementation details and internal contracts may change as the project matures.
+QualityTech POS is actively developed and already used in real deployments. Core customer data and upgrade safety are treated carefully, including explicit database migrations and recovery mechanisms. Some internal and extension-facing architecture is still evolving, so implementation details and internal contracts may change as the project matures.
 
 ## Offline-first by design
 
 Core POS operation and local data are offline-first. Order entry, billing, KDS coordination, and receipt printing do not depend on internet access or external cloud services.
 
 - **Data location:** The SQLite database and local backups reside in the operating system user-data directory, separate from installed application binaries. Standard in-place application updates do not remove them. As a best practice, create a manual backup before reinstalling, moving to a new machine, or changing distribution channels.
-- **Pre-migration backups:** FloCafe automatically creates a timestamped database backup before running schema migrations.
+- **Pre-migration backups:** QualityTech POS automatically creates a timestamped database backup before running schema migrations.
 - **Optional network features:** Services such as Google Drive backups, WhatsApp bill delivery, and cloud reporting communicate over the network only when explicitly configured and enabled by the store owner.
 
 ## Languages and regional support
 
-FloCafe includes UI translations for:
+QualityTech POS includes UI translations for:
 
 - English
 - Spanish
@@ -112,7 +112,7 @@ FloCafe includes UI translations for:
 
 UI language is independent of store country and regional settings, and tax calculation rules remain a separate concern. For details on contributing translations or adding languages, see the [Internationalization and translation guide](docs/i18n.md).
 
-FloCafe ships with 131 country profiles covering 109 currencies. Each profile sets a default currency, locale, and setup timezone; store owners can override the timezone during setup or later in Settings.
+QualityTech POS ships with 131 country profiles covering 109 currencies. Each profile sets a default currency, locale, and setup timezone; store owners can override the timezone during setup or later in Settings.
 
 <details>
 <summary>Supported country profiles, currencies, and default timezones</summary>
@@ -255,9 +255,9 @@ FloCafe ships with 131 country profiles covering 109 currencies. Each profile se
 
 ## Tax support
 
-FloCafe includes a generic calculation engine and supports signed, versioned country tax packs for regional rules, tax categories, and rounding policies. Country coverage is expanding through the catalog, and availability varies. Operators can also configure manual tax rules and rates locally.
+QualityTech POS includes a generic calculation engine and supports signed, versioned country tax packs for regional rules, tax categories, and rounding policies. Country coverage is expanding through the catalog, and availability varies. Operators can also configure manual tax rules and rates locally.
 
-> **Notice:** FloCafe is software, not legal or tax advice. Tax packs and configuration tools do not by themselves certify compliance with local regulations. Operators remain responsible for verifying the requirements that apply to their business.
+> **Notice:** QualityTech POS is software, not legal or tax advice. Tax packs and configuration tools do not by themselves certify compliance with local regulations. Operators remain responsible for verifying the requirements that apply to their business.
 
 For pack authoring, validation, and schema details, see the [Tax packs developer guide](docs/tax-packs.md).
 
@@ -266,8 +266,8 @@ For pack authoring, validation, and schema details, see the [Tax packs developer
 Setting up a local development environment requires Node.js 22 or later:
 
 ```sh
-git clone https://github.com/FreeOpenSourcePOS/FloCafe.git
-cd FloCafe
+git clone .git
+cd QualityTech POS
 npm install
 npm run dev
 ```
@@ -296,7 +296,7 @@ Contributions are welcome. Please check [CONTRIBUTING.md](CONTRIBUTING.md) befor
 - **Small bug fixes, documentation improvements, and focused tests** can be started freely.
 - **New features, database schema changes, and architectural refactors** require maintainer discussion and approval before implementation.
 
-If FloCafe is useful to you, consider starring the repository.
+If QualityTech POS is useful to you, consider starring the repository.
 
 ## Help and documentation
 
@@ -305,9 +305,9 @@ If FloCafe is useful to you, consider starring the repository.
 - **Linux setup & support:** [docs/linux.md](docs/linux.md)
 - **Internationalization & translations:** [docs/i18n.md](docs/i18n.md)
 - **Google Drive backup setup:** [docs/google-drive-setup.md](docs/google-drive-setup.md)
-- **Bug reports & feature proposals:** [GitHub Issues](https://github.com/FreeOpenSourcePOS/FloCafe/issues)
-- **General questions & ideas:** [GitHub Discussions](https://github.com/FreeOpenSourcePOS/FloCafe/discussions)
+- **Bug reports & feature proposals:** [GitHub Issues](/issues)
+- **General questions & ideas:** [GitHub Discussions](/discussions)
 
 ## License
 
-FloCafe is open-source software licensed under the [MIT License](LICENSE).
+QualityTech POS is open-source software licensed under the [MIT License](LICENSE).

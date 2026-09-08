@@ -11,6 +11,7 @@ import { BUNDLED_COUNTRY_PACKS, bundledPackVersionId } from './tax-packs/bundled
 import { SHUTDOWN_TIMEOUT_MS } from './shutdown';
 import { resolveContainedPath } from './lib/path-containment';
 import { serializeMerchantTemplatePayload, validateMerchantTemplateText } from '../shared/print';
+import { TELEMETRY_ENABLED } from '../shared/brand';
 import { ROLE_KEYS } from '../shared/role-permissions';
 import { getCurrencyFractionDigits } from './countries';
 
@@ -310,7 +311,7 @@ export function withDatabaseMaintenanceLock<T>(operation: (signal: AbortSignal) 
   });
 }
 
-const DEFAULT_CLOUD_SERVER_URL = 'https://blue.flopos.com/';
+const DEFAULT_CLOUD_SERVER_URL = '';
 
 function randomSecret(): string {
   return crypto.randomBytes(32).toString('base64')
@@ -710,6 +711,7 @@ export function ensureTelemetryAnonId(): string {
 
 /** Anonymous telemetry toggle; enabled by default, reconfigurable in Settings > Privacy. */
 export function isTelemetryEnabled(): boolean {
+  if (!TELEMETRY_ENABLED) return false;
   return getSettingValue('telemetry_enabled') === 'true';
 }
 
@@ -4717,7 +4719,7 @@ function seedCloudSyncDefaults(): void {
   if (!serverUrl) upsertSetting('cloud_server_url', DEFAULT_CLOUD_SERVER_URL);
 
   // Defaults mirror FloAdmin store defaults; actual transmission is gated on api_key.
-  insertSettingIfMissing('cloud_sync_enabled', '1');
+  insertSettingIfMissing('cloud_sync_enabled', '0');
   insertSettingIfMissing('cloud_orders_enabled', '0');
   insertSettingIfMissing('cloud_reports_enabled', '1');
   insertSettingIfMissing('cloud_command_polling_enabled', '1');
@@ -4765,13 +4767,13 @@ function seedInstallDefaults(): void {
   insert('setup_profile', '');
   insert('cloud_server_url', DEFAULT_CLOUD_SERVER_URL);
   insert('cloud_connected', 'false');
-  insert('cloud_sync_enabled', '1');
+  insert('cloud_sync_enabled', '0');
   insert('cloud_orders_enabled', '0');
   insert('cloud_reports_enabled', '1');
   insert('cloud_command_polling_enabled', '1');
   insert('cloud_registration_status', 'unregistered');
   insert('anonymous_data_consent', 'true');
-  insert('telemetry_enabled', 'true');
+  insert('telemetry_enabled', 'false');
   insert('telemetry_scope', 'usage_stats,country,app_version,platform,session_duration,feature_usage,error_diagnostics');
   insert('diagnostics_consent', 'true');
   insert('kds_enabled', 'true');

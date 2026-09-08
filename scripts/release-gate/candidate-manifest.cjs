@@ -199,7 +199,7 @@ function classifyAsset(name) {
     if (!match) throw new Error(`unrecognized Snap evidence asset ${name}`);
     platform = 'linux'; architecture = match[1]; kind = 'evidence';
   } else {
-    const match = name.match(/^flocafe-[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?-(win|mac|linux)-(x64|arm64)\.(.+)$/);
+    const match = name.match(/^qualitytech-pos-[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?-(win|mac|linux)-(x64|arm64)\.(.+)$/);
     if (!match) throw new Error(`cannot classify release asset ${name} by platform and architecture`);
     platform = match[1] === 'win' ? 'windows' : match[1];
     architecture = match[2];

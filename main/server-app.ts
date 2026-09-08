@@ -250,6 +250,7 @@ export function startServerApp(): Promise<void> {
     app.get('/api/customers-search', requireServerAppAuth, (req, res) => forwardToMainApi(req, res, '/customers-search'));
     app.get('/api/crm/lookup', requireServerAppAuth, (req, res) => forwardToMainApi(req, res, '/crm/lookup'));
     app.post('/api/customers', requireServerAppAuth, (req, res) => forwardToMainApi(req, res, '/customers'));
+    app.get('/api/settings/business', requireServerAppAuth, (req, res) => forwardToMainApi(req, res, '/settings/business'));
 
     const staticDir = getStaticDir();
     if (staticDir) {

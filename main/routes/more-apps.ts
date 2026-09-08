@@ -22,7 +22,7 @@ const REVFLO_APP: AppEntry = {
   tagline: 'See live sales, daily summaries, and reports for your store from your phone.',
   iosUrl: null,
   androidUrl: null,
-  landingUrl: 'https://flopos.com',
+  landingUrl: null,
 };
 
 async function toAppResponse(app: AppEntry) {

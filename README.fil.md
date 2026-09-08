@@ -1,14 +1,14 @@
-# FloCafe
+# QualityTech POS
 
 **Libre, open-source, at offline-first na point of sale para sa mga café, restaurant, at maliliit na kusina.**
 
 [English](README.md) | [Español](README.es.md) | [Português](README.pt.md) | [Français](README.fr.md) | [Türkçe](README.tr.md) | **Filipino** | [Deutsch](README.de.md)
 
-Direktang tumatakbo ang FloCafe sa computer ng negosyo. Naka-save ang mga order, customer, resibo, at backup sa lokal na SQLite database, kaya patuloy na gagana ang counter service at kitchen display kahit walang koneksyon sa Internet. Hindi kailangan ng hosted o cloud account para sa pangunahing operasyon ng POS. Maaaring paganahin kapag kailangan ang mga opsyonal na integration gaya ng Google Drive backup, pagpapadala ng bill sa WhatsApp, at cloud-connected reporting.
+Direktang tumatakbo ang QualityTech POS sa computer ng negosyo. Naka-save ang mga order, customer, resibo, at backup sa lokal na SQLite database, kaya patuloy na gagana ang counter service at kitchen display kahit walang koneksyon sa Internet. Hindi kailangan ng hosted o cloud account para sa pangunahing operasyon ng POS. Maaaring paganahin kapag kailangan ang mga opsyonal na integration gaya ng Google Drive backup, pagpapadala ng bill sa WhatsApp, at cloud-connected reporting.
 
-## Kunin ang FloCafe
+## Kunin ang QualityTech POS
 
-I-download ang pinakabagong installer mula sa [GitHub Releases](https://github.com/FreeOpenSourcePOS/FloCafe/releases), o i-install ito mula sa app store ng iyong platform.
+I-download ang pinakabagong installer mula sa [GitHub Releases](/releases), o i-install ito mula sa app store ng iyong platform.
 
 May Windows installer, macOS DMG, at AppImage, `.deb`, `.rpm`, at Snap package para sa Linux ang mga release. Para sa mga detalye tungkol sa Linux package, update, FUSE, printing permission, at system tray, tingnan ang [Linux installation and support guide](docs/linux.md).
 
@@ -20,7 +20,7 @@ May Windows installer, macOS DMG, at AppImage, `.deb`, `.rpm`, at Snap package p
 | Memory | 4 GB RAM |
 | Storage | 500 MB na libre, dagdag pa para sa lokal na backup |
 
-Kailangan lamang ang Node.js para sa pag-develop ng FloCafe, hindi para patakbuhin ang naka-package na bersyon.
+Kailangan lamang ang Node.js para sa pag-develop ng QualityTech POS, hindi para patakbuhin ang naka-package na bersyon.
 
 ## Mga tampok
 
@@ -37,28 +37,28 @@ Kailangan lamang ang Node.js para sa pag-develop ng FloCafe, hindi para patakbuh
 Gumagana offline ang pangunahing POS operation at lokal na data. Hindi nakadepende sa Internet o external cloud service ang order entry, billing, KDS coordination, at receipt printing.
 
 - Nasa user-data directory ang SQLite database at lokal na backup, hiwalay sa naka-install na application binary.
-- Awtomatikong gumagawa ang FloCafe ng timestamped backup bago magpatakbo ng schema migration.
+- Awtomatikong gumagawa ang QualityTech POS ng timestamped backup bago magpatakbo ng schema migration.
 - Nakikipag-ugnayan lamang ang opsyonal na network feature kapag tahasang na-configure at na-enable ng may-ari ng negosyo.
 
 ## Mga wika at regional support
 
-May UI translation ang FloCafe para sa English, Spanish, Brazilian Portuguese, French, Persian (Farsi), Filipino, Turkish, at German. Filipino ay left-to-right at hindi nangangailangan ng RTL layout. Hiwalay ang UI language sa country at regional setting ng store, at hiwalay din ang tax calculation rules.
+May UI translation ang QualityTech POS para sa English, Spanish, Brazilian Portuguese, French, Persian (Farsi), Filipino, Turkish, at German. Filipino ay left-to-right at hindi nangangailangan ng RTL layout. Hiwalay ang UI language sa country at regional setting ng store, at hiwalay din ang tax calculation rules.
 
-May profile ang FloCafe para sa 131 bansa at 109 currency. Tinutukoy ng bawat profile ang default currency, locale, at timezone; maaaring baguhin ng may-ari ang timezone sa setup o sa Settings.
+May profile ang QualityTech POS para sa 131 bansa at 109 currency. Tinutukoy ng bawat profile ang default currency, locale, at timezone; maaaring baguhin ng may-ari ang timezone sa setup o sa Settings.
 
 ## Tax support
 
-May generic calculation engine at signed, versioned regional tax pack ang FloCafe. Maaari ring mag-configure ng manual tax rule at rate nang lokal.
+May generic calculation engine at signed, versioned regional tax pack ang QualityTech POS. Maaari ring mag-configure ng manual tax rule at rate nang lokal.
 
-> **Paalala:** Software ang FloCafe, hindi legal o tax advice. Hindi awtomatikong nagpapatunay ng pagsunod sa lokal na regulasyon ang tax pack at configuration tool.
+> **Paalala:** Software ang QualityTech POS, hindi legal o tax advice. Hindi awtomatikong nagpapatunay ng pagsunod sa lokal na regulasyon ang tax pack at configuration tool.
 
 ## Development
 
 Kailangan ang Node.js 22 o mas bago para sa development:
 
 ```sh
-git clone https://github.com/FreeOpenSourcePOS/FloCafe.git
-cd FloCafe
+git clone .git
+cd QualityTech POS
 npm install
 npm run dev
 ```
@@ -74,9 +74,9 @@ Tingnan ang [CONTRIBUTING.md](CONTRIBUTING.md) para sa development workflow, cod
 - [Linux setup and support](docs/linux.md)
 - [Internationalization and translations](docs/i18n.md)
 - [Google Drive backup setup](docs/google-drive-setup.md)
-- [GitHub Issues](https://github.com/FreeOpenSourcePOS/FloCafe/issues)
-- [GitHub Discussions](https://github.com/FreeOpenSourcePOS/FloCafe/discussions)
+- [GitHub Issues](/issues)
+- [GitHub Discussions](/discussions)
 
 ## Lisensya
 
-Ang FloCafe ay open-source software sa ilalim ng [MIT License](LICENSE).
+Ang QualityTech POS ay open-source software sa ilalim ng [MIT License](LICENSE).

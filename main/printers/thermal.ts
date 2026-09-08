@@ -1,4 +1,5 @@
 import * as net from 'net';
+import { BRAND, RECEIPT_BRANDING_NAME as SHARED_RECEIPT_BRANDING_NAME } from '../../shared/brand';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -168,8 +169,8 @@ const isMasBuild =
   (process as NodeJS.Process & { mas?: boolean }).mas === true;
 const PRINTER_DETECTION_TIMEOUT_MS = 10_000;
 
-const RECEIPT_BRANDING_NAME = 'Powered by FloPOS';
-const RECEIPT_BRANDING_URL = 'https://flopos.com';
+const RECEIPT_BRANDING_NAME = SHARED_RECEIPT_BRANDING_NAME;
+const RECEIPT_BRANDING_URL = BRAND.website || BRAND.supportPhoneDisplay;
 export type PrinterColumnWidth = 36 | 42 | 48;
 
 export interface PrinterInfo {

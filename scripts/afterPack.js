@@ -46,8 +46,8 @@ module.exports = async function afterPack(context) {
 
   // ── Linux: copy AppStream metainfo to standard system path ────
   if (packager.platform.name === 'linux') {
-    const metainfoSrc = path.join(packager.projectDir, 'assets/com.flo.desktop.metainfo.xml');
-    const metainfoDest = path.join(appOutDir, 'share/metainfo/com.flo.desktop.metainfo.xml');
+    const metainfoSrc = path.join(packager.projectDir, 'assets/com.qualitytech.pos.metainfo.xml');
+    const metainfoDest = path.join(appOutDir, 'share/metainfo/com.qualitytech.pos.metainfo.xml');
     if (fs.existsSync(metainfoSrc)) {
       try {
         fs.mkdirSync(path.dirname(metainfoDest), { recursive: true });

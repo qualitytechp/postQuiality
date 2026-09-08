@@ -17,6 +17,7 @@ interface Props {
   initialAddons?: Addon[];
   initialInstructions?: string;
   mode?: 'add' | 'edit';
+  submitLabel?: (total: string) => string;
 }
 
 function groupInitialAddons(addons: Addon[]): Record<string | number, Addon[]> {
@@ -32,6 +33,7 @@ function groupInitialAddons(addons: Addon[]): Record<string | number, Addon[]> {
 export default function AddonModal({
   product, onAdd, onClose,
   initialQuantity = 1, initialAddons = [], initialInstructions = '', mode = 'add',
+  submitLabel,
 }: Props) {
   const t = useTranslations('pos');
   const fmt = useFormatCurrency();
@@ -314,9 +316,9 @@ export default function AddonModal({
             </button>
           </div>
           <Button onClick={handleAdd} disabled={!isValid} className="w-full" size="lg">
-            {mode === 'edit'
-              ? t('saveItemChanges', { total: fmt(itemTotal) })
-              : t('addToCart', { total: fmt(itemTotal) })}
+            {submitLabel
+              ? submitLabel(fmt(itemTotal))
+              : t(mode === 'edit' ? 'saveItemChanges' : 'addToCart', { total: fmt(itemTotal) })}
           </Button>
         </div>
       </div>

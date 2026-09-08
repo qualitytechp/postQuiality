@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { BRAND } from '@shared/brand';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { usePosSettingsStore } from '@/store/pos-settings';
@@ -50,7 +51,16 @@ const SELECTABLE_LANGUAGES: Language[] = (Object.keys(LANGUAGES) as Language[]).
 
 // Mirrors main/services/cloud-sync.ts DEFAULT_CLOUD_SERVER_URL — kept in sync
 // manually since the frontend can't import backend TS modules directly.
-const DEFAULT_CLOUD_SERVER_URL = 'https://blue.flopos.com/';
+const DEFAULT_CLOUD_SERVER_URL = '';
+
+function LegalLink({ path, label }: { path: string; label: string }) {
+  if (!BRAND.website) return <span className="font-medium">{label}</span>;
+  return (
+    <a href={`${BRAND.website}/${path}`} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+      {label}
+    </a>
+  );
+}
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUSPECT_EMAIL_TLDS = new Set(['example', 'invalid', 'lcaol', 'local', 'localhost', 'test']);
 
@@ -593,17 +603,11 @@ export default function SetupPage() {
                     />
                     <span>
                       {t('termsIntro')}{' '}
-                      <a href="https://flopos.com/terms" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                        {t('terms')}
-                      </a>
+                      <LegalLink path="terms" label={t('terms')} />
                       ,{' '}
-                      <a href="https://flopos.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                        {t('privacy')}
-                      </a>
+                      <LegalLink path="privacy" label={t('privacy')} />
                       , {t('termsAnd')}{' '}
-                      <a href="https://flopos.com/disclaimer" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                        {t('disclaimer')}
-                      </a>
+                      <LegalLink path="disclaimer" label={t('disclaimer')} />
                       .
                     </span>
                   </label>

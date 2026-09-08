@@ -1,6 +1,6 @@
-# Contributing to FloCafe
+# Contributing to QualityTech POS
 
-FloCafe welcomes outside contributions from developers, designers, operators, and translators.
+QualityTech POS welcomes outside contributions from developers, designers, operators, and translators.
 
 All contributors are expected to adhere to our [Code of Conduct](CODE_OF_CONDUCT.md).
 
@@ -8,7 +8,7 @@ All contributors are expected to adhere to our [Code of Conduct](CODE_OF_CONDUCT
 
 ## Contribution philosophy
 
-FloCafe is an actively developed, offline-first desktop POS used in real deployments. While core business operations and data safety are stable, internal and extension architecture continues to evolve.
+QualityTech POS is an actively developed, offline-first desktop POS used in real deployments. While core business operations and data safety are stable, internal and extension architecture continues to evolve.
 
 > **An open issue is not automatic approval of a proposed implementation.**
 
@@ -57,12 +57,12 @@ Draft PRs are welcome for sharing early prototypes, demonstrating bug reproducti
 
 ## Set up a development copy
 
-FloCafe requires **Node.js 22 or later** and npm.
+QualityTech POS requires **Node.js 22 or later** and npm.
 
 ```sh
 # Clone your fork
-git clone https://github.com/YOUR-USERNAME/FloCafe.git
-cd FloCafe
+git clone https://github.com/YOUR-USERNAME/QualityTech POS.git
+cd QualityTech POS
 
 # Install dependencies
 npm install
@@ -83,7 +83,7 @@ npm run build:frontend   # Export static Next.js frontend
 npm test                 # Run default test suite
 ```
 
-> **Port configuration:** FloCafe uses ports `3001` (Main API), `3002` (KDS), and `3003` (Server App). If these ports are in use (e.g. by Docker), FloCafe automatically falls back to subsequent available ports. You can also customize them via `PORT`, `KDS_PORT`, and `SERVER_APP_PORT` in `.env`.
+> **Port configuration:** QualityTech POS uses ports `3001` (Main API), `3002` (KDS), and `3003` (Server App). If these ports are in use (e.g. by Docker), QualityTech POS automatically falls back to subsequent available ports. You can also customize them via `PORT`, `KDS_PORT`, and `SERVER_APP_PORT` in `.env`.
 
 ---
 
@@ -118,7 +118,7 @@ Use clear commit messages following Conventional Commits (`feat:`, `fix:`, `docs
 
 ## AI-assisted contributions
 
-AI coding assistants and tools are welcome. FloCafe itself utilizes AI-assisted engineering workflows.
+AI coding assistants and tools are welcome. QualityTech POS itself utilizes AI-assisted engineering workflows.
 
 - **Contributor responsibility:** Contributors remain fully responsible for understanding, explaining, testing, and maintaining everything they submit.
 - **Low-quality submissions:** Bulk-generated, speculative, issue-farming, or low-understanding PRs may be closed regardless of whether they were written by a human or an AI tool.
@@ -144,7 +144,7 @@ Changes touching database migrations, customer data handling, authentication, ta
 
 ## Database and customer-data safety
 
-FloCafe runs on real business data that must survive software upgrades.
+QualityTech POS runs on real business data that must survive software upgrades.
 
 - **Versioned migrations:** Every schema modification must use a new integer migration version via SQLite's `PRAGMA user_version` in `main/db.ts`.
 - **Destructive changes:** Destructive schema modifications require explicit maintainer approval, a documented data-preservation strategy, a tested upgrade path, and an appropriate recovery/rollback plan.
@@ -155,7 +155,7 @@ FloCafe runs on real business data that must survive software upgrades.
 
 ## Translations and i18n
 
-FloCafe currently provides translations for English (`en`), Spanish (`es`), French (`fr`), Brazilian Portuguese (`pt`), Filipino (`fil`), Turkish (`tr`), Persian (`fa`, including RTL support), and German (`de`).
+QualityTech POS currently provides translations for English (`en`), Spanish (`es`), French (`fr`), Brazilian Portuguese (`pt`), Filipino (`fil`), Turkish (`tr`), Persian (`fa`, including RTL support), and German (`de`).
 
 - **Existing languages:** Narrowly scoped fixes and improvements to existing translation strings are always welcome. Verify changes with `npm run i18n:check`.
 - **New languages:** Adding an entirely new language requires maintainer coordination through an issue first while the broader internationalization architecture (#372) is being modernized.
@@ -169,12 +169,12 @@ For complete authoring, scaffolding, RTL support, and verification instructions,
 
 ## Tax packs and compliance contributions
 
-FloCafe uses a generic calculation engine paired with data-only country tax packs (`main/tax-packs/`).
+QualityTech POS uses a generic calculation engine paired with data-only country tax packs (`main/tax-packs/`).
 
 - **Authoritative sources:** Tax rules must be backed by authoritative references (official tax authorities, enacted legislation, or official administrative guidelines). Blog posts or AI summaries are not sufficient primary sources.
 - **Jurisdictional scope:** Clearly identify the geographic and legal scope of the pack (country-wide VAT, state/province sales taxes, intra/inter-state rules).
 - **Process:** Open a proposal issue before authoring a pack, provide test vectors covering representative transactions, and verify against `main/tax-packs/types.ts`.
-- **Disclaimer:** FloCafe is software, not certified legal or tax advice. Tax packs do not by themselves guarantee compliance with local regulations.
+- **Disclaimer:** QualityTech POS is software, not certified legal or tax advice. Tax packs do not by themselves guarantee compliance with local regulations.
 
 For complete authoring instructions, see the [Tax packs developer guide](docs/tax-packs.md).
 
@@ -190,6 +190,6 @@ For complete authoring instructions, see the [Tax packs developer guide](docs/ta
 
 ## Getting help
 
-- **Operator & general questions:** [GitHub Discussions](https://github.com/FreeOpenSourcePOS/FloCafe/discussions)
-- **Bug reports & feature requests:** [GitHub Issues](https://github.com/FreeOpenSourcePOS/FloCafe/issues)
+- **Operator & general questions:** [GitHub Discussions](/discussions)
+- **Bug reports & feature requests:** [GitHub Issues](/issues)
 - **Security vulnerabilities:** Report privately per [SECURITY.md](SECURITY.md) (do not open public issues)

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>com.flo.desktop</id>
-  <name>Flo Cafe</name>
+  <id>com.qualitytech.pos</id>
+  <name>QualityTech POS</name>
   <summary>Free, open-source POS for cafes and restaurants</summary>
-  <developer id="com.flo">
-    <name>FreeOpenSourcePOS</name>
+  <developer id="com.qualitytech">
+    <name>QualityTech</name>
   </developer>
 
   <metadata_license>CC0-1.0</metadata_license>
@@ -12,7 +12,7 @@
 
   <description>
     <p>
-      Flo Cafe is a free, open-source, offline-first Point of Sale system built
+      QualityTech POS is a free, open-source, offline-first Point of Sale system built
       for cafes, restaurants, cloud kitchens, and food businesses. It runs
       entirely on your own machine with no internet required.
     </p>
@@ -27,17 +27,11 @@
     </ul>
   </description>
 
-  <launchable type="desktop-id">flocafe.desktop</launchable>
+  <launchable type="desktop-id">qualitytech-pos.desktop</launchable>
 
-  <url type="homepage">https://github.com/FreeOpenSourcePOS/FloCafe</url>
-  <url type="bugtracker">https://github.com/FreeOpenSourcePOS/FloCafe/issues</url>
+  
+  
 
-  <screenshots>
-    <screenshot type="default">
-      <image>https://raw.githubusercontent.com/FreeOpenSourcePOS/FloCafe/main/screenshot.png</image>
-      <caption>Point of Sale interface</caption>
-    </screenshot>
-  </screenshots>
 
   <content_rating type="oars-1.1" />
 

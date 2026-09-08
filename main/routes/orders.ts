@@ -107,32 +107,40 @@ function resolveItemAddons(
   productId: string,
   addons: any[] | null | undefined,
 ): { id: string; name: string; price: number; quantity: number }[] {
-  if (!addons || !Array.isArray(addons) || addons.length === 0) return [];
+  // Active groups linked to the product define the rules to enforce, including
+  // the ones the client sent no selection for.
+  const linkedGroups = db.prepare(`
+    SELECT g.* FROM addon_groups g
+    JOIN addon_group_product agp ON agp.addon_group_id = g.id
+    WHERE agp.product_id = ? AND g.is_active = 1
+  `).all(productId) as any[];
+  const linkedGroupIds = new Set(linkedGroups.map((group) => group.id));
 
-  const linkedGroupIds = new Set(
-    (db.prepare('SELECT addon_group_id FROM addon_group_product WHERE product_id = ?').all(productId) as { addon_group_id: string }[])
-      .map((row) => row.addon_group_id),
-  );
+  const catalogById = new Map<string, any>();
+  const requestedQuantities = new Map<string, number>();
+  const requestOrder: string[] = [];
+  const lookupAddon = db.prepare('SELECT * FROM addons WHERE id = ?');
 
-  const resolved: { id: string; name: string; price: number; quantity: number }[] = [];
-  const groupSelections = new Map<string, { totalQty: number; hasMultiQty: boolean }>();
-
-  for (const addon of addons) {
+  for (const addon of addons || []) {
     if (!addon) continue;
     if (!addon.id || typeof addon.id !== 'string') {
       throw new Error('Each add-on must reference a valid catalog add-on ID');
     }
-    const catalog = db.prepare('SELECT * FROM addons WHERE id = ?').get(addon.id) as
-      | { id: string; addon_group_id: string; name: string; price: number; is_active: number }
-      | undefined;
+    let catalog = catalogById.get(addon.id);
     if (!catalog) {
-      throw new Error(`Add-on "${addon.id}" was not found`);
-    }
-    if (catalog.is_active !== 1) {
-      throw new Error(`Add-on "${catalog.name}" is not available`);
-    }
-    if (!linkedGroupIds.has(catalog.addon_group_id)) {
-      throw new Error(`Add-on "${catalog.name}" is not available for this product`);
+      catalog = lookupAddon.get(addon.id) as
+        | { id: string; addon_group_id: string; name: string; price: number; is_active: number }
+        | undefined;
+      if (!catalog) {
+        throw new Error(`Add-on "${addon.id}" was not found`);
+      }
+      if (catalog.is_active !== 1) {
+        throw new Error(`Add-on "${catalog.name}" is not available`);
+      }
+      if (!linkedGroupIds.has(catalog.addon_group_id)) {
+        throw new Error(`Add-on "${catalog.name}" is not available for this product`);
+      }
+      catalogById.set(catalog.id, catalog);
     }
 
     const quantity = addon.quantity ?? 1;
@@ -140,19 +148,29 @@ function resolveItemAddons(
       throw new Error(`Invalid add-on quantity for "${catalog.name}": must be a positive integer`);
     }
 
+    // Repeated entries for one add-on merge, so splitting a selection across
+    // several entries cannot slip past the single-quantity rule below.
+    if (!requestedQuantities.has(catalog.id)) requestOrder.push(catalog.id);
+    requestedQuantities.set(catalog.id, (requestedQuantities.get(catalog.id) || 0) + quantity);
+  }
+
+  const resolved: { id: string; name: string; price: number; quantity: number }[] = [];
+  const groupSelections = new Map<string, { totalQty: number; hasMultiQty: boolean }>();
+
+  for (const addonId of requestOrder) {
+    const catalog = catalogById.get(addonId);
+    const quantity = requestedQuantities.get(addonId) as number;
     resolved.push({ id: catalog.id, name: catalog.name, price: Number(catalog.price) || 0, quantity });
 
-    const qty = Math.max(1, Math.floor(quantity));
     const current = groupSelections.get(catalog.addon_group_id) || { totalQty: 0, hasMultiQty: false };
     groupSelections.set(catalog.addon_group_id, {
-      totalQty: current.totalQty + qty,
-      hasMultiQty: current.hasMultiQty || qty > 1,
+      totalQty: current.totalQty + quantity,
+      hasMultiQty: current.hasMultiQty || quantity > 1,
     });
   }
 
-  for (const [groupId, selection] of groupSelections.entries()) {
-    const group = db.prepare('SELECT * FROM addon_groups WHERE id = ? AND is_active = 1').get(groupId) as any;
-    if (!group) continue;
+  for (const group of linkedGroups) {
+    const selection = groupSelections.get(group.id) || { totalQty: 0, hasMultiQty: false };
 
     if (!group.allow_multiple_quantities && selection.hasMultiQty) {
       throw new Error(`Add-on group "${group.name}" does not allow multiple quantities`);
@@ -162,8 +180,9 @@ function resolveItemAddons(
       throw new Error(`Total add-on quantity for group "${group.name}" exceeds maximum allowed (${group.max_selection})`);
     }
 
-    if (group.min_selection && selection.totalQty < group.min_selection) {
-      throw new Error(`Selection for group "${group.name}" requires at least ${group.min_selection} item(s)`);
+    const minRequired = group.is_required ? Math.max(1, group.min_selection || 1) : (group.min_selection || 0);
+    if (selection.totalQty < minRequired) {
+      throw new Error(`Selection for group "${group.name}" requires at least ${minRequired} item(s)`);
     }
   }
 

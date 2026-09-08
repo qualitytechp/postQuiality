@@ -1,14 +1,14 @@
-# FloCafe
+# QualityTech POS
 
 **Ponto de venda gratuito, de código aberto e desenvolvido para funcionar offline em cafés, restaurantes e pequenas cozinhas.**
 
 [English](README.md) | [Español](README.es.md) | **Português** | [Français](README.fr.md) | [Türkçe](README.tr.md) | [Filipino](README.fil.md) | [Deutsch](README.de.md)
 
-O FloCafe funciona diretamente no computador do estabelecimento. Pedidos, clientes, recibos e backups são armazenados em um banco de dados SQLite local, permitindo que o atendimento no balcão e as telas da cozinha continuem funcionando sem conexão com a Internet. Nenhuma conta hospedada ou na nuvem é necessária para a operação principal do PDV. Integrações opcionais, como backup no Google Drive, envio de contas pelo WhatsApp e relatórios conectados à nuvem, podem ser ativadas quando necessário.
+O QualityTech POS funciona diretamente no computador do estabelecimento. Pedidos, clientes, recibos e backups são armazenados em um banco de dados SQLite local, permitindo que o atendimento no balcão e as telas da cozinha continuem funcionando sem conexão com a Internet. Nenhuma conta hospedada ou na nuvem é necessária para a operação principal do PDV. Integrações opcionais, como backup no Google Drive, envio de contas pelo WhatsApp e relatórios conectados à nuvem, podem ser ativadas quando necessário.
 
-## Obter o FloCafe
+## Obter o QualityTech POS
 
-Baixe o instalador mais recente em [GitHub Releases](https://github.com/FreeOpenSourcePOS/FloCafe/releases) ou instale-o pela loja de aplicativos da sua plataforma.
+Baixe o instalador mais recente em [GitHub Releases](/releases) ou instale-o pela loja de aplicativos da sua plataforma.
 
 As versões incluem instaladores para Windows, DMGs para macOS e pacotes AppImage, `.deb`, `.rpm` e Snap para Linux. Consulte o [guia de instalação e suporte do Linux](docs/linux.md) para informações sobre pacotes, atualizações, FUSE, permissões de impressão e comportamento da bandeja do sistema.
 
@@ -20,7 +20,7 @@ As versões incluem instaladores para Windows, DMGs para macOS e pacotes AppImag
 | Memória | 4 GB de RAM |
 | Armazenamento | 500 MB livres, além do espaço para backups locais |
 
-Node.js é necessário apenas para desenvolver o FloCafe, não para executar uma versão empacotada.
+Node.js é necessário apenas para desenvolver o QualityTech POS, não para executar uma versão empacotada.
 
 ## Destaques
 
@@ -34,35 +34,35 @@ Node.js é necessário apenas para desenvolver o FloCafe, não para executar uma
 
 ## Status do projeto
 
-O FloCafe está em desenvolvimento ativo e já é usado em instalações reais. Os dados dos clientes e a segurança das atualizações são tratados com cuidado por meio de migrações explícitas e mecanismos de recuperação.
+O QualityTech POS está em desenvolvimento ativo e já é usado em instalações reais. Os dados dos clientes e a segurança das atualizações são tratados com cuidado por meio de migrações explícitas e mecanismos de recuperação.
 
 ## Offline por design
 
 A operação principal do PDV e os dados locais funcionam offline. A criação de pedidos, o faturamento, a coordenação com o KDS e a impressão de recibos não dependem da Internet nem de serviços externos na nuvem.
 
 - O banco SQLite e os backups locais ficam no diretório de dados do usuário, separado dos binários instalados.
-- O FloCafe cria automaticamente um backup com data e hora antes de executar migrações do esquema.
+- O QualityTech POS cria automaticamente um backup com data e hora antes de executar migrações do esquema.
 - Recursos opcionais de rede só se comunicam quando configurados e ativados explicitamente pelo proprietário do estabelecimento.
 
 ## Idiomas e suporte regional
 
-O FloCafe inclui traduções da interface em inglês, espanhol, português brasileiro e persa (farsi), incluindo suporte RTL. O idioma da interface é independente do país e das configurações regionais da loja. As regras de cálculo de impostos são uma área separada.
+O QualityTech POS inclui traduções da interface em inglês, espanhol, português brasileiro e persa (farsi), incluindo suporte RTL. O idioma da interface é independente do país e das configurações regionais da loja. As regras de cálculo de impostos são uma área separada.
 
-O FloCafe inclui perfis para 131 países e 109 moedas. Cada perfil define moeda, localidade e fuso horário padrão; o proprietário pode alterar o fuso durante a configuração ou depois em Configurações.
+O QualityTech POS inclui perfis para 131 países e 109 moedas. Cada perfil define moeda, localidade e fuso horário padrão; o proprietário pode alterar o fuso durante a configuração ou depois em Configurações.
 
 ## Suporte fiscal
 
-O FloCafe inclui um mecanismo genérico de cálculo e pacotes fiscais regionais assinados e versionados. Também permite configurar regras e alíquotas fiscais manualmente de forma local.
+O QualityTech POS inclui um mecanismo genérico de cálculo e pacotes fiscais regionais assinados e versionados. Também permite configurar regras e alíquotas fiscais manualmente de forma local.
 
-> **Aviso:** FloCafe é software, não aconselhamento jurídico ou fiscal. Pacotes fiscais e ferramentas de configuração não certificam, por si só, conformidade com as normas locais.
+> **Aviso:** QualityTech POS é software, não aconselhamento jurídico ou fiscal. Pacotes fiscais e ferramentas de configuração não certificam, por si só, conformidade com as normas locais.
 
 ## Desenvolvimento
 
-Para desenvolver o FloCafe, é necessário Node.js 22 ou posterior:
+Para desenvolver o QualityTech POS, é necessário Node.js 22 ou posterior:
 
 ```sh
-git clone https://github.com/FreeOpenSourcePOS/FloCafe.git
-cd FloCafe
+git clone .git
+cd QualityTech POS
 npm install
 npm run dev
 ```
@@ -78,9 +78,9 @@ Consulte [CONTRIBUTING.md](CONTRIBUTING.md) para os fluxos de desenvolvimento, p
 - [Configuração e suporte do Linux](docs/linux.md)
 - [Internacionalização e traduções](docs/i18n.md)
 - [Configuração de backup no Google Drive](docs/google-drive-setup.md)
-- [GitHub Issues](https://github.com/FreeOpenSourcePOS/FloCafe/issues)
-- [GitHub Discussions](https://github.com/FreeOpenSourcePOS/FloCafe/discussions)
+- [GitHub Issues](/issues)
+- [GitHub Discussions](/discussions)
 
 ## Licença
 
-FloCafe é um software de código aberto sob a [licença MIT](LICENSE).
+QualityTech POS é um software de código aberto sob a [licença MIT](LICENSE).
