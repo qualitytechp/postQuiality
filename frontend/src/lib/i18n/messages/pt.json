@@ -729,7 +729,11 @@
     "weight": "Peso",
     "clearWeight": "Limpar peso",
     "backspaceWeight": "Apagar último dígito do peso",
-    "customerDocument": "Documento"
+    "customerDocument": "Documento",
+    "customerSearchPlaceholder": "Nome, telefone ou documento",
+    "noCustomersFound": "Nenhum cliente encontrado",
+    "continueWithoutCustomer": "Continuar sem cliente",
+    "continueWithoutCustomerHint": "Para uma venda avulsa. Não ficará histórico deste cliente."
   },
   "printTest": {
     "amt": "Total",
@@ -1021,7 +1025,9 @@
     "update": "Atualizar",
     "updateProduct": "Atualizar Produto",
     "updated": "Produto atualizado",
-    "uploadCsv": "Enviar CSV"
+    "uploadCsv": "Enviar CSV",
+    "searchProducts": "Buscar por nome, SKU ou categoria",
+    "noSearchResults": "Nenhum produto corresponde à busca"
   },
   "receipt": {
     "amount": "Valor",

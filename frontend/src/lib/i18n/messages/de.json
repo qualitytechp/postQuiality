@@ -729,7 +729,11 @@
     "weight": "Gewicht",
     "clearWeight": "Gewicht löschen",
     "backspaceWeight": "Letzte Gewichtsziffer löschen",
-    "customerDocument": "Ausweisnummer"
+    "customerDocument": "Ausweisnummer",
+    "customerSearchPlaceholder": "Name, Telefon oder Ausweisnummer",
+    "noCustomersFound": "Kein Kunde gefunden",
+    "continueWithoutCustomer": "Ohne Kunden fortfahren",
+    "continueWithoutCustomerHint": "Für einen Gelegenheitsverkauf. Für diesen Kunden wird kein Verlauf gespeichert."
   },
   "printTest": {
     "amt": "Betrag",
@@ -1021,7 +1025,9 @@
     "update": "Aktualisieren",
     "updateProduct": "Produkt aktualisieren",
     "updated": "Produkt aktualisiert",
-    "uploadCsv": "CSV hochladen"
+    "uploadCsv": "CSV hochladen",
+    "searchProducts": "Suche nach Name, SKU oder Kategorie",
+    "noSearchResults": "Keine Produkte entsprechen der Suche"
   },
   "receipt": {
     "amount": "Betrag",

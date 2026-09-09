@@ -729,7 +729,11 @@
     "weight": "Timbang",
     "clearWeight": "I-clear ang timbang",
     "backspaceWeight": "Burahin ang huling digit ng timbang",
-    "customerDocument": "Dokumento ng ID"
+    "customerDocument": "Dokumento ng ID",
+    "customerSearchPlaceholder": "Pangalan, telepono, o dokumento ng ID",
+    "noCustomersFound": "Walang nahanap na customer",
+    "continueWithoutCustomer": "Magpatuloy nang walang customer",
+    "continueWithoutCustomerHint": "Para sa paminsan-minsang benta. Walang itatabing history para sa customer na ito."
   },
   "printTest": {
     "amt": "Halaga",
@@ -1021,7 +1025,9 @@
     "update": "I-update",
     "updateProduct": "I-update ang Produkto",
     "updated": "Na-update ang produkto",
-    "uploadCsv": "Mag-upload ng CSV"
+    "uploadCsv": "Mag-upload ng CSV",
+    "searchProducts": "Maghanap ayon sa pangalan, SKU, o kategorya",
+    "noSearchResults": "Walang produktong tumutugma sa paghahanap"
   },
   "receipt": {
     "amount": "Halaga",

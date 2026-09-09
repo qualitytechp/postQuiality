@@ -148,6 +148,50 @@ can stay on without holding up the queue. It has no phone on purpose — an inve
 number could belong to a real person and receive WhatsApp receipts — and a short
 document number instead, which is what makes it typeable in the POS field.
 
+## Phase 3b — Friendlier required-customer search *(done)*
+
+`Cliente obligatorio` existed before this plan and works the same everywhere: it
+blocks `handlePlaceOrder` until `cart.customerId` is set. What it opened, though, was
+`CustomerSearch` — a widget built for a quick phone-driven lookup, not for browsing.
+Typing a name into its phone field does nothing (it strips non-digits before
+searching), so a frequent customer whose phone the cashier doesn't remember was
+simply unreachable, and the only way out of the dialog was the X — which reopens on
+the next "Confirmar pedido" since nothing was resolved. Not tied to Asocampo: any
+tenant that turns this setting on inherits the same dead end.
+
+`CustomerPickerModal` (`frontend/src/components/pos/CustomerPickerModal.tsx`)
+replaces it **only in that one dialog** — the topbar's quick-attach `CustomerSearch`
+is untouched. It free-text searches `/customers-search` (already generic: name,
+phone, and — since Phase 3 — document, matched together, no per-field logic to
+extend when a business wants "search by member ID" or similar), lists matches to
+tap, and falls through to `CreateCustomerModal` when nothing matches.
+
+Below the list sits a deliberate escape hatch: **"Continuar sin cliente."** Skipping
+is a per-sale choice, not a setting — turning `Cliente obligatorio` back off would
+remove the prompt for everyone; this lets one occasional sale through while the next
+order asks again. Implemented as `skipCustomerCheckRef` (a ref, not state) in
+`pos/page.tsx`: the skip handler sets it and calls `handlePlaceOrder()` in the same
+tick, and a `setState` from that same tick would not have applied yet when the
+function closure re-reads it — a stale read would silently re-open the same prompt.
+The ref is consumed (reset to `false`) the instant the guard clears, so it only ever
+covers the one order it was invoked for.
+
+## Phase 2b — Physical-keyboard weight entry *(done)*
+
+`WeightPad`'s "Peso" value was a `<span>` — a display, not a field. On a real
+till with a keyboard and mouse (not the touch-only setup the first pass assumed),
+that meant no focus to land on and no way to type a reading at all. It's now a real
+`<input>`, autofocused (and its text selected) the moment the modal mounts — one
+instance per product opened, so "on mount" is exactly "on open" without stealing
+focus back while the cashier is already typing.
+
+Both entry paths — this input and the on-screen `TouchNumberPad` — now run through
+the same `handleTyped`, which chains `acceptsWeightKeystroke` (the existing
+per-keystroke precision filter) and the new `clampWeightValue` (extracted from the
+sanity cap `TouchNumberPad` already applied internally, so physical typing cannot
+bypass it by skipping the touch buttons). One filter, two doors — the integrity
+concern the change was asked to respect.
+
 ## Phase 4 — Finishing *(pending)*
 
 Receipt branding, cash open/close (already built), and reports.

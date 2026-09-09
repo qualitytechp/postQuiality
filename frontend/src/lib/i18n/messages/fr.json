@@ -729,7 +729,11 @@
     "weight": "Poids",
     "clearWeight": "Effacer le poids",
     "backspaceWeight": "Supprimer le dernier chiffre du poids",
-    "customerDocument": "Pièce d'identité"
+    "customerDocument": "Pièce d'identité",
+    "customerSearchPlaceholder": "Nom, téléphone ou pièce d'identité",
+    "noCustomersFound": "Aucun client trouvé",
+    "continueWithoutCustomer": "Continuer sans client",
+    "continueWithoutCustomerHint": "Pour une vente occasionnelle. Aucun historique ne sera conservé pour ce client."
   },
   "printTest": {
     "amt": "Montant",
@@ -1021,7 +1025,9 @@
     "update": "Mettre à jour",
     "updateProduct": "Mettre à jour le produit",
     "updated": "Produit mis à jour",
-    "uploadCsv": "Téléverser un fichier CSV"
+    "uploadCsv": "Téléverser un fichier CSV",
+    "searchProducts": "Rechercher par nom, SKU ou catégorie",
+    "noSearchResults": "Aucun produit ne correspond à la recherche"
   },
   "receipt": {
     "amount": "Montant",

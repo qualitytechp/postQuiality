@@ -729,7 +729,11 @@
     "weight": "Ağırlık",
     "clearWeight": "Ağırlığı temizle",
     "backspaceWeight": "Son ağırlık rakamını sil",
-    "customerDocument": "Kimlik numarası"
+    "customerDocument": "Kimlik numarası",
+    "customerSearchPlaceholder": "Ad, telefon veya kimlik numarası",
+    "noCustomersFound": "Müşteri bulunamadı",
+    "continueWithoutCustomer": "Müşterisiz devam et",
+    "continueWithoutCustomerHint": "Tek seferlik bir satış için. Bu müşteri için geçmiş tutulmayacak."
   },
   "printTest": {
     "amt": "Tutar",
@@ -1021,7 +1025,9 @@
     "update": "Güncelle",
     "updateProduct": "Ürünü Güncelle",
     "updated": "Ürün güncellendi",
-    "uploadCsv": "CSV Yükle"
+    "uploadCsv": "CSV Yükle",
+    "searchProducts": "Ada, SKU veya kategoriye göre ara",
+    "noSearchResults": "Aramanızla eşleşen ürün yok"
   },
   "receipt": {
     "amount": "Tutar",

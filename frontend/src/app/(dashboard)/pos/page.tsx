@@ -9,7 +9,7 @@ import { useHeldOrdersStore } from '@/store/held-orders';
 import { usePosSettingsStore } from '@/store/pos-settings';
 import { useSidebar } from '@/components/ui/sidebar';
 import toast from 'react-hot-toast';
-import { ShoppingCart, X , AlertTriangle } from 'lucide-react';
+import { ShoppingCart, AlertTriangle } from 'lucide-react';
 import type { Addon, Category, Product, Table, Bill, Order, CartItem } from '@/lib/types';
 import { useConfirm } from '@/hooks/use-confirm';
 import {
@@ -19,7 +19,7 @@ import {
 import ProductGrid from '@/components/pos/ProductGrid';
 import CartPanel from '@/components/pos/CartPanel';
 import AddonModal from '@/components/pos/AddonModal';
-import CustomerSearch from '@/components/pos/CustomerSearch';
+import CustomerPickerModal from '@/components/pos/CustomerPickerModal';
 import TablePickerModal from '@/components/pos/TablePickerModal';
 import TableCheckoutModal from '@/components/pos/TableCheckoutModal';
 import PaymentModal from '@/components/pos/PaymentModal';
@@ -117,6 +117,9 @@ export default function POSPage() {
   const addItemsAttemptRef = useRef<AppendAttempt | null>(null);
   const appendRecoveryStartedUsersRef = useRef<Set<string>>(new Set());
   const appendAttemptStorageRef = useRef<AppendAttemptStorage | null>(null);
+  // Consumido de inmediato en el siguiente handlePlaceOrder: un ref evita la
+  // carrera de invocar la función otra vez antes de que un setState se aplique.
+  const skipCustomerCheckRef = useRef(false);
 
   const getAppendAttemptStorage = (): AppendAttemptStorage => {
     if (appendAttemptStorageRef.current) return appendAttemptStorageRef.current;
@@ -487,10 +490,13 @@ export default function POSPage() {
       toast.error(t('cartEmpty'));
       return;
     }
-    if (customerMandatory && !cart.customerId) {
+    if (customerMandatory && !cart.customerId && !skipCustomerCheckRef.current) {
       setShowCustomerPrompt(true);
       return;
     }
+    // Se consume aquí, no al activarlo: así sólo cubre este intento de venta
+    // y el próximo pedido vuelve a pedir cliente con normalidad.
+    skipCustomerCheckRef.current = false;
     if (isRestaurant && cart.orderType === 'dine_in' && tablesRequired && !cart.tableId) {
       setShowTablePicker(true);
       return;
@@ -1138,18 +1144,22 @@ export default function POSPage() {
       )}
 
       {showCustomerPrompt && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-2xl p-5 w-full max-w-sm">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">{t('selectCustomer')}</h3>
-              <button onClick={() => setShowCustomerPrompt(false)} className="touch-target rounded-full text-gray-400 hover:text-muted-foreground active:bg-muted" aria-label={t('close')}>
-                <X size={20} />
-              </button>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">{t('customerRequiredBeforeOrder')}</p>
-            <CustomerSearch onSelected={() => setShowCustomerPrompt(false)} />
-          </div>
-        </div>
+        <CustomerPickerModal
+          title={t('selectCustomer')}
+          description={t('customerRequiredBeforeOrder')}
+          onSelect={(customer) => {
+            cart.setCustomer(customer);
+            setShowCustomerPrompt(false);
+          }}
+          onSkip={() => {
+            // Sin el ref, handlePlaceOrder (invocado en el mismo tick) vería
+            // el estado previo: setState no se aplica hasta el siguiente render.
+            skipCustomerCheckRef.current = true;
+            setShowCustomerPrompt(false);
+            handlePlaceOrder();
+          }}
+          onClose={() => setShowCustomerPrompt(false)}
+        />
       )}
 
       {ConfirmDialog}

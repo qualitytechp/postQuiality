@@ -729,7 +729,11 @@
     "weight": "وزن",
     "clearWeight": "پاک کردن وزن",
     "backspaceWeight": "حذف آخرین رقم وزن",
-    "customerDocument": "شماره شناسایی"
+    "customerDocument": "شماره شناسایی",
+    "customerSearchPlaceholder": "نام، تلفن یا شماره شناسایی",
+    "noCustomersFound": "مشتری‌ای پیدا نشد",
+    "continueWithoutCustomer": "ادامه بدون مشتری",
+    "continueWithoutCustomerHint": "برای یک فروش موردی. سابقه‌ای برای این مشتری ثبت نخواهد شد."
   },
   "printTest": {
     "amt": "مبلغ",
@@ -1021,7 +1025,9 @@
     "update": "به‌روزرسانی",
     "updateProduct": "به‌روزرسانی کالا",
     "updated": "کالا به‌روزرسانی شد",
-    "uploadCsv": "بارگذاری CSV"
+    "uploadCsv": "بارگذاری CSV",
+    "searchProducts": "جستجو بر اساس نام، کد کالا یا دسته‌بندی",
+    "noSearchResults": "هیچ محصولی با این جستجو مطابقت ندارد"
   },
   "receipt": {
     "amount": "مبلغ",

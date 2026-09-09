@@ -23,6 +23,7 @@ const {
   isWeighedProduct,
   clampWeightPrecision,
   acceptsWeightKeystroke,
+  clampWeightValue,
   parseWeightInput,
   quickWeightValues,
   maxWeightFor,
@@ -105,6 +106,19 @@ check('a typed weight parses to its number', () => {
 check('the result is rounded to the product precision', () => {
   assert.equal(parseWeightInput('0.75', 1), 0.8);
   assert.equal(parseWeightInput('1.25', 0), 1);
+});
+
+console.log('\n─── Typo guard on the physical keyboard ───');
+check('the same cap the touch pad enforces applies to typed input', () => {
+  assert.equal(clampWeightValue('1500', maxWeightFor('kg')), '999');
+  assert.equal(clampWeightValue('50', maxWeightFor('kg')), '50', 'a value under the cap is untouched');
+});
+check('a half-typed decimal is left alone so it stays typeable', () => {
+  assert.equal(clampWeightValue('', 999), '');
+  assert.equal(clampWeightValue('.', 999), '.');
+});
+check('non-numeric text is returned unchanged, not silently zeroed', () => {
+  assert.equal(clampWeightValue('abc', 999), 'abc');
 });
 
 console.log('\n─── Counter shortcuts ───');

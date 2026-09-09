@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Trash2, X, Package, Folder, Puzzle, FileSpreadsheet, Download, Upload, CheckCircle, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Package, Folder, Puzzle, FileSpreadsheet, Download, Upload, CheckCircle, AlertCircle, AlertTriangle, Search } from 'lucide-react';
 import type { Product, Category, AddonGroup } from '@/lib/types';
 import TagBadge, { tagLabel } from '@/components/pos/DietaryBadge';
 import { parseDbTimestamp } from '@/lib/utils';
@@ -77,6 +77,7 @@ export default function ProductsPage() {
   };
   const { currentTenant } = useAuthStore();
   const [activeTab, setActiveTab] = useState<TabType>('products');
+  const [productSearch, setProductSearch] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [addonGroups, setAddonGroups] = useState<AddonGroup[]>([]);
@@ -490,6 +491,15 @@ export default function ProductsPage() {
     );
   }
 
+  const normalizedProductSearch = productSearch.trim().toLowerCase();
+  const filteredProducts = normalizedProductSearch
+    ? products.filter((product) => {
+        const categoryName = categories.find((c) => String(c.id) === String(product.category_id))?.name || '';
+        return [product.name, product.sku, product.barcode, categoryName]
+          .some((field) => field?.toLowerCase().includes(normalizedProductSearch));
+      })
+    : products;
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -512,7 +522,18 @@ export default function ProductsPage() {
 
       {activeTab === 'products' && (
         <>
-          <div className="flex justify-end gap-2 mb-4">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+            <div className="relative w-full max-w-xs">
+              <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <input
+                type="text"
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                placeholder={t('searchProducts')}
+                className="w-full ps-9 pe-4 py-2 bg-card border border-border rounded-lg focus:ring-2 focus:ring-brand outline-none text-sm"
+              />
+            </div>
+            <div className="flex gap-2">
             {isOwnerOrManager && taxCategories.length > 0 && (
               <Button variant="outline" onClick={() => { setBulkTaxCategoryId(''); setShowBulkTaxModal(true); }}>
                 {t('assignTaxCategory')}
@@ -524,6 +545,7 @@ export default function ProductsPage() {
             <Button onClick={openCreate}>
               <Plus size={16} className="me-1" /> {t('addProduct')}
             </Button>
+            </div>
           </div>
 
       {/* Product Table */}
@@ -543,7 +565,7 @@ export default function ProductsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {products.map((product) => {
+            {filteredProducts.map((product) => {
               const parentCat = categories.find((c) => String(c.id) === String(product.category_id || product.category?.id));
               const isCategoryInactive = Boolean(parentCat && !parentCat.is_active);
               const matchedTaxCategory = taxCategories.find((tc) => tc.id === product.tax_category_id);
@@ -668,6 +690,9 @@ export default function ProductsPage() {
         </table>
         {products.length === 0 && (
           <p className="text-center text-muted-foreground py-12">{t('empty')}</p>
+        )}
+        {products.length > 0 && filteredProducts.length === 0 && (
+          <p className="text-center text-muted-foreground py-12">{t('noSearchResults')}</p>
         )}
       </div>
 

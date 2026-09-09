@@ -46,6 +46,18 @@ export function acceptsWeightKeystroke(raw: string, precision: number): boolean 
 }
 
 /**
+ * Recorta al tope de cordura de la unidad. El teclado táctil ya lo aplica
+ * dígito a dígito (`TouchNumberPad`); el teclado físico entra por su propio
+ * campo de texto y necesita el mismo recorte para no dejarlo pasar.
+ */
+export function clampWeightValue(raw: string, max: number): string {
+  if (raw === '' || raw === '.') return raw;
+  const numeric = Number(raw);
+  if (!Number.isFinite(numeric)) return raw;
+  return numeric > max ? String(max) : raw;
+}
+
+/**
  * Devuelve el peso listo para enviar, o null si aún no es un número usable.
  *
  * Redondea en vez de rechazar cuando sobran decimales: el teclado ya impide

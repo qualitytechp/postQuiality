@@ -729,7 +729,11 @@
     "weight": "Weight",
     "clearWeight": "Clear weight",
     "backspaceWeight": "Delete last weight digit",
-    "customerDocument": "ID document"
+    "customerDocument": "ID document",
+    "customerSearchPlaceholder": "Name, phone, or ID document",
+    "noCustomersFound": "No customer found",
+    "continueWithoutCustomer": "Continue without a customer",
+    "continueWithoutCustomerHint": "For a one-off sale. No history will be kept for this customer."
   },
   "printTest": {
     "amt": "Amt",
@@ -1021,7 +1025,9 @@
     "update": "Update",
     "updateProduct": "Update Product",
     "updated": "Product updated",
-    "uploadCsv": "Upload CSV"
+    "uploadCsv": "Upload CSV",
+    "searchProducts": "Search by name, SKU, or category",
+    "noSearchResults": "No products match your search"
   },
   "receipt": {
     "amount": "Amount",
