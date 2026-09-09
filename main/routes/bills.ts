@@ -307,7 +307,15 @@ export function getOrdersWithItemsForBills(
   const orderIds = Array.from(new Set(bills.map((bill) => Number(bill.order_id))));
   const orderRows = selectRowsByIds<any>(db, orderIds, (count) => `SELECT * FROM orders WHERE id IN (${new Array(count).fill('?').join(',')})`);
   const orders = new Map(orderRows.map((row) => [Number(row.id), parseRowJson(row)]));
-  const itemRows = selectRowsByIds<any>(db, orderIds, (count) => `SELECT * FROM order_items WHERE order_id IN (${new Array(count).fill('?').join(',')}) ORDER BY id`);
+  // Same product join as getOrderWithItems, for the same reason: order_items
+  // never stored sale_unit, so a weighed line needs it joined at read time.
+  const itemRows = selectRowsByIds<any>(db, orderIds, (count) => `
+    SELECT oi.*, p.sale_unit, p.weight_precision, p.allow_fractional_quantity
+    FROM order_items oi
+    LEFT JOIN products p ON p.id = oi.product_id
+    WHERE oi.order_id IN (${new Array(count).fill('?').join(',')})
+    ORDER BY oi.id
+  `);
   const itemsByOrder = new Map<number, any[]>();
   for (const item of itemRows) {
     const items = itemsByOrder.get(Number(item.order_id)) || [];
