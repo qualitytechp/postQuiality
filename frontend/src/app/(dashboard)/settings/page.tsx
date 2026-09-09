@@ -317,7 +317,10 @@ export default function SettingsPage() {
   const [tableInfo, setTableInfo] = useState<{ name: string; rows: number }[]>([]);
 
   const searchParams = useSearchParams();
-  const requestedTab = searchParams?.get('tab') || 'store';
+  const rawTab = searchParams?.get('tab') || 'store';
+  // Con los servicios de nube apagados esa pestaña no tiene contenido; un
+  // enlace antiguo cae en la primera en vez de en una pantalla en blanco.
+  const requestedTab = rawTab === 'mobile-access' && !CLOUD_SERVICES_ENABLED ? 'store' : rawTab;
   // Deep-link query param state for active tab and database actions.
   const [activeTab, setActiveTab] = useState(requestedTab);
   const [masterPinStatus, setMasterPinStatus] = useState<{ available: boolean; isSet: boolean; schemaVersion: number | null }>({ available: false, isSet: false, schemaVersion: null });
@@ -848,11 +851,14 @@ export default function SettingsPage() {
       // Silent — this tab is informational, not critical
     }).finally(() => setMoreAppsLoading(false));
 
-    api.get('/more-apps/revflo').then((res) => {
-      setRevflo(res.data.app || null);
-    }).catch(() => {
-      // Silent — the card still shows the pairing code without the QR promo
-    });
+    // Sin servicios de nube no hay tarjeta de RevFlo que llenar.
+    if (CLOUD_SERVICES_ENABLED) {
+      api.get('/more-apps/revflo').then((res) => {
+        setRevflo(res.data.app || null);
+      }).catch(() => {
+        // Silent — the card still shows the pairing code without the QR promo
+      });
+    }
   }, []);
 
   // ── Updates ─────────────────────────────────────────────────────────────────
@@ -2437,7 +2443,9 @@ export default function SettingsPage() {
             <div className="hidden md:block px-3 pt-4 pb-2 mt-3 mb-1 border-b border-border">
               <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">{t('navGroupData')}</p>
             </div>
-            <SettingsNavItem label={t('tabMobileAccess')} value="mobile-access" active={activeTab} onClick={handleSettingsTabChange} />
+            {CLOUD_SERVICES_ENABLED && (
+              <SettingsNavItem label={t('tabMobileAccess')} value="mobile-access" active={activeTab} onClick={handleSettingsTabChange} />
+            )}
             <SettingsNavItem label={t('tabBackupData')} value="data" active={activeTab} onClick={handleSettingsTabChange} />
             <SettingsNavItem label={t('tabOrderflow')} value="orderflow" active={activeTab} onClick={handleSettingsTabChange} />
 
@@ -4727,6 +4735,7 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
 
+        {CLOUD_SERVICES_ENABLED && (
         <TabsContent value="mobile-access">
           <div className="pb-6 max-w-3xl space-y-6">
             <div className="space-y-6">
@@ -4830,7 +4839,8 @@ export default function SettingsPage() {
             </div>
             )}
 
-            {/* RevFlo — consolidated: download/QR + app (pairing) code + paired devices */}
+            {/* RevFlo: app móvil del proveedor anterior, atada a su nube. Oculta con los demás servicios. */}
+            {CLOUD_SERVICES_ENABLED && (
             <div className="bg-card rounded-xl border border-border p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <Smartphone size={20} className="text-muted-foreground" />
@@ -4958,9 +4968,11 @@ export default function SettingsPage() {
                 </div>
               )}
             </div>
+            )}
           </div>
           </div>
         </TabsContent>
+        )}
 
         <TabsContent value="orderflow">
           <div className="pb-6 max-w-3xl space-y-6">
