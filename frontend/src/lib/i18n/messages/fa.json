@@ -379,7 +379,8 @@
     "toggleSidebar": "باز/بسته کردن نوار کناری",
     "uptimeLabel": "زمان روشن بودن: ",
     "user": "کاربر",
-    "whatsapp": "واتساپ"
+    "whatsapp": "واتساپ",
+    "reports": "گزارش‌ها"
   },
   "orders": {
     "active": "فعال",
@@ -723,7 +724,8 @@
     "exitFullscreen": "خروج از صندوق تمام‌صفحه",
     "fullscreenUnavailable": "حالت تمام‌صفحه در دسترس نیست",
     "backspaceAmount": "حذف رقم آخر",
-    "numericKeypad": "صفحه‌کلید عددی"
+    "numericKeypad": "صفحه‌کلید عددی",
+    "noOpenRegister": "هیچ صندوقی باز نیست. فروش‌ها با موجودی صفر ثبت می‌شوند."
   },
   "printTest": {
     "amt": "مبلغ",
@@ -1970,7 +1972,8 @@
       "cloudAccountData": "مدیریت حساب و کنترل‌های داده ابری",
       "databaseTools": "استفاده از ابزار پایگاه‌داده و پشتیبان‌گیری",
       "serverApp": "استفاده از برنامه مستقل پیش‌خدمت",
-      "support": "تماس با پشتیبانی و مشاهده عیب‌یابی"
+      "support": "تماس با پشتیبانی و مشاهده عیب‌یابی",
+      "reportsBuilder": "ساخت گزارش‌های سفارشی و برون‌بری آن‌ها"
     }
   },
   "support": {
@@ -2474,6 +2477,79 @@
       "connection": "اتصال",
       "inbox": "صندوق ورودی",
       "sent": "ارسال‌شده"
+    }
+  },
+  "reports": {
+    "title": "گزارش‌ها",
+    "subtitle": "گزارشی که نیاز دارید بسازید",
+    "period": "بازه",
+    "measure": "اندازه‌گیری",
+    "groupBy": "گروه‌بندی بر اساس",
+    "filters": "فیلترها",
+    "addFilter": "افزودن فیلتر",
+    "removeFilter": "حذف فیلتر",
+    "viewTable": "جدول",
+    "viewBars": "میله‌ای",
+    "viewLines": "خطی",
+    "exportCsv": "برون‌بری CSV",
+    "saveView": "ذخیره نما",
+    "savedViews": "نماهای ذخیره‌شده",
+    "saveName": "نام نما",
+    "deleteView": "حذف نما",
+    "total": "مجموع",
+    "noData": "در این بازه با این فیلترها فروشی نیست",
+    "widenRange": "گسترش بازه",
+    "pickMeasure": "دست‌کم یک سنجه انتخاب کنید",
+    "maxDimensions": "حداکثر {count} گروه‌بندی",
+    "calculating": "در حال محاسبه…",
+    "allocatedNote": "مبالغ صورتحساب بر پایه سهم هر قلم از جمع جزء تقسیم می‌شود؛ این‌ها برآورد هستند.",
+    "presetToday": "امروز",
+    "presetWeek": "این هفته",
+    "presetMonth": "این ماه",
+    "presetCustom": "بازه…",
+    "from": "از",
+    "to": "تا",
+    "retry": "تلاش دوباره",
+    "savedDone": "نما ذخیره شد",
+    "measures": {
+      "gross_sales": "فروش",
+      "subtotal": "جمع جزء",
+      "tax": "مالیات",
+      "discount": "تخفیف‌ها",
+      "service_charge": "خدمات",
+      "delivery_charge": "ارسال",
+      "packaging_charge": "بسته‌بندی",
+      "bill_count": "صورتحساب‌ها",
+      "order_count": "سفارش‌ها",
+      "item_count": "اقلام",
+      "avg_ticket": "میانگین صورتحساب"
+    },
+    "dimensions": {
+      "day": "روز",
+      "month": "ماه",
+      "week": "هفته",
+      "hour": "ساعت",
+      "weekday": "روز هفته",
+      "order_type": "نوع سفارش",
+      "online_platform": "پلتفرم",
+      "staff": "کارکنان",
+      "role": "نقش",
+      "table": "میز",
+      "customer": "مشتری",
+      "product": "محصول",
+      "category": "دسته"
+    },
+    "filterFields": {
+      "bill_total": "مبلغ صورتحساب"
+    },
+    "operators": {
+      "eq": "برابر است با",
+      "ne": "برابر نیست با",
+      "gt": "بزرگ‌تر از",
+      "gte": "دست‌کم",
+      "lt": "کوچک‌تر از",
+      "lte": "حداکثر",
+      "in": "یکی از"
     }
   }
 }

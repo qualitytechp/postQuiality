@@ -379,7 +379,8 @@
     "toggleSidebar": "Afficher ou masquer la barre latérale",
     "uptimeLabel": "Actif depuis : ",
     "user": "Utilisateur",
-    "whatsapp": "WhatsApp"
+    "whatsapp": "WhatsApp",
+    "reports": "Rapports"
   },
   "orders": {
     "active": "Actives",
@@ -723,7 +724,8 @@
     "exitFullscreen": "Quitter le POS en plein écran",
     "fullscreenUnavailable": "Le mode plein écran n'est pas disponible",
     "backspaceAmount": "Effacer le dernier chiffre",
-    "numericKeypad": "Pavé numérique"
+    "numericKeypad": "Pavé numérique",
+    "noOpenRegister": "Aucune caisse ouverte. Les ventes sont enregistrées avec un fonds nul."
   },
   "printTest": {
     "amt": "Montant",
@@ -1970,7 +1972,8 @@
       "cloudAccountData": "Gérer le compte infonuagique et les paramètres de données",
       "databaseTools": "Utiliser les outils de base de données et les sauvegardes",
       "serverApp": "Utiliser l’application serveur autonome",
-      "support": "Contacter l’assistance et afficher les diagnostics"
+      "support": "Contacter l’assistance et afficher les diagnostics",
+      "reportsBuilder": "Créer des rapports personnalisés et les exporter"
     }
   },
   "support": {
@@ -2474,6 +2477,79 @@
       "connection": "Connexion",
       "inbox": "Boîte de réception",
       "sent": "Envoyés"
+    }
+  },
+  "reports": {
+    "title": "Rapports",
+    "subtitle": "Composez le rapport dont vous avez besoin",
+    "period": "Période",
+    "measure": "Mesurer",
+    "groupBy": "Grouper par",
+    "filters": "Filtres",
+    "addFilter": "Ajouter un filtre",
+    "removeFilter": "Retirer le filtre",
+    "viewTable": "Tableau",
+    "viewBars": "Barres",
+    "viewLines": "Lignes",
+    "exportCsv": "Exporter CSV",
+    "saveView": "Enregistrer la vue",
+    "savedViews": "Vues enregistrées",
+    "saveName": "Nom de la vue",
+    "deleteView": "Supprimer la vue",
+    "total": "Total",
+    "noData": "Aucune vente sur cette période avec ces filtres",
+    "widenRange": "Élargir la période",
+    "pickMeasure": "Choisissez au moins une mesure pour voir le rapport",
+    "maxDimensions": "Au plus {count} regroupements",
+    "calculating": "Calcul…",
+    "allocatedNote": "Les montants de la note sont répartis entre les articles selon leur part du sous-total ; ce sont des estimations.",
+    "presetToday": "Aujourd’hui",
+    "presetWeek": "Cette semaine",
+    "presetMonth": "Ce mois",
+    "presetCustom": "Plage…",
+    "from": "Du",
+    "to": "Au",
+    "retry": "Réessayer",
+    "savedDone": "Vue enregistrée",
+    "measures": {
+      "gross_sales": "Ventes",
+      "subtotal": "Sous-total",
+      "tax": "Taxes",
+      "discount": "Remises",
+      "service_charge": "Frais de service",
+      "delivery_charge": "Livraison",
+      "packaging_charge": "Emballage",
+      "bill_count": "Notes",
+      "order_count": "Commandes",
+      "item_count": "Articles",
+      "avg_ticket": "Ticket moyen"
+    },
+    "dimensions": {
+      "day": "Jour",
+      "month": "Mois",
+      "week": "Semaine",
+      "hour": "Heure",
+      "weekday": "Jour de la semaine",
+      "order_type": "Type de commande",
+      "online_platform": "Plateforme",
+      "staff": "Personnel",
+      "role": "Rôle",
+      "table": "Table",
+      "customer": "Client",
+      "product": "Produit",
+      "category": "Catégorie"
+    },
+    "filterFields": {
+      "bill_total": "Total de la note"
+    },
+    "operators": {
+      "eq": "est",
+      "ne": "n’est pas",
+      "gt": "supérieur à",
+      "gte": "au moins",
+      "lt": "inférieur à",
+      "lte": "au plus",
+      "in": "fait partie de"
     }
   }
 }

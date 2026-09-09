@@ -100,6 +100,7 @@ export const PERMISSION_CAPABILITIES = [
   { id: 'kdsPairing', area: 'kitchen', labelKey: 'kdsPairing', allowedRoles: ROLE_ACCESS.ownerManager },
   { id: 'kitchenStations', area: 'kitchen', labelKey: 'kitchenStations', allowedRoles: ROLE_ACCESS.ownerManager },
   { id: 'reports', area: 'reports', labelKey: 'reports', allowedRoles: ROLE_ACCESS.ownerManager },
+  { id: 'reportsBuilder', area: 'reports', labelKey: 'reportsBuilder', allowedRoles: ROLE_ACCESS.owner },
   { id: 'staffViewManage', area: 'staff', labelKey: 'staffViewManage', allowedRoles: ROLE_ACCESS.ownerManager },
   { id: 'staffOwnerManager', area: 'staff', labelKey: 'staffOwnerManager', allowedRoles: ROLE_ACCESS.owner },
   { id: 'operationalStaff', area: 'staff', labelKey: 'operationalStaff', allowedRoles: ROLE_ACCESS.ownerManager },

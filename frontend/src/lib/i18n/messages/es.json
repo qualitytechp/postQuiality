@@ -379,7 +379,8 @@
     "toggleSidebar": "Expandir/contraer menú",
     "uptimeLabel": "Activo: ",
     "user": "Usuario",
-    "whatsapp": "WhatsApp"
+    "whatsapp": "WhatsApp",
+    "reports": "Reportes"
   },
   "orders": {
     "active": "Activos",
@@ -723,7 +724,8 @@
     "exitFullscreen": "Salir del POS en pantalla completa",
     "fullscreenUnavailable": "El modo de pantalla completa no está disponible",
     "backspaceAmount": "Borrar último dígito",
-    "numericKeypad": "Teclado numérico"
+    "numericKeypad": "Teclado numérico",
+    "noOpenRegister": "No hay caja abierta. Las ventas quedan con fondo cero."
   },
   "printTest": {
     "amt": "Total",
@@ -1970,7 +1972,8 @@
       "cloudAccountData": "Gestionar la cuenta y los controles de datos en la nube",
       "databaseTools": "Usar herramientas y copias de seguridad de la base de datos",
       "serverApp": "Usar la aplicación independiente para servidores",
-      "support": "Contactar con soporte y ver diagnósticos"
+      "support": "Contactar con soporte y ver diagnósticos",
+      "reportsBuilder": "Crear reportes personalizados y exportarlos"
     }
   },
   "support": {
@@ -2474,6 +2477,79 @@
       "connection": "Conexión",
       "inbox": "Bandeja de entrada",
       "sent": "Enviados"
+    }
+  },
+  "reports": {
+    "title": "Reportes",
+    "subtitle": "Arma el reporte que necesitas",
+    "period": "Periodo",
+    "measure": "Medir",
+    "groupBy": "Agrupar por",
+    "filters": "Filtros",
+    "addFilter": "Añadir filtro",
+    "removeFilter": "Quitar filtro",
+    "viewTable": "Tabla",
+    "viewBars": "Barras",
+    "viewLines": "Líneas",
+    "exportCsv": "Exportar CSV",
+    "saveView": "Guardar vista",
+    "savedViews": "Vistas guardadas",
+    "saveName": "Nombre de la vista",
+    "deleteView": "Borrar vista",
+    "total": "Total",
+    "noData": "No hay ventas en este periodo con estos filtros",
+    "widenRange": "Ampliar el rango",
+    "pickMeasure": "Elegí al menos una medida para ver el reporte",
+    "maxDimensions": "Máximo {count} agrupaciones",
+    "calculating": "Calculando…",
+    "allocatedNote": "Los importes de factura se reparten entre los ítems según su participación en el subtotal; son una estimación.",
+    "presetToday": "Hoy",
+    "presetWeek": "Esta semana",
+    "presetMonth": "Este mes",
+    "presetCustom": "Rango…",
+    "from": "Desde",
+    "to": "Hasta",
+    "retry": "Reintentar",
+    "savedDone": "Vista guardada",
+    "measures": {
+      "gross_sales": "Ventas",
+      "subtotal": "Subtotal",
+      "tax": "Impuestos",
+      "discount": "Descuentos",
+      "service_charge": "Servicio",
+      "delivery_charge": "Domicilio",
+      "packaging_charge": "Empaque",
+      "bill_count": "Facturas",
+      "order_count": "Pedidos",
+      "item_count": "Ítems",
+      "avg_ticket": "Ticket promedio"
+    },
+    "dimensions": {
+      "day": "Día",
+      "month": "Mes",
+      "week": "Semana",
+      "hour": "Hora",
+      "weekday": "Día de la semana",
+      "order_type": "Tipo de pedido",
+      "online_platform": "Plataforma",
+      "staff": "Personal",
+      "role": "Rol",
+      "table": "Mesa",
+      "customer": "Cliente",
+      "product": "Producto",
+      "category": "Categoría"
+    },
+    "filterFields": {
+      "bill_total": "Total de la factura"
+    },
+    "operators": {
+      "eq": "es",
+      "ne": "no es",
+      "gt": "mayor que",
+      "gte": "mayor o igual",
+      "lt": "menor que",
+      "lte": "menor o igual",
+      "in": "está en"
     }
   }
 }

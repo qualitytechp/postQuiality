@@ -379,7 +379,8 @@
     "toggleSidebar": "I-toggle ang Sidebar",
     "uptimeLabel": "Uptime",
     "user": "Gumagamit",
-    "whatsapp": "WhatsApp"
+    "whatsapp": "WhatsApp",
+    "reports": "Mga ulat"
   },
   "orders": {
     "active": "Aktibo",
@@ -723,7 +724,8 @@
     "exitFullscreen": "Lumabas sa full-screen POS",
     "fullscreenUnavailable": "Hindi available ang full-screen mode",
     "backspaceAmount": "I-backspace ang halaga",
-    "numericKeypad": "Numeric keypad"
+    "numericKeypad": "Numeric keypad",
+    "noOpenRegister": "Walang bukas na kaha. Zero ang panimulang pondo ng mga benta."
   },
   "printTest": {
     "amt": "Halaga",
@@ -1970,7 +1972,8 @@
       "cloudAccountData": "Pamahalaan ang cloud account at mga kontrol sa data",
       "databaseTools": "Gamitin ang mga tool sa database at backup",
       "serverApp": "Gamitin ang standalone Server App",
-      "support": "Makipag-ugnayan sa suporta at tingnan ang diagnostics"
+      "support": "Makipag-ugnayan sa suporta at tingnan ang diagnostics",
+      "reportsBuilder": "Gumawa ng sariling ulat at i-export ito"
     }
   },
   "support": {
@@ -2474,6 +2477,79 @@
       "connection": "Koneksyon",
       "inbox": "Inbox",
       "sent": "Naipadala"
+    }
+  },
+  "reports": {
+    "title": "Mga ulat",
+    "subtitle": "Buuin ang ulat na kailangan mo",
+    "period": "Panahon",
+    "measure": "Sukatin",
+    "groupBy": "Pangkatin ayon sa",
+    "filters": "Mga filter",
+    "addFilter": "Magdagdag ng filter",
+    "removeFilter": "Alisin ang filter",
+    "viewTable": "Talahanayan",
+    "viewBars": "Bar",
+    "viewLines": "Linya",
+    "exportCsv": "I-export ang CSV",
+    "saveView": "I-save ang view",
+    "savedViews": "Mga naka-save na view",
+    "saveName": "Pangalan ng view",
+    "deleteView": "Burahin ang view",
+    "total": "Kabuuan",
+    "noData": "Walang benta sa panahong ito gamit ang mga filter na ito",
+    "widenRange": "Palawakin ang saklaw",
+    "pickMeasure": "Pumili ng kahit isang sukat",
+    "maxDimensions": "Hanggang {count} pagpapangkat",
+    "calculating": "Kinakalkula…",
+    "allocatedNote": "Ang halaga ng bill ay hinahati sa mga item ayon sa bahagi nito sa subtotal; tantiya ito.",
+    "presetToday": "Ngayon",
+    "presetWeek": "Ngayong linggo",
+    "presetMonth": "Ngayong buwan",
+    "presetCustom": "Saklaw…",
+    "from": "Mula",
+    "to": "Hanggang",
+    "retry": "Subukan ulit",
+    "savedDone": "Na-save ang view",
+    "measures": {
+      "gross_sales": "Benta",
+      "subtotal": "Subtotal",
+      "tax": "Buwis",
+      "discount": "Diskwento",
+      "service_charge": "Serbisyo",
+      "delivery_charge": "Bayad sa delivery",
+      "packaging_charge": "Bayad sa packaging",
+      "bill_count": "Mga bill",
+      "order_count": "Mga order",
+      "item_count": "Mga item",
+      "avg_ticket": "Karaniwang ticket"
+    },
+    "dimensions": {
+      "day": "Araw",
+      "month": "Buwan",
+      "week": "Linggo",
+      "hour": "Oras",
+      "weekday": "Araw ng linggo",
+      "order_type": "Uri ng order",
+      "online_platform": "Platform",
+      "staff": "Tauhan",
+      "role": "Tungkulin",
+      "table": "Mesa",
+      "customer": "Kostumer",
+      "product": "Produkto",
+      "category": "Kategorya"
+    },
+    "filterFields": {
+      "bill_total": "Kabuuan ng bill"
+    },
+    "operators": {
+      "eq": "ay",
+      "ne": "ay hindi",
+      "gt": "mas malaki sa",
+      "gte": "hindi bababa sa",
+      "lt": "mas maliit sa",
+      "lte": "hindi hihigit sa",
+      "in": "nasa"
     }
   }
 }

@@ -379,7 +379,8 @@
     "toggleSidebar": "Toggle sidebar",
     "uptimeLabel": "Up: ",
     "user": "User",
-    "whatsapp": "WhatsApp"
+    "whatsapp": "WhatsApp",
+    "reports": "Reports"
   },
   "orders": {
     "active": "Active",
@@ -723,7 +724,8 @@
     "exitFullscreen": "Exit full-screen POS",
     "fullscreenUnavailable": "Full-screen mode is unavailable",
     "backspaceAmount": "Backspace amount",
-    "numericKeypad": "Numeric keypad"
+    "numericKeypad": "Numeric keypad",
+    "noOpenRegister": "No register is open. Sales are recorded with a zero float."
   },
   "printTest": {
     "amt": "Amt",
@@ -1970,7 +1972,8 @@
       "cloudAccountData": "Manage cloud account and data controls",
       "databaseTools": "Use database tools and backups",
       "serverApp": "Use the standalone Server App",
-      "support": "Contact support and view diagnostics"
+      "support": "Contact support and view diagnostics",
+      "reportsBuilder": "Build custom reports and export them"
     }
   },
   "support": {
@@ -2474,6 +2477,79 @@
       "connection": "Connection",
       "inbox": "Inbox",
       "sent": "Sent"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "subtitle": "Build the report you need",
+    "period": "Period",
+    "measure": "Measure",
+    "groupBy": "Group by",
+    "filters": "Filters",
+    "addFilter": "Add filter",
+    "removeFilter": "Remove filter",
+    "viewTable": "Table",
+    "viewBars": "Bars",
+    "viewLines": "Lines",
+    "exportCsv": "Export CSV",
+    "saveView": "Save view",
+    "savedViews": "Saved views",
+    "saveName": "View name",
+    "deleteView": "Delete view",
+    "total": "Total",
+    "noData": "No sales in this period with these filters",
+    "widenRange": "Widen the range",
+    "pickMeasure": "Pick at least one measure to see the report",
+    "maxDimensions": "At most {count} groupings",
+    "calculating": "Calculating…",
+    "allocatedNote": "Bill amounts are split across items by their share of the subtotal; these are estimates.",
+    "presetToday": "Today",
+    "presetWeek": "This week",
+    "presetMonth": "This month",
+    "presetCustom": "Range…",
+    "from": "From",
+    "to": "To",
+    "retry": "Retry",
+    "savedDone": "View saved",
+    "measures": {
+      "gross_sales": "Sales",
+      "subtotal": "Subtotal",
+      "tax": "Tax",
+      "discount": "Discounts",
+      "service_charge": "Service",
+      "delivery_charge": "Delivery",
+      "packaging_charge": "Packaging",
+      "bill_count": "Bills",
+      "order_count": "Orders",
+      "item_count": "Items",
+      "avg_ticket": "Average ticket"
+    },
+    "dimensions": {
+      "day": "Day",
+      "month": "Month",
+      "week": "Week",
+      "hour": "Hour",
+      "weekday": "Weekday",
+      "order_type": "Order type",
+      "online_platform": "Platform",
+      "staff": "Staff",
+      "role": "Role",
+      "table": "Table",
+      "customer": "Customer",
+      "product": "Product",
+      "category": "Category"
+    },
+    "filterFields": {
+      "bill_total": "Bill total"
+    },
+    "operators": {
+      "eq": "is",
+      "ne": "is not",
+      "gt": "greater than",
+      "gte": "at least",
+      "lt": "less than",
+      "lte": "at most",
+      "in": "is one of"
     }
   }
 }

@@ -427,6 +427,8 @@ function faFallbackErrors(faFlat: Record<string, string>, enFlat: Record<string,
  * untranslated so the French UI cannot silently regress to English.
  */
 const FR_INTENTIONAL_IDENTICAL: ReadonlySet<string> = new Set([
+  'reports.total', // same word in French
+  'reports.dimensions.table', // same word in French
   'auth.emailPlaceholder', // example email
   'businessType.restaurant', // same word in French
   'common.appTitle', // brand
@@ -531,6 +533,7 @@ function frFallbackErrors(frFlat: Record<string, string>, enFlat: Record<string,
 }
 
 const TR_INTENTIONAL_IDENTICAL = new Set<string>([
+  'reports.dimensions.online_platform', // same word in Turkish
   'settings.paymentMethodUpi', // technical acronym (payment rail name)
   'common.appTitle', // brand name "Flo"
   'common.brandName', // brand name "Flo Cafe"
@@ -579,6 +582,8 @@ function trFallbackErrors(trFlat: Record<string, string>, enFlat: Record<string,
 }
 
 const FIL_INTENTIONAL_IDENTICAL = new Set<string>([
+  'reports.measures.subtotal', // same word in Filipino
+  'reports.dimensions.online_platform', // same word in Filipino
   'auth.countryIndia',
   'auth.countryThailand',
   'auth.email',

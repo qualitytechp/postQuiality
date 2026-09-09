@@ -4077,6 +4077,31 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       `);
     },
   },
+  {
+    version: 84,
+    name: 'add_saved_reports',
+    up: () => {
+      // Definiciones de reportes del generador. `definition_json` guarda la
+      // definición completa (medidas, dimensiones, filtros, periodo, vista);
+      // el servidor la revalida contra la lista blanca en cada consulta, así
+      // que una fila guardada nunca es una vía para inyectar SQL.
+      //
+      // `user_id` desde el principio: añadirlo después obligaría a migrar filas
+      // sin dueño. Un nombre no se repite para el mismo usuario.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS saved_reports (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          definition_json TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS saved_reports_user_name
+          ON saved_reports(user_id, name);
+      `);
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {

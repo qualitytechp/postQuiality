@@ -11,6 +11,7 @@ import { billRoutes, syncUnpaidBillsForOrder, getTenantCurrency } from './bills'
 import { refundRoutes } from './refunds';
 import { cashClosureRoutes } from './cash-closures';
 import { cashSessionRoutes } from './cash-sessions';
+import { reportQueryRoutes } from './report-query';
 import { tableRoutes } from './tables';
 import { kitchenStationRoutes } from './kitchen-stations';
 import { kitchenRoutes } from './kitchen';
@@ -86,6 +87,7 @@ export function registerRoutes(app: Express): void {
   app.use('/api/refunds', refundRoutes);
   app.use('/api/cash-closures', cashClosureRoutes);
   app.use('/api/cash-sessions', cashSessionRoutes);
+  app.use('/api/reports', reportQueryRoutes);
   app.use('/api/tables', tableRoutes);
   app.use('/api/kitchen-stations', kitchenStationRoutes);
   app.use('/api/customers', customerRoutes);

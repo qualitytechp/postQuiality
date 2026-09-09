@@ -379,7 +379,8 @@
     "toggleSidebar": "Seitenleiste umschalten",
     "uptimeLabel": "Laufzeit: ",
     "user": "Benutzer",
-    "whatsapp": "WhatsApp"
+    "whatsapp": "WhatsApp",
+    "reports": "Berichte"
   },
   "orders": {
     "active": "Aktiv",
@@ -723,7 +724,8 @@
     "exitFullscreen": "Vollbildmodus beenden",
     "fullscreenUnavailable": "Vollbildmodus nicht verfügbar",
     "backspaceAmount": "Ziffer löschen",
-    "numericKeypad": "Ziffernblock"
+    "numericKeypad": "Ziffernblock",
+    "noOpenRegister": "Keine Kasse geöffnet. Verkäufe werden mit Wechselgeld null erfasst."
   },
   "printTest": {
     "amt": "Betrag",
@@ -1970,7 +1972,8 @@
       "cloudAccountData": "Cloud-Konto- und Datenkontrollen verwalten",
       "databaseTools": "Datenbankwerkzeuge und Sicherungen nutzen",
       "serverApp": "Eigenständige Bedienungs-App verwenden",
-      "support": "Support kontaktieren und Diagnosedaten einsehen"
+      "support": "Support kontaktieren und Diagnosedaten einsehen",
+      "reportsBuilder": "Eigene Berichte erstellen und exportieren"
     }
   },
   "support": {
@@ -2474,6 +2477,79 @@
       "connection": "Verbindung",
       "inbox": "Posteingang",
       "sent": "Gesendet"
+    }
+  },
+  "reports": {
+    "title": "Berichte",
+    "subtitle": "Stellen Sie den benötigten Bericht zusammen",
+    "period": "Zeitraum",
+    "measure": "Messen",
+    "groupBy": "Gruppieren nach",
+    "filters": "Filter",
+    "addFilter": "Filter hinzufügen",
+    "removeFilter": "Filter entfernen",
+    "viewTable": "Tabelle",
+    "viewBars": "Balken",
+    "viewLines": "Linien",
+    "exportCsv": "CSV exportieren",
+    "saveView": "Ansicht speichern",
+    "savedViews": "Gespeicherte Ansichten",
+    "saveName": "Name der Ansicht",
+    "deleteView": "Ansicht löschen",
+    "total": "Gesamt",
+    "noData": "Keine Verkäufe in diesem Zeitraum mit diesen Filtern",
+    "widenRange": "Zeitraum erweitern",
+    "pickMeasure": "Wählen Sie mindestens eine Kennzahl",
+    "maxDimensions": "Höchstens {count} Gruppierungen",
+    "calculating": "Wird berechnet…",
+    "allocatedNote": "Rechnungsbeträge werden anteilig an der Zwischensumme auf die Positionen verteilt; das sind Schätzungen.",
+    "presetToday": "Heute",
+    "presetWeek": "Diese Woche",
+    "presetMonth": "Dieser Monat",
+    "presetCustom": "Zeitraum…",
+    "from": "Von",
+    "to": "Bis",
+    "retry": "Erneut versuchen",
+    "savedDone": "Ansicht gespeichert",
+    "measures": {
+      "gross_sales": "Umsatz",
+      "subtotal": "Zwischensumme",
+      "tax": "Steuern",
+      "discount": "Rabatte",
+      "service_charge": "Servicegebühr",
+      "delivery_charge": "Lieferung",
+      "packaging_charge": "Verpackung",
+      "bill_count": "Rechnungen",
+      "order_count": "Bestellungen",
+      "item_count": "Positionen",
+      "avg_ticket": "Durchschnittsbon"
+    },
+    "dimensions": {
+      "day": "Tag",
+      "month": "Monat",
+      "week": "Woche",
+      "hour": "Stunde",
+      "weekday": "Wochentag",
+      "order_type": "Bestellart",
+      "online_platform": "Plattform",
+      "staff": "Personal",
+      "role": "Rolle",
+      "table": "Tisch",
+      "customer": "Kunde",
+      "product": "Produkt",
+      "category": "Kategorie"
+    },
+    "filterFields": {
+      "bill_total": "Rechnungssumme"
+    },
+    "operators": {
+      "eq": "ist",
+      "ne": "ist nicht",
+      "gt": "größer als",
+      "gte": "mindestens",
+      "lt": "kleiner als",
+      "lte": "höchstens",
+      "in": "ist eines von"
     }
   }
 }

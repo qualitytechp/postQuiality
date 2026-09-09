@@ -21,6 +21,7 @@ import {
   Sun,
   Moon,
   Monitor,
+  BarChart3,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslations, type AppConfig } from 'use-intl';
@@ -68,6 +69,7 @@ interface NavItem {
 const ALL_NAV_ITEMS: NavItem[] = [
   { href: '/pos', labelKey: 'pos', icon: ShoppingCart, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard, roles: ROLE_ACCESS.owner, businessTypes: null },
+  { href: '/reports', labelKey: 'reports', icon: BarChart3, roles: ROLE_ACCESS.owner, businessTypes: null },
   { href: '/orders', labelKey: 'orders', icon: ClipboardList, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/whatsapp', labelKey: 'whatsapp', icon: MessageCircle, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/products', labelKey: 'products', icon: Package, roles: ROLE_ACCESS.ownerManager, businessTypes: null },

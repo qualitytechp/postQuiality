@@ -379,7 +379,8 @@
     "toggleSidebar": "Kenar Çubuğunu Aç/Kapat",
     "uptimeLabel": "Çalışma Süresi",
     "user": "Kullanıcı",
-    "whatsapp": "WhatsApp"
+    "whatsapp": "WhatsApp",
+    "reports": "Raporlar"
   },
   "orders": {
     "active": "Aktif",
@@ -723,7 +724,8 @@
     "exitFullscreen": "Tam Ekrandan Çık",
     "fullscreenUnavailable": "Tam ekran desteklenmiyor",
     "backspaceAmount": "Sil",
-    "numericKeypad": "Sayısal Tuş Takımı"
+    "numericKeypad": "Sayısal Tuş Takımı",
+    "noOpenRegister": "Açık kasa yok. Satışlar sıfır başlangıçla kaydedilir."
   },
   "printTest": {
     "amt": "Tutar",
@@ -1970,7 +1972,8 @@
       "cloudAccountData": "Bulut hesabı ve veri kontrollerini yönetme",
       "databaseTools": "Veritabanı araçlarını ve yedeklemeyi kullanma",
       "serverApp": "Bağımsız Garson Uygulamasını kullanma",
-      "support": "Destek ekibiyle iletişime geçme ve sistem tanılamayı görme"
+      "support": "Destek ekibiyle iletişime geçme ve sistem tanılamayı görme",
+      "reportsBuilder": "Özel raporlar oluşturma ve dışa aktarma"
     }
   },
   "support": {
@@ -2474,6 +2477,79 @@
       "connection": "Bağlantı & Cihaz",
       "inbox": "Gelen Yanıtlar",
       "sent": "Gönderilen Mesajlar"
+    }
+  },
+  "reports": {
+    "title": "Raporlar",
+    "subtitle": "İhtiyacınız olan raporu oluşturun",
+    "period": "Dönem",
+    "measure": "Ölç",
+    "groupBy": "Grupla",
+    "filters": "Filtreler",
+    "addFilter": "Filtre ekle",
+    "removeFilter": "Filtreyi kaldır",
+    "viewTable": "Tablo",
+    "viewBars": "Çubuk",
+    "viewLines": "Çizgi",
+    "exportCsv": "CSV dışa aktar",
+    "saveView": "Görünümü kaydet",
+    "savedViews": "Kayıtlı görünümler",
+    "saveName": "Görünüm adı",
+    "deleteView": "Görünümü sil",
+    "total": "Toplam",
+    "noData": "Bu dönemde bu filtrelerle satış yok",
+    "widenRange": "Aralığı genişlet",
+    "pickMeasure": "Raporu görmek için en az bir ölçüt seçin",
+    "maxDimensions": "En fazla {count} gruplama",
+    "calculating": "Hesaplanıyor…",
+    "allocatedNote": "Adisyon tutarları ara toplamdaki payına göre kalemlere dağıtılır; bunlar tahmindir.",
+    "presetToday": "Bugün",
+    "presetWeek": "Bu hafta",
+    "presetMonth": "Bu ay",
+    "presetCustom": "Aralık…",
+    "from": "Başlangıç",
+    "to": "Bitiş",
+    "retry": "Yeniden dene",
+    "savedDone": "Görünüm kaydedildi",
+    "measures": {
+      "gross_sales": "Satışlar",
+      "subtotal": "Ara toplam",
+      "tax": "Vergi",
+      "discount": "İndirimler",
+      "service_charge": "Servis",
+      "delivery_charge": "Teslimat",
+      "packaging_charge": "Paketleme",
+      "bill_count": "Adisyon",
+      "order_count": "Sipariş",
+      "item_count": "Kalem",
+      "avg_ticket": "Ortalama adisyon"
+    },
+    "dimensions": {
+      "day": "Gün",
+      "month": "Ay",
+      "week": "Hafta",
+      "hour": "Saat",
+      "weekday": "Haftanın günü",
+      "order_type": "Sipariş türü",
+      "online_platform": "Platform",
+      "staff": "Personel",
+      "role": "Rol",
+      "table": "Masa",
+      "customer": "Müşteri",
+      "product": "Ürün",
+      "category": "Kategori"
+    },
+    "filterFields": {
+      "bill_total": "Adisyon toplamı"
+    },
+    "operators": {
+      "eq": "eşittir",
+      "ne": "eşit değil",
+      "gt": "büyüktür",
+      "gte": "en az",
+      "lt": "küçüktür",
+      "lte": "en çok",
+      "in": "içinde"
     }
   }
 }
