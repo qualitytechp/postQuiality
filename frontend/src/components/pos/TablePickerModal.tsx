@@ -3,6 +3,7 @@
 import { X } from 'lucide-react';
 import type { Table } from '@/lib/types';
 import { useHeldOrdersStore } from '@/store/held-orders';
+import { usePosSettingsStore } from '@/store/pos-settings';
 import { useTranslations, type AppConfig } from 'use-intl';
 import { TableTurnoverBadge } from '@/components/tables/TableTurnoverBadge';
 
@@ -32,6 +33,11 @@ export default function TablePickerModal({
 }: Props) {
   const heldOrders = useHeldOrdersStore();
   const t = useTranslations('pos');
+  // Este botón dispara `onPlaceOrder` (el mismo handlePlaceOrder de la
+  // página): si el negocio cobra por adelantado, elegir mesa aquí también
+  // termina abriendo el cobro, así que debe decir lo mismo que el botón
+  // principal del carrito.
+  const collectsPaymentNow = usePosSettingsStore((s) => s.billingType) === 'prepaid';
 
   const handleClick = (table: Table) => {
     if (heldOrders.hasHeldOrder(table.id)) {
@@ -125,7 +131,7 @@ export default function TablePickerModal({
               }}
               className="touch-target flex-1 px-4 rounded-xl bg-brand text-white font-medium hover:bg-brand/90 active:bg-brand/90 transition-colors"
             >
-              {t('placeOrderButton')}
+              {collectsPaymentNow ? t('pay') : t('placeOrderButton')}
             </button>
           </div>
         )}

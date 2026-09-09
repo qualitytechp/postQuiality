@@ -22,13 +22,15 @@ interface Props {
   unitPrice: number;
   value: string;
   onChange: (value: string) => void;
+  /** Enter en el campo dispara esto — quien lo pasa decide si el peso alcanza. */
+  onSubmit?: () => void;
 }
 
 /**
  * Teclado para escribir el peso leído en la balanza, con el cálculo a la vista
  * para que el cajero pueda contrastarlo antes de cobrar.
  */
-export default function WeightPad({ unit, precision, unitPrice, value, onChange }: Props) {
+export default function WeightPad({ unit, precision, unitPrice, value, onChange, onSubmit }: Props) {
   const t = useTranslations('pos');
   const tProducts = useTranslations('products');
   const fmt = useFormatCurrency();
@@ -65,6 +67,11 @@ export default function WeightPad({ unit, precision, unitPrice, value, onChange 
               dir="ltr"
               value={value}
               onChange={(e) => handleTyped(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                onSubmit?.();
+              }}
               placeholder="0"
               className="w-24 bg-transparent text-end text-2xl font-bold tabular-nums text-foreground outline-none placeholder:text-muted-foreground/50"
             />

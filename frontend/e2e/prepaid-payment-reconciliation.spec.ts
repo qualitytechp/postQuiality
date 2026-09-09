@@ -12,7 +12,7 @@ test('prepaid checkout uses the authoritative decimal bill total and settles in 
 
   await page.getByTestId('pos-product-card').click();
   await page.getByRole('button', { name: 'Add to Cart - ฿60.00' }).click();
-  await page.getByRole('button', { name: 'Place Order' }).click();
+  await page.getByRole('button', { name: 'Pay' }).click();
 
   await expect(page.getByRole('button', { name: 'Tax ฿4.20' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Confirm Payment · ฿64.20' })).toBeVisible();
@@ -59,7 +59,7 @@ test('prepaid checkout never reports success when the payment response is partia
 
   await page.getByTestId('pos-product-card').click();
   await page.getByRole('button', { name: 'Add to Cart - ฿60.00' }).click();
-  await page.getByRole('button', { name: 'Place Order' }).click();
+  await page.getByRole('button', { name: 'Pay' }).click();
   await expect(page.getByRole('button', { name: 'Confirm Payment · ฿64.20' })).toBeVisible();
   await page.getByRole('button', { name: 'Cash' }).click();
   await expect(page.getByRole('button', { name: 'Confirm Payment · ฿64.20' })).toBeEnabled();
@@ -85,5 +85,5 @@ test('prepaid checkout never reports success when the payment response is partia
   await expect(page.getByText(/Payment incomplete/)).toBeVisible();
   expect(paymentBatchRequests).toBe(1);
   await expect(page.getByText(/Order #ORD-\d+-\d+ paid!/)).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Place Order' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Pay' })).toBeEnabled();
 });

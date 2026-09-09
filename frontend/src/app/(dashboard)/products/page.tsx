@@ -77,7 +77,6 @@ export default function ProductsPage() {
   };
   const { currentTenant } = useAuthStore();
   const [activeTab, setActiveTab] = useState<TabType>('products');
-  const [productSearch, setProductSearch] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [addonGroups, setAddonGroups] = useState<AddonGroup[]>([]);
@@ -119,6 +118,7 @@ export default function ProductsPage() {
   const [showBulkTaxModal, setShowBulkTaxModal] = useState(false);
   const [bulkTaxCategoryId, setBulkTaxCategoryId] = useState('');
   const [bulkTaxApplying, setBulkTaxApplying] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
 
   const currency = getCurrencySymbol(currentTenant?.currency || 'INR', getCountryByCode(currentTenant?.country ?? 'IN')?.locale);
   const unitAdapter = getCurrencyUnitAdapter(currentTenant?.currency || 'INR', currentTenant?.country);

@@ -120,6 +120,12 @@ export default function POSPage() {
   // Consumido de inmediato en el siguiente handlePlaceOrder: un ref evita la
   // carrera de invocar la función otra vez antes de que un setState se aplique.
   const skipCustomerCheckRef = useRef(false);
+  // Al elegir cliente en el diálogo obligatorio, se arma esta bandera para
+  // continuar solo al pedido en cuanto `cart.customerId` refleje la elección
+  // (ver el efecto más abajo). Llamar a handlePlaceOrder en el mismo clic no
+  // sirve: esa función ya quedó fijada con el cart de este render, así que
+  // vería el cliente todavía en null hasta el siguiente render.
+  const continueAfterCustomerRef = useRef(false);
 
   const getAppendAttemptStorage = (): AppendAttemptStorage => {
     if (appendAttemptStorageRef.current) return appendAttemptStorageRef.current;
@@ -336,9 +342,9 @@ export default function POSPage() {
     return data.bill as Bill;
   };
 
-  const printBillForTenant = async (bill: Bill, force = false) => {
+  const printBillForTenant = async (bill: Bill) => {
     if (!currentTenant) return;
-    if (!force && !autoPrintBill) return;
+    if (!autoPrintBill) return;
 
     try {
       const printWarnings = await printBill(bill, currentTenant);
@@ -604,9 +610,19 @@ export default function POSPage() {
     }
   };
 
+  // Retoma el pedido justo después de elegir cliente en el diálogo
+  // obligatorio, en cuanto `cart.customerId` ya refleja esa elección (recién
+  // aquí handlePlaceOrder queda re-creado con el cart actualizado).
+  useEffect(() => {
+    if (continueAfterCustomerRef.current && cart.customerId) {
+      continueAfterCustomerRef.current = false;
+      handlePlaceOrder();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.customerId]);
+
   // Handle prepaid checkout - place order and pay in one step
   const handlePrepaidCheckout = async (payments: PrepaidPayment[], walletAmount: number, discount: PrepaidDiscount | null) => {
-    const isPrepaidCheckout = shouldTakePaymentNow;
     setShowPrepaidCheckout(false);
     setSubmitting(true);
     const orderItems = cart.items.map((item) => ({
@@ -802,7 +818,10 @@ export default function POSPage() {
 
       await printKotIfEnabled(orderData.order);
 
-      await printBillForTenant(paidBill, isPrepaidCheckout);
+      // "Autoimprimir comprobante" gobierna esto igual que en el cobro
+      // posterior (handlePaymentComplete): forzarlo aquí habría dejado el
+      // interruptor sin efecto para cualquier negocio que cobra por adelantado.
+      await printBillForTenant(paidBill);
     } catch {
       toast.error(t('processOrderFailed'));
     } finally {
@@ -1150,6 +1169,7 @@ export default function POSPage() {
           onSelect={(customer) => {
             cart.setCustomer(customer);
             setShowCustomerPrompt(false);
+            continueAfterCustomerRef.current = true;
           }}
           onSkip={() => {
             // Sin el ref, handlePlaceOrder (invocado en el mismo tick) vería

@@ -311,6 +311,7 @@ export default function AddonModal({
                 unitPrice={unitPrice}
                 value={weightInput}
                 onChange={setWeightInput}
+                onSubmit={handleAdd}
               />
             </div>
           ) : (

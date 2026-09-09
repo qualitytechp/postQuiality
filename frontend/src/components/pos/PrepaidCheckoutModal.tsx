@@ -227,6 +227,16 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
         const ratio = (parseFloat(p.amount) || 0) / totalAllocated;
         return { ...p, amount: formatInput(displayRemaining * ratio) };
       }));
+    } else if (cashRemaining > 0) {
+      // Efectivo por defecto con el total ya puesto: el cajero solo confirma,
+      // en vez de tener que elegir el método antes de poder cobrar. Marca
+      // "tocado" como haría un tap manual en Efectivo, así que si después
+      // aplican un descuento el monto no se reajusta solo — mismo
+      // comportamiento que ya tiene cualquier fila que el cajero llene a mano.
+      setPaymentsTouched(true);
+      setPayments(payments.map((p) => (
+        p.method === 'cash' ? { ...p, amount: formatInput(toDisplayUnit(cashRemaining)) } : p
+      )));
     }
   }
 

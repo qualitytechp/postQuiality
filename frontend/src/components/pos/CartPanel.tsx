@@ -48,6 +48,10 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
   const isRestaurant = (currentTenant?.business_type ?? 'restaurant') === 'restaurant';
   const fmt = useFormatCurrency();
   const canHold = isRestaurant && cart.orderType === 'dine_in' && cart.tableId && cart.items.length > 0 && billingType === 'postpaid';
+  // Coincide con `shouldTakePaymentNow` en pos/page.tsx: si el negocio cobra
+  // por adelantado, este botón abre el cobro ahí mismo en vez de mandar el
+  // pedido a cocina para pagar después.
+  const collectsPaymentNow = billingType === 'prepaid';
 
   const handleHold = async () => {
     if (!cart.tableId) {
@@ -294,7 +298,7 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
             className="flex-1"
             size="lg"
           >
-            {submitting ? t('placing') : t('placeOrderButton')}
+            {submitting ? t('placing') : collectsPaymentNow ? t('pay') : t('placeOrderButton')}
           </Button>
         </div>
       </div>
