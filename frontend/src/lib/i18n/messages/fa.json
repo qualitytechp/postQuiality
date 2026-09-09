@@ -725,7 +725,11 @@
     "fullscreenUnavailable": "حالت تمام‌صفحه در دسترس نیست",
     "backspaceAmount": "حذف رقم آخر",
     "numericKeypad": "صفحه‌کلید عددی",
-    "noOpenRegister": "هیچ صندوقی باز نیست. فروش‌ها با موجودی صفر ثبت می‌شوند."
+    "noOpenRegister": "هیچ صندوقی باز نیست. فروش‌ها با موجودی صفر ثبت می‌شوند.",
+    "weight": "وزن",
+    "clearWeight": "پاک کردن وزن",
+    "backspaceWeight": "حذف آخرین رقم وزن",
+    "customerDocument": "شماره شناسایی"
   },
   "printTest": {
     "amt": "مبلغ",

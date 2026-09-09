@@ -127,7 +127,11 @@ export default function CustomerSearch({ onSelected, variant = 'default' }: Prop
       try {
         const { data } = await api.get(`/customers-search?q=${encodeURIComponent(p)}`, { signal: controller.signal });
         const results = Array.isArray(data) ? data : (data.customers || []);
-        const exactMatch = results.find((result: Customer) => phoneMatchesInput(result.phone_digits, p)) || null;
+        // Un documento completo identifica a una persona: pesa más que el
+        // primer resultado por orden alfabético.
+        const exactMatch = results.find((result: Customer) => phoneMatchesInput(result.phone_digits, p))
+          || results.find((result: Customer) => digitsOnly(result.document ?? '') === p)
+          || null;
         const found: Customer | null = exactMatch || results[0] || null;
         setMatched(found);
         setName(found ? found.name : '');

@@ -149,6 +149,9 @@ export interface Customer {
   favourite_dishes?: string[] | null;
   tag_counts?: Record<string, number> | null;
   address?: string | null;
+  /** Documento de identidad. Opcional: buscable junto al teléfono. */
+  document?: string | null;
+  document_digits?: string | null;
 }
 
 export interface Order {

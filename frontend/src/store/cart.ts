@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Customer, Product, Addon, CartItem } from '@/lib/types';
 import { generateCartItemId, normalizeCartItems } from '@/lib/cart-identity';
+import { isWeighedProduct } from '@/lib/weight-input';
 
 export { generateCartItemId, normalizeCartItems } from '@/lib/cart-identity';
 
@@ -149,6 +150,11 @@ export const useCartStore = create<CartState>((set, get) => ({
   },
 
   itemCount: () => {
-    return get().items.reduce((sum, item) => sum + item.quantity, 0);
+    // Un producto pesado cuenta como una línea: sumar su peso daría recuentos
+    // como "0,75 artículos", que no significan nada para el cajero.
+    return get().items.reduce(
+      (sum, item) => sum + (isWeighedProduct(item.product) ? 1 : item.quantity),
+      0,
+    );
   },
 }));

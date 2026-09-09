@@ -4,10 +4,12 @@ import { randomUUID } from 'node:crypto';
 import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { getActiveCountryPack, hasConfiguredTaxCategories } from '../services/tax';
+import { VALID_SALE_UNITS, normalizeSaleUnit } from './products';
 
 const router = Router();
 
 const VALID_TAX_BEHAVIORS = ['country_default', 'inclusive', 'exclusive', 'exempt'];
+const WEIGHTED_SALE_UNITS = VALID_SALE_UNITS.filter((unit) => unit !== 'each');
 
 // Keep CSV imports below Express' default 100 KiB JSON body limit while also
 // bounding the parser's work when it is mounted outside the production server.
@@ -219,14 +221,16 @@ const TEMPLATES: Record<string, string> = {
     'Combos,Meal deals and bundles,amber,🎁,4',
   ].join('\n'),
 
+  // sale_unit accepts each/kg/g/lb; allow_fractional_quantity needs a weighted unit.
   products: [
-    'id,sku,name,category,price,description,cost,tax_category,tax_behavior,cashback_percent,tags,is_active',
-    ',,Cappuccino,Beverages,150,Rich espresso with steamed milk,50,,,,"veg,bestseller",yes',
-    ',,Espresso,Beverages,100,,40,,,,veg,yes',
-    ',,Cold Coffee,Beverages,130,Chilled blended coffee,45,,,,"veg,new_arrival",yes',
-    ',,Classic Burger,Food,250,Juicy patty with lettuce and tomato,100,,,,non_veg,yes',
-    ',,Veg Sandwich,Food,180,Fresh vegetables in toasted bread,60,,,,"veg,new_arrival",yes',
-    ',,Chocolate Cake,Desserts,120,Rich chocolate slice,,,,,veg,yes',
+    'id,sku,name,category,price,description,cost,tax_category,tax_behavior,cashback_percent,tags,is_active,sale_unit,allow_fractional_quantity,weight_precision',
+    ',,Cappuccino,Beverages,150,Rich espresso with steamed milk,50,,,,"veg,bestseller",yes,each,no,',
+    ',,Espresso,Beverages,100,,40,,,,veg,yes,each,no,',
+    ',,Cold Coffee,Beverages,130,Chilled blended coffee,45,,,,"veg,new_arrival",yes,each,no,',
+    ',,Classic Burger,Food,250,Juicy patty with lettuce and tomato,100,,,,non_veg,yes,each,no,',
+    ',,Veg Sandwich,Food,180,Fresh vegetables in toasted bread,60,,,,"veg,new_arrival",yes,each,no,',
+    ',,Chocolate Cake,Desserts,120,Rich chocolate slice,,,,,veg,yes,each,no,',
+    ',,Loose Tea Leaves,Beverages,600,Sold by weight,400,,,,veg,yes,kg,yes,3',
   ].join('\n'),
 
   addons: [
@@ -285,7 +289,7 @@ router.get('/export/products', requireRole(...ROLE_ACCESS.ownerManager), (_req: 
          ORDER BY c.sort_order, p.sort_order, p.name`
       )
       .all() as any[];
-    const lines = ['id,sku,name,category,price,description,cost,tax_category,tax_behavior,cashback_percent,tags,is_active'];
+    const lines = ['id,sku,name,category,price,description,cost,tax_category,tax_behavior,cashback_percent,tags,is_active,sale_unit,allow_fractional_quantity,weight_precision'];
     for (const p of rows) {
       let tags = '';
       if (p.tags) {
@@ -295,7 +299,8 @@ router.get('/export/products', requireRole(...ROLE_ACCESS.ownerManager), (_req: 
       lines.push(
         toCsvRow([p.id, p.sku, p.name, p.category_name, p.price, p.description, p.cost,
           p.tax_category_id ?? '', p.tax_behavior ?? '',
-          p.cb_percent !== null ? p.cb_percent : '', tags, p.is_active ? 'yes' : 'no'])
+          p.cb_percent !== null ? p.cb_percent : '', tags, p.is_active ? 'yes' : 'no',
+          p.sale_unit ?? 'each', p.allow_fractional_quantity ? 'yes' : 'no', p.weight_precision ?? 3])
       );
     }
     res.setHeader('Content-Type', 'text/csv');
@@ -384,6 +389,10 @@ router.post('/import/products', requireRole(...ROLE_ACCESS.ownerManager), (req: 
     const headers = new Set((parsedCsv[0] || []).map((header) => header.trim().toLowerCase()));
     const hasTaxCategoryColumn = headers.has('tax_category');
     const hasTaxBehaviorColumn = headers.has('tax_behavior');
+    // Weighted-sale columns are optional: files without them keep the stored values.
+    const hasSaleUnitColumn = headers.has('sale_unit');
+    const hasFractionalColumn = headers.has('allow_fractional_quantity');
+    const hasPrecisionColumn = headers.has('weight_precision');
     const rows = toObjects(parsedCsv);
     if (!rows.length) return res.status(400).json({ error: 'CSV has no data rows' });
 
@@ -477,14 +486,49 @@ router.post('/import/products', requireRole(...ROLE_ACCESS.ownerManager), (req: 
         taxBehavior = r.tax_behavior;
       }
 
+      let saleUnit = 'each';
+      if (r.sale_unit) {
+        if (!VALID_SALE_UNITS.includes(r.sale_unit as any)) {
+          failed++;
+          errors.push(`Row ${i + 2} (${r.name}): sale_unit "${r.sale_unit}" must be one of: ${VALID_SALE_UNITS.join(', ')}`);
+          continue;
+        }
+        saleUnit = normalizeSaleUnit(r.sale_unit);
+      }
+
+      const allowFractional = hasFractionalColumn && isTruthy(r.allow_fractional_quantity) ? 1 : 0;
+      if (allowFractional === 1 && !WEIGHTED_SALE_UNITS.includes(saleUnit as any)) {
+        failed++;
+        errors.push(`Row ${i + 2} (${r.name}): allow_fractional_quantity requires sale_unit to be one of: ${WEIGHTED_SALE_UNITS.join(', ')}`);
+        continue;
+      }
+
+      const precisionResult = parseNumericField(r.weight_precision, 'weight_precision',
+        { optional: true, defaultValue: 3, integer: true, min: 0, max: 4 });
+      if (!precisionResult.ok) {
+        failed++;
+        errors.push(`Row ${i + 2} (${r.name}): ${precisionResult.error}`);
+        continue;
+      }
+      const weightPrecision = precisionResult.value;
+
       // If an id is provided, try to update the existing product.
       if (r.id) {
         const existing = db
-          .prepare('SELECT id, is_active FROM products WHERE id = ? AND deleted_at IS NULL')
-          .get(r.id) as { id: string; is_active: number } | undefined;
+          .prepare('SELECT id, is_active, sale_unit, allow_fractional_quantity FROM products WHERE id = ? AND deleted_at IS NULL')
+          .get(r.id) as { id: string; is_active: number; sale_unit: string; allow_fractional_quantity: number } | undefined;
         if (!existing) {
           failed++;
           errors.push(`Row ${i + 2} (${r.name}): id "${r.id}" not found — leave id blank to create a new item`);
+          continue;
+        }
+        // Guard the combination the row leaves behind, not just the columns it carries:
+        // switching a stored weighted product to 'each' must not keep fractional quantities on.
+        const effectiveSaleUnit = hasSaleUnitColumn ? saleUnit : existing.sale_unit;
+        const effectiveFractional = hasFractionalColumn ? allowFractional : Number(existing.allow_fractional_quantity);
+        if (effectiveFractional === 1 && !WEIGHTED_SALE_UNITS.includes(effectiveSaleUnit as any)) {
+          failed++;
+          errors.push(`Row ${i + 2} (${r.name}): sale_unit "${effectiveSaleUnit}" cannot keep allow_fractional_quantity enabled — set allow_fractional_quantity to no`);
           continue;
         }
         db.prepare(
@@ -492,11 +536,17 @@ router.post('/import/products', requireRole(...ROLE_ACCESS.ownerManager), (req: 
            tax_type=?, tax_rate=?,
            tax_category_id=CASE WHEN ? = 1 THEN ? ELSE tax_category_id END,
            tax_behavior=CASE WHEN ? = 1 THEN ? ELSE tax_behavior END,
+           sale_unit=CASE WHEN ? = 1 THEN ? ELSE sale_unit END,
+           allow_fractional_quantity=CASE WHEN ? = 1 THEN ? ELSE allow_fractional_quantity END,
+           weight_precision=CASE WHEN ? = 1 THEN ? ELSE weight_precision END,
            cb_percent=?, tags=?, is_active=?, sku=?, updated_at=?
            WHERE id=?`
         ).run(r.name, categoryId, price, r.description || null, cost,
           'none', 0, hasTaxCategoryColumn ? 1 : 0, taxCategoryId,
           hasTaxBehaviorColumn ? 1 : 0, taxBehavior,
+          hasSaleUnitColumn ? 1 : 0, saleUnit,
+          hasFractionalColumn ? 1 : 0, allowFractional,
+          hasPrecisionColumn ? 1 : 0, weightPrecision,
           cbPercent, tagsJson, isActive, sku, now(), r.id);
         if (existing.is_active === 0 && isActive === 1) reactivated++;
         else updated++;
@@ -511,10 +561,13 @@ router.post('/import/products', requireRole(...ROLE_ACCESS.ownerManager), (req: 
 
       db.prepare(
         `INSERT INTO products (id, name, category_id, price, description, cost, tax_type, tax_rate,
-         tax_category_id, tax_behavior, cb_percent, tags, is_active, sku, sort_order, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
+         tax_category_id, tax_behavior, sale_unit, allow_fractional_quantity, weight_precision,
+         cb_percent, tags, is_active, sku, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
       ).run(generateShortId('products'), r.name, categoryId, price, r.description || null,
-        cost, 'none', 0, taxCategoryId, taxBehavior || 'country_default', cbPercent, tagsJson, isActive, sku, now(), now());
+        cost, 'none', 0, taxCategoryId, taxBehavior || 'country_default',
+        saleUnit, allowFractional, weightPrecision,
+        cbPercent, tagsJson, isActive, sku, now(), now());
       created++;
     } })();
 

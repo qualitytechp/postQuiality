@@ -725,7 +725,11 @@
     "fullscreenUnavailable": "Le mode plein écran n'est pas disponible",
     "backspaceAmount": "Effacer le dernier chiffre",
     "numericKeypad": "Pavé numérique",
-    "noOpenRegister": "Aucune caisse ouverte. Les ventes sont enregistrées avec un fonds nul."
+    "noOpenRegister": "Aucune caisse ouverte. Les ventes sont enregistrées avec un fonds nul.",
+    "weight": "Poids",
+    "clearWeight": "Effacer le poids",
+    "backspaceWeight": "Supprimer le dernier chiffre du poids",
+    "customerDocument": "Pièce d'identité"
   },
   "printTest": {
     "amt": "Montant",

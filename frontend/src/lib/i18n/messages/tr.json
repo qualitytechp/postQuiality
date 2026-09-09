@@ -725,7 +725,11 @@
     "fullscreenUnavailable": "Tam ekran desteklenmiyor",
     "backspaceAmount": "Sil",
     "numericKeypad": "Sayısal Tuş Takımı",
-    "noOpenRegister": "Açık kasa yok. Satışlar sıfır başlangıçla kaydedilir."
+    "noOpenRegister": "Açık kasa yok. Satışlar sıfır başlangıçla kaydedilir.",
+    "weight": "Ağırlık",
+    "clearWeight": "Ağırlığı temizle",
+    "backspaceWeight": "Son ağırlık rakamını sil",
+    "customerDocument": "Kimlik numarası"
   },
   "printTest": {
     "amt": "Tutar",

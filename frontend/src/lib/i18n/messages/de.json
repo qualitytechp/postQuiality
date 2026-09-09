@@ -725,7 +725,11 @@
     "fullscreenUnavailable": "Vollbildmodus nicht verfügbar",
     "backspaceAmount": "Ziffer löschen",
     "numericKeypad": "Ziffernblock",
-    "noOpenRegister": "Keine Kasse geöffnet. Verkäufe werden mit Wechselgeld null erfasst."
+    "noOpenRegister": "Keine Kasse geöffnet. Verkäufe werden mit Wechselgeld null erfasst.",
+    "weight": "Gewicht",
+    "clearWeight": "Gewicht löschen",
+    "backspaceWeight": "Letzte Gewichtsziffer löschen",
+    "customerDocument": "Ausweisnummer"
   },
   "printTest": {
     "amt": "Betrag",

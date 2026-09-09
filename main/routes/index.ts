@@ -213,10 +213,13 @@ export function registerRoutes(app: Express): void {
       const isPhoneLikeSearch = digitsSearch.length > 0 && !/\p{L}/u.test(rawSearch);
       const searchTerm = `%${rawSearch}%`;
       const phoneDigitsSearch = `REPLACE(phone_digits, '/', '')`;
+      // Un documento tecleado es sólo otra cadena de dígitos, así que entra por
+      // la misma casilla que el teléfono. Los negocios que no lo usan lo tienen
+      // vacío y la condición nunca acierta.
       const query = isPhoneLikeSearch
         ? `
         SELECT * FROM customers
-        WHERE is_active = 1 AND (${phoneDigitsSearch} LIKE ? OR name LIKE ? OR email LIKE ?)
+        WHERE is_active = 1 AND (${phoneDigitsSearch} LIKE ? OR document_digits LIKE ? OR name LIKE ? OR email LIKE ?)
         ORDER BY name LIMIT 20
       `
         : `
@@ -225,7 +228,7 @@ export function registerRoutes(app: Express): void {
         ORDER BY name LIMIT 20
       `;
       const params = isPhoneLikeSearch
-        ? [`%${digitsSearch}%`, searchTerm, searchTerm]
+        ? [`%${digitsSearch}%`, `%${digitsSearch}%`, searchTerm, searchTerm]
         : [searchTerm, searchTerm];
 
       const customers = db.prepare(query).all(...params) as any[];

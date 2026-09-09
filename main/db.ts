@@ -4102,6 +4102,42 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       `);
     },
   },
+  {
+    version: 85,
+    name: 'add_customers_document',
+    up: () => {
+      // Documento de identidad del cliente. Opcional: los negocios que no lo
+      // piden lo dejan vacío y nada cambia para ellos.
+      //
+      // `document_digits` sigue el mismo patrón que `phone_digits` para que la
+      // búsqueda del POS —que reduce lo tecleado a dígitos— encuentre un
+      // documento escrito con puntos o guiones. El índice no es único: quién
+      // puede repetir un documento es una regla de cada negocio, no del motor.
+      if (!getColumns(db, 'customers').includes('document')) {
+        db.exec(`ALTER TABLE customers ADD COLUMN document TEXT`);
+      }
+      // `table_info` esconde las columnas generadas, así que `getColumns` nunca
+      // vería `document_digits` y la migración intentaría crearla otra vez al
+      // reaplicarse. `table_xinfo` sí las lista.
+      const allColumns = (db.prepare('PRAGMA table_xinfo(customers)').all() as { name: string }[])
+        .map((column) => column.name);
+      if (!allColumns.includes('document_digits')) {
+        db.exec(`
+          ALTER TABLE customers ADD COLUMN document_digits TEXT
+            GENERATED ALWAYS AS (
+              CASE WHEN document IS NULL THEN NULL
+                   ELSE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(document, '+', ''), ' ', ''), '-', ''), '(', ''), ')', ''), '.', '')
+              END
+            ) VIRTUAL
+        `);
+      }
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_customers_document_digits
+        ON customers(document_digits)
+        WHERE document_digits IS NOT NULL AND document_digits != ''
+      `);
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {
@@ -4339,6 +4375,7 @@ function createSchema(): void {
       email TEXT,
       phone TEXT,
       country_code TEXT DEFAULT '+91',
+      document TEXT,
       address TEXT,
       notes TEXT,
       tag_counts TEXT DEFAULT NULL,

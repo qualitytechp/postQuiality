@@ -725,7 +725,11 @@
     "fullscreenUnavailable": "Full-screen mode is unavailable",
     "backspaceAmount": "Backspace amount",
     "numericKeypad": "Numeric keypad",
-    "noOpenRegister": "No register is open. Sales are recorded with a zero float."
+    "noOpenRegister": "No register is open. Sales are recorded with a zero float.",
+    "weight": "Weight",
+    "clearWeight": "Clear weight",
+    "backspaceWeight": "Delete last weight digit",
+    "customerDocument": "ID document"
   },
   "printTest": {
     "amt": "Amt",

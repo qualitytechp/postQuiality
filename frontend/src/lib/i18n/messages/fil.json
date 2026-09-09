@@ -725,7 +725,11 @@
     "fullscreenUnavailable": "Hindi available ang full-screen mode",
     "backspaceAmount": "I-backspace ang halaga",
     "numericKeypad": "Numeric keypad",
-    "noOpenRegister": "Walang bukas na kaha. Zero ang panimulang pondo ng mga benta."
+    "noOpenRegister": "Walang bukas na kaha. Zero ang panimulang pondo ng mga benta.",
+    "weight": "Timbang",
+    "clearWeight": "I-clear ang timbang",
+    "backspaceWeight": "Burahin ang huling digit ng timbang",
+    "customerDocument": "Dokumento ng ID"
   },
   "printTest": {
     "amt": "Halaga",

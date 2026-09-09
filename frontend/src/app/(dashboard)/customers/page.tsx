@@ -49,7 +49,7 @@ export default function CustomersPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
 
-  const [form, setForm] = useState({ name: '', phone: '', email: '', country_code: dialCode });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', document: '', country_code: dialCode });
 
   const [ledgerCustomer, setLedgerCustomer] = useState<Customer | null>(null);
   const [ledgerData, setLedgerData] = useState<{
@@ -96,14 +96,14 @@ export default function CustomersPage() {
   const openAdd = () => {
     setEditingCustomer(null);
 
-    setForm({ name: '', phone: '', email: '', country_code: dialCode });
+    setForm({ name: '', phone: '', email: '', document: '', country_code: dialCode });
     setShowForm(true);
   };
 
   const openEdit = (c: Customer) => {
     setEditingCustomer(c);
 
-    setForm({ name: c.name, phone: c.phone || '', email: c.email || '', country_code: c.country_code || dialCode });
+    setForm({ name: c.name, phone: c.phone || '', email: c.email || '', document: c.document || '', country_code: c.country_code || dialCode });
     setShowForm(true);
   };
 
@@ -201,6 +201,11 @@ export default function CustomersPage() {
                 <td className="p-4">
                   <p className="font-medium text-foreground">{c.name}</p>
                   <p className="text-xs text-muted-foreground">{c.email || '—'}</p>
+                  {c.document && (
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {tPos('customerDocument')}: <Ltr>{c.document}</Ltr>
+                    </p>
+                  )}
                 </td>
                 <td className="p-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
@@ -382,6 +387,8 @@ export default function CustomersPage() {
                   className="flex-1 px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-brand" required={!editingCustomer} />
               </div>
               <input type="email" placeholder={`${tCustomer('email')} (${tCommon('optional')})`} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-brand" />
+              <input type="text" inputMode="numeric" dir="ltr" placeholder={`${tPos('customerDocument')} (${tCommon('optional')})`} value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })}
                 className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-brand" />
               <Button type="submit" className="w-full">{editingCustomer ? tCustomer('update') : tCustomer('add')}</Button>
             </form>

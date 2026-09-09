@@ -8,10 +8,11 @@ import { usePosSettingsStore } from '@/store/pos-settings';
 import { nameToColor } from '@/lib/image-utils';
 import TagBadge from './DietaryBadge';
 import api from '@/lib/api';
-import { useTranslations } from 'use-intl';
+import { useTranslations, useLocale } from 'use-intl';
 import { parseDbTimestamp } from '@/lib/utils';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { resolveScannedProduct } from '@/lib/scale-barcode';
+import { clampWeightPrecision, formatWeight, isWeighedProduct } from '@/lib/weight-input';
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string; activeBg: string; activeText: string }> = {
   red: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', activeBg: 'bg-red-500', activeText: 'text-white' },
@@ -58,6 +59,10 @@ export default function ProductGrid({
   const { showProductImages } = usePosSettingsStore();
   const t = useTranslations('pos');
   const fmt = useFormatCurrency();
+  const tProducts = useTranslations('products');
+  const locale = useLocale();
+  const unitLabel = (unit: string | undefined) =>
+    tProducts(`saleUnit${String(unit).charAt(0).toUpperCase()}${String(unit).slice(1)}` as never);
   const cartQuantities = useMemo(() => {
     const quantities = new Map<Product['id'], number>();
     for (const item of cart.items) {
@@ -163,8 +168,12 @@ export default function ProductGrid({
                   </>
                 )}
                 {inCartQty > 0 && (
-                  <span className="absolute top-0 end-0 bg-brand text-white text-xs w-6 h-6 rounded-es-lg flex items-center justify-center font-bold z-10">
-                    {inCartQty}
+                  // El ancho es flexible porque un producto pesado muestra el
+                  // peso con su unidad, no un contador de una cifra.
+                  <span className="absolute top-0 end-0 bg-brand text-white text-xs min-w-6 h-6 px-1 rounded-es-lg flex items-center justify-center font-bold tabular-nums z-10">
+                    {isWeighedProduct(product)
+                      ? `${formatWeight(inCartQty, clampWeightPrecision(product.weight_precision), locale)} ${unitLabel(product.sale_unit)}`
+                      : inCartQty}
                   </span>
                 )}
 

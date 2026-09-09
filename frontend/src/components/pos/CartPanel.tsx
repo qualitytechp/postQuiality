@@ -10,10 +10,11 @@ import { useCartStore } from '@/store/cart';
 import { useHeldOrdersStore } from '@/store/held-orders';
 import { useAuthStore } from '@/store/auth';
 import { usePosSettingsStore } from '@/store/pos-settings';
-import { useTranslations } from 'use-intl';
+import { useTranslations, useLocale } from 'use-intl';
 import toast from 'react-hot-toast';
 import type { Table, Order, OrderItem, CartItem } from '@/lib/types';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
+import { clampWeightPrecision, formatWeight, isWeighedProduct } from '@/lib/weight-input';
 
 interface Props {
   tables: Table[];
@@ -40,6 +41,10 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
   const billingType = usePosSettingsStore((s) => s.billingType);
   const t = useTranslations('pos');
   const tCommon = useTranslations('common');
+  const tProducts = useTranslations('products');
+  const locale = useLocale();
+  const unitLabel = (unit: string | undefined) =>
+    tProducts(`saleUnit${String(unit).charAt(0).toUpperCase()}${String(unit).slice(1)}` as never);
   const isRestaurant = (currentTenant?.business_type ?? 'restaurant') === 'restaurant';
   const fmt = useFormatCurrency();
   const canHold = isRestaurant && cart.orderType === 'dine_in' && cart.tableId && cart.items.length > 0 && billingType === 'postpaid';
@@ -200,9 +205,10 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
                 <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm text-muted-foreground">
                     {fmt(Number(item.product.price))}
+                    {isWeighedProduct(item.product) && `/${unitLabel(item.product.sale_unit)}`}
                   </p>
                   <div className="flex items-center gap-1.5">
-                    {onEditItem && (
+                    {onEditItem && !isWeighedProduct(item.product) && (
                       <button
                         onClick={() => onEditItem(item)}
                         className="touch-target shrink-0 gap-1 rounded-full bg-amber-100 px-3 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-200 active:bg-amber-200"
@@ -211,21 +217,37 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
                         {tCommon('edit')}
                       </button>
                     )}
-                    <button
-                      onClick={() => cart.updateQuantity(item.id, item.quantity - 1)}
-                      className="touch-target rounded-full bg-muted transition-colors hover:bg-muted/70 active:bg-muted/70"
-                      aria-label={t('remove')}
-                    >
-                      <Minus size={16} />
-                    </button>
-                    <span className="w-6 text-center text-base font-semibold tabular-nums">{item.quantity}</span>
-                    <button
-                      onClick={() => cart.updateQuantity(item.id, item.quantity + 1)}
-                      className="touch-target rounded-full bg-muted transition-colors hover:bg-muted/70 active:bg-muted/70"
-                      aria-label={t('addItems')}
-                    >
-                      <Plus size={16} />
-                    </button>
+                    {isWeighedProduct(item.product) ? (
+                      // Un contador de +1 saltaría de kilo en kilo: el peso se
+                      // corrige volviendo al teclado donde se escribió.
+                      <button
+                        onClick={() => onEditItem?.(item)}
+                        disabled={!onEditItem}
+                        className="touch-target shrink-0 gap-1 rounded-full bg-amber-100 px-3 text-sm font-semibold tabular-nums text-amber-700 transition-colors hover:bg-amber-200 active:bg-amber-200 disabled:opacity-70"
+                      >
+                        <SquarePen size={12} />
+                        {formatWeight(item.quantity, clampWeightPrecision(item.product.weight_precision), locale)}
+                        {' '}{unitLabel(item.product.sale_unit)}
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => cart.updateQuantity(item.id, item.quantity - 1)}
+                          className="touch-target rounded-full bg-muted transition-colors hover:bg-muted/70 active:bg-muted/70"
+                          aria-label={t('remove')}
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <span className="w-6 text-center text-base font-semibold tabular-nums">{item.quantity}</span>
+                        <button
+                          onClick={() => cart.updateQuantity(item.id, item.quantity + 1)}
+                          className="touch-target rounded-full bg-muted transition-colors hover:bg-muted/70 active:bg-muted/70"
+                          aria-label={t('addItems')}
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

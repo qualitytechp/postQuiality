@@ -252,7 +252,7 @@ function loadProductRelationsBatch(db: any, products: any[]) {
 }
 
 const VALID_TAX_BEHAVIORS = ['country_default', 'inclusive', 'exclusive', 'exempt'];
-const VALID_SALE_UNITS = ['each', 'kg', 'g', 'lb'] as const;
+export const VALID_SALE_UNITS = ['each', 'kg', 'g', 'lb'] as const;
 
 const router = Router();
 
@@ -324,7 +324,7 @@ function validateProductNumericFields(values: Record<string, unknown>, requirePr
   return null;
 }
 
-function normalizeSaleUnit(value: unknown): typeof VALID_SALE_UNITS[number] {
+export function normalizeSaleUnit(value: unknown): typeof VALID_SALE_UNITS[number] {
   return VALID_SALE_UNITS.includes(value as any) ? value as typeof VALID_SALE_UNITS[number] : 'each';
 }
 

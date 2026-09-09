@@ -29,6 +29,7 @@ export default function CreateCustomerModal({ initialSearch = '', onClose, onCre
   const isPhoneLike = Boolean(initialSearch && /\d/.test(initialSearch) && !/\p{L}/u.test(initialSearch));
   const [name, setName] = useState(isPhoneLike ? '' : initialSearch.trim());
   const [phone, setPhone] = useState(isPhoneLike ? initialSearch.trim() : '');
+  const [document, setDocument] = useState('');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -49,6 +50,7 @@ export default function CreateCustomerModal({ initialSearch = '', onClose, onCre
         name: name.trim(),
         phone: norm.e164 ?? '',
         country_code: norm.countryCode ?? '',
+        document: document.trim(),
       });
       onCreated(data.customer);
       toast.success(t('customerCreated'));
@@ -98,6 +100,17 @@ export default function CreateCustomerModal({ initialSearch = '', onClose, onCre
               className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:ring-2 focus:ring-brand focus:border-brand outline-none"
               dir="ltr"
               autoFocus={isPhoneLike}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">{t('customerDocument')}</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={document}
+              onChange={(e) => setDocument(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:ring-2 focus:ring-brand focus:border-brand outline-none"
+              dir="ltr"
             />
           </div>
         </div>

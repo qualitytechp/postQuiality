@@ -172,8 +172,8 @@ router.get('/', customerReadRateLimit, requireRole(...ROLE_ACCESS.sales), (req: 
       const phoneDigitsSearch = `REPLACE(c.phone_digits, '/', '')`;
 
       if (isPhoneLikeSearch) {
-        query += ` AND (c.name LIKE ? OR ${phoneDigitsSearch} LIKE ? OR c.email LIKE ?)`;
-        params.push(search, `%${digitsSearch}%`, search);
+        query += ` AND (c.name LIKE ? OR ${phoneDigitsSearch} LIKE ? OR c.document_digits LIKE ? OR c.email LIKE ?)`;
+        params.push(search, `%${digitsSearch}%`, `%${digitsSearch}%`, search);
       } else {
         query += ' AND (c.name LIKE ? OR c.email LIKE ?)';
         params.push(search, search);
@@ -298,11 +298,13 @@ router.get('/:id/wallet', customerReadRateLimit, requireRole(...ROLE_ACCESS.sale
 
 router.post('/', customerWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: Request, res: Response) => {
   try {
-    const { phone, name, email, address, notes, country_code } = req.body;
+    const { phone, name, email, address, notes, country_code, document } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ message: 'Name is required' });
     }
+
+    const finalDocument = document ? String(document).trim() || null : null;
 
     const db = getDatabase();
 
@@ -330,6 +332,7 @@ router.post('/', customerWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req
               country_code = ?,
               address = ?,
               notes = ?,
+              document = COALESCE(?, document),
               is_active = 1,
               updated_at = ?
             WHERE id = ?
@@ -340,6 +343,7 @@ router.post('/', customerWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req
             finalCountryCode,
             address ? String(address).trim() : null,
             notes ? String(notes).trim() : null,
+            finalDocument,
             now(),
             existing.id
           );
@@ -354,8 +358,8 @@ router.post('/', customerWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req
     const id = `cust-${randomUUID()}`;
     const timestamp = now();
     db.prepare(`
-      INSERT INTO customers (id, phone, name, email, country_code, address, notes, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO customers (id, phone, name, email, country_code, address, notes, document, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       finalPhone,
@@ -364,6 +368,7 @@ router.post('/', customerWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req
       finalCountryCode,
       address ? String(address).trim() : null,
       notes ? String(notes).trim() : null,
+      finalDocument,
       timestamp,
       timestamp
     );
@@ -379,7 +384,7 @@ router.post('/', customerWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req
 router.put('/:id', customerWriteRateLimit, requireRole(...ROLE_ACCESS.ownerManagerCashier), (req: Request, res: Response) => {
   try {
     const {
-      phone, name, email, address, notes, country_code
+      phone, name, email, address, notes, country_code, document
     } = req.body;
     const db = getDatabase();
 
@@ -426,6 +431,9 @@ router.put('/:id', customerWriteRateLimit, requireRole(...ROLE_ACCESS.ownerManag
     const finalEmail = email !== undefined ? (email ? String(email).trim() : null) : customer.email;
     const finalAddress = address !== undefined ? (address ? String(address).trim() : null) : customer.address;
     const finalNotes = notes !== undefined ? (notes ? String(notes).trim() : null) : customer.notes;
+    const finalDocument = document !== undefined
+      ? (document ? String(document).trim() || null : null)
+      : customer.document;
 
     db.prepare(`
       UPDATE customers SET
@@ -435,10 +443,11 @@ router.put('/:id', customerWriteRateLimit, requireRole(...ROLE_ACCESS.ownerManag
         country_code = ?,
         address = ?,
         notes = ?,
+        document = ?,
         updated_at = ?
       WHERE id = ?
     `).run(
-      finalPhone, finalName, finalEmail, finalCountryCode, finalAddress, finalNotes, now(), req.params.id
+      finalPhone, finalName, finalEmail, finalCountryCode, finalAddress, finalNotes, finalDocument, now(), req.params.id
     );
 
     const updated = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);

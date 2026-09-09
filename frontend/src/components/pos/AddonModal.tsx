@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from 'use-intl';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
+import WeightPad from '@/components/pos/WeightPad';
+import { clampWeightPrecision, isWeighedProduct, parseWeightInput } from '@/lib/weight-input';
 import type { Product, Addon, AddonGroup } from '@/lib/types';
 
 interface Props {
@@ -36,10 +38,22 @@ export default function AddonModal({
   submitLabel,
 }: Props) {
   const t = useTranslations('pos');
+  const tProducts = useTranslations('products');
   const fmt = useFormatCurrency();
   const [selected, setSelected] = useState<Record<string | number, Addon[]>>(() => groupInitialAddons(initialAddons));
   const [quantity, setQuantity] = useState(initialQuantity);
   const [instructions, setInstructions] = useState(initialInstructions);
+
+  // Productos por peso: la cantidad se teclea como peso en vez de contarse.
+  const weighed = isWeighedProduct(product);
+  const precision = clampWeightPrecision(product.weight_precision);
+  // Al añadir se empieza en blanco a propósito: un peso por defecto se cobraría
+  // tal cual si el cajero olvidara teclear el de la balanza.
+  const [weightInput, setWeightInput] = useState(() =>
+    weighed && mode === 'edit' && initialQuantity > 0
+      ? String(Number(initialQuantity.toFixed(precision)))
+      : '');
+  const weight = parseWeightInput(weightInput, precision);
 
   const groups = product.addon_groups || [];
 
@@ -95,9 +109,11 @@ export default function AddonModal({
 
   const allAddons = Object.values(selected).flat();
   const addonTotal = allAddons.reduce((sum, a) => sum + Number(a.price) * (a.quantity || 1), 0);
-  const itemTotal = (Number(product.price) + addonTotal) * quantity;
+  const unitPrice = Number(product.price) + addonTotal;
+  const effectiveQuantity = weighed ? (weight ?? 0) : quantity;
+  const itemTotal = unitPrice * effectiveQuantity;
 
-  const isValid = groups.every((g) => {
+  const isValid = (weighed ? weight !== null : true) && groups.every((g) => {
     const count = getGroupTotalQuantity(g.id);
     const requiredMin = Boolean(g.is_required) ? Math.max(1, g.min_selection || 1) : (g.min_selection || 0);
     if (count < requiredMin) return false;
@@ -107,7 +123,7 @@ export default function AddonModal({
 
   const handleAdd = () => {
     if (!isValid) return;
-    onAdd(product, quantity, allAddons, instructions);
+    onAdd(product, effectiveQuantity, allAddons, instructions);
     onClose();
   };
 
@@ -117,7 +133,10 @@ export default function AddonModal({
         <div className="flex justify-between items-center p-5 border-b border-border">
           <div>
             <h2 className="text-lg font-bold text-foreground">{product.name}</h2>
-            <p className="text-brand font-semibold">{fmt(Number(product.price))}</p>
+            <p className="text-brand font-semibold">
+              {fmt(Number(product.price))}
+              {weighed && `/${tProducts(`saleUnit${String(product.sale_unit).charAt(0).toUpperCase()}${String(product.sale_unit).slice(1)}` as never)}`}
+            </p>
           </div>
           <button onClick={onClose} className="touch-target rounded-full text-gray-400 hover:text-muted-foreground active:bg-muted" aria-label={t('close')}>
             <X size={20} />
@@ -284,6 +303,17 @@ export default function AddonModal({
         </div>
 
         <div className="p-5 border-t border-border">
+          {weighed ? (
+            <div className="mb-4">
+              <WeightPad
+                unit={String(product.sale_unit)}
+                precision={precision}
+                unitPrice={unitPrice}
+                value={weightInput}
+                onChange={setWeightInput}
+              />
+            </div>
+          ) : (
           <div className="flex items-center justify-center gap-4 mb-4">
             <button
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -315,6 +345,7 @@ export default function AddonModal({
               <Plus size={18} />
             </button>
           </div>
+          )}
           <Button onClick={handleAdd} disabled={!isValid} className="w-full" size="lg">
             {submitLabel
               ? submitLabel(fmt(itemTotal))

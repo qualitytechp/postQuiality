@@ -725,7 +725,11 @@
     "fullscreenUnavailable": "El modo de pantalla completa no está disponible",
     "backspaceAmount": "Borrar último dígito",
     "numericKeypad": "Teclado numérico",
-    "noOpenRegister": "No hay caja abierta. Las ventas quedan con fondo cero."
+    "noOpenRegister": "No hay caja abierta. Las ventas quedan con fondo cero.",
+    "weight": "Peso",
+    "clearWeight": "Borrar peso",
+    "backspaceWeight": "Borrar último dígito del peso",
+    "customerDocument": "Documento"
   },
   "printTest": {
     "amt": "Total",
