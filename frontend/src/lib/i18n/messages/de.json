@@ -2579,6 +2579,9 @@
     "loadMore": "Mehr laden",
     "shiftScope": "Schicht",
     "dayScope": "Tag",
-    "counted": "Gezählt"
+    "counted": "Gezählt",
+    "billingDetail": "Abrechnungsdetail",
+    "noBillsYet": "Noch keine Verkäufe in dieser Schicht",
+    "toggleItems": "Artikel dieser Rechnung anzeigen"
   }
 }

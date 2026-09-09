@@ -618,6 +618,20 @@ router.get('/insights', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
 //   by exactly opening_float_cents. Consumers must not compare them
 //   directly; X is the live drawer expectation, Z is the point-in-time
 //   snapshot that bakes in the float.
+// Shared by /x-report and /x-report/bills so the bill list a manager expands
+// always matches the totals shown above it: an open session scopes both to
+// the session window, not the full business day.
+function resolveXReportWindow(db: ReturnType<typeof getDatabase>, date: string, today: string): {
+  openSession: any;
+  bounds: [string, string];
+} {
+  const openSession = getOpenCashSession(db) as any;
+  const bounds: [string, string] = openSession && date === today
+    ? [String(openSession.opened_at), new Date().toISOString().replace('T', ' ').slice(0, 19)]
+    : reportDayBounds(date);
+  return { openSession, bounds };
+}
+
 router.get('/x-report', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
   try {
     const today = reportToday();
@@ -626,11 +640,9 @@ router.get('/x-report', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
     const minorFactor = getCurrencyMinorUnitFactor(getTenantCurrency(db));
     const [periodStart, periodEnd] = reportDayBounds(date);
 
-    const openSession = getOpenCashSession(db) as any;
+    const { openSession, bounds } = resolveXReportWindow(db, date, today);
     // Con caja abierta el X refleja el turno en curso, no el día entero.
-    const aggregates = openSession && date === today
-      ? computeDayAggregates(db, date, [String(openSession.opened_at), new Date().toISOString().replace('T', ' ').slice(0, 19)])
-      : computeDayAggregates(db, date);
+    const aggregates = computeDayAggregates(db, date, bounds);
 
     const closedRow = db.prepare(
       `SELECT z_number FROM cash_closures WHERE business_date = ? AND scope = 'day' LIMIT 1`
@@ -686,6 +698,67 @@ router.get('/x-report', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
         zNumber: closedRow?.z_number,
       },
     });
+  } catch (error: any) {
+    console.error('[API] Internal error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ── GET /x-report/bills — per-invoice detail for the live X window ──────
+// Same window as /x-report (open-session-scoped, or the full business day
+// when no session is open) so the bill list a manager expands always adds up
+// to the totals already shown above it. Items are joined the same way the
+// receipt is (see main/routes/bills.ts's getOrderWithItems): a weighed line
+// shows its unit (sale_unit/weight_precision), not a bare decimal.
+router.get('/x-report/bills', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const today = reportToday();
+    const date = reportDate(req.query.date, today);
+    const db = getDatabase();
+    const { bounds } = resolveXReportWindow(db, date, today);
+    const [start, end] = bounds;
+
+    const billRows = db.prepare(`
+      SELECT b.*, c.name AS customer_name
+      FROM bills b
+      LEFT JOIN customers c ON c.id = b.customer_id
+      WHERE b.paid_at >= ? AND b.paid_at < ?
+      ORDER BY b.paid_at, b.id
+    `).all(start, end) as any[];
+
+    const ordersByBill = getOrdersWithItemsForBills(db, billRows);
+
+    const bills = billRows.map((bill) => {
+      let paymentMethods: { method: string; amount: number }[] = [];
+      try {
+        const parsed = JSON.parse(bill.payment_details || '[]');
+        paymentMethods = (Array.isArray(parsed) ? parsed : [parsed])
+          .filter((line) => line && typeof line === 'object')
+          .map((line) => ({ method: String(line.method ?? ''), amount: Number(line.amount) || 0 }));
+      } catch { /* payment_details predates JSON storage or is malformed; show none */ }
+
+      const items = (ordersByBill.get(Number(bill.id))?.items || []).map((item: any) => ({
+        productName: String(item.product_name ?? ''),
+        quantity: Number(item.quantity) || 0,
+        unitPrice: Number(item.unit_price) || 0,
+        total: Number(item.total) || 0,
+        saleUnit: item.sale_unit ?? null,
+        weightPrecision: item.weight_precision ?? null,
+        allowFractionalQuantity: Boolean(item.allow_fractional_quantity),
+      }));
+
+      return {
+        id: Number(bill.id),
+        billNumber: String(bill.bill_number ?? ''),
+        paidAt: String(bill.paid_at ?? ''),
+        total: Number(bill.total) || 0,
+        customerName: bill.customer_name ?? null,
+        paymentMethods,
+        items,
+      };
+    });
+
+    res.json({ bills });
   } catch (error: any) {
     console.error('[API] Internal error:', error);
     res.status(500).json({ error: 'Internal server error' });

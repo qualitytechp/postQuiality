@@ -2579,6 +2579,9 @@
     "loadMore": "Voir plus",
     "shiftScope": "Service",
     "dayScope": "Jour",
-    "counted": "Compté"
+    "counted": "Compté",
+    "billingDetail": "Détail de la facturation",
+    "noBillsYet": "Pas encore de ventes sur ce quart",
+    "toggleItems": "Voir les articles de cette facture"
   }
 }

@@ -2579,6 +2579,9 @@
     "loadMore": "Daha fazla",
     "shiftScope": "Vardiya",
     "dayScope": "Gün",
-    "counted": "Sayılan"
+    "counted": "Sayılan",
+    "billingDetail": "Fatura ayrıntısı",
+    "noBillsYet": "Bu vardiyada henüz satış yok",
+    "toggleItems": "Bu faturanın ürünlerini gör"
   }
 }

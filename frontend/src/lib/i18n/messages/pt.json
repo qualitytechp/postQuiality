@@ -2579,6 +2579,9 @@
     "loadMore": "Ver mais",
     "shiftScope": "Turno",
     "dayScope": "Dia",
-    "counted": "Contado"
+    "counted": "Contado",
+    "billingDetail": "Detalhe da faturação",
+    "noBillsYet": "Ainda não há vendas neste turno",
+    "toggleItems": "Ver itens desta fatura"
   }
 }

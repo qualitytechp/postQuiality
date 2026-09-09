@@ -2579,6 +2579,9 @@
     "loadMore": "Magpakita pa",
     "shiftScope": "Turno",
     "dayScope": "Araw",
-    "counted": "Nabilang"
+    "counted": "Nabilang",
+    "billingDetail": "Detalye ng bilihan",
+    "noBillsYet": "Wala pang benta sa shift na ito",
+    "toggleItems": "Tingnan ang mga item ng resibong ito"
   }
 }

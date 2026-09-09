@@ -2579,6 +2579,9 @@
     "loadMore": "بیشتر",
     "shiftScope": "شیفت",
     "dayScope": "روز",
-    "counted": "شمرده‌شده"
+    "counted": "شمرده‌شده",
+    "billingDetail": "جزئیات صورتحساب",
+    "noBillsYet": "هنوز فروشی در این شیفت نبوده",
+    "toggleItems": "مشاهده اقلام این فاکتور"
   }
 }

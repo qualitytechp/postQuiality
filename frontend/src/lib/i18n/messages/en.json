@@ -2579,6 +2579,9 @@
     "loadMore": "Load more",
     "shiftScope": "Shift",
     "dayScope": "Day",
-    "counted": "Counted"
+    "counted": "Counted",
+    "billingDetail": "Billing detail",
+    "noBillsYet": "No sales yet this shift",
+    "toggleItems": "View this bill's items"
   }
 }

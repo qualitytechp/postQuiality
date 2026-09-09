@@ -1,14 +1,35 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { LockOpen, Pencil, Wallet } from 'lucide-react';
-import { useTranslations } from 'use-intl';
+import { ChevronDown, LockOpen, Pencil, Receipt, Wallet } from 'lucide-react';
+import { useTranslations, useLocale } from 'use-intl';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Ltr } from '@/components/layout/Ltr';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { getCurrencyMinorUnitFactor } from '@/lib/countries';
 import { useAuthStore } from '@/store/auth';
+import { clampWeightPrecision, formatWeight, isWeighedProduct } from '@/lib/weight-input';
+
+interface BillItem {
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  saleUnit: string | null;
+  weightPrecision: number | null;
+  allowFractionalQuantity: boolean;
+}
+
+interface BillDetail {
+  id: number;
+  billNumber: string;
+  paidAt: string;
+  total: number;
+  customerName: string | null;
+  paymentMethods: { method: string; amount: number }[];
+  items: BillItem[];
+}
 
 interface OpenSession {
   id: number;
@@ -55,12 +76,17 @@ function Figure({ label, value, strong }: { label: string; value: string; strong
  */
 export function CashRegisterReport() {
   const t = useTranslations('reports');
+  const tPos = useTranslations('pos');
+  const tProducts = useTranslations('products');
   const fmt = useFormatCurrency();
+  const locale = useLocale();
   const currency = useAuthStore((s) => s.currentTenant?.currency) ?? 'INR';
   const minorFactor = getCurrencyMinorUnitFactor(currency);
 
   const [session, setSession] = useState<OpenSession | null>(null);
   const [expectedCents, setExpectedCents] = useState(0);
+  const [bills, setBills] = useState<BillDetail[]>([]);
+  const [expandedBillId, setExpandedBillId] = useState<number | null>(null);
   const [closures, setClosures] = useState<Closure[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -84,6 +110,11 @@ export function CashRegisterReport() {
         setExpectedCents(Number(x?.expectedCashCents ?? 0) + Number(x?.openSession?.openingFloatCents ?? 0));
       })
       .catch(() => setSession(null));
+    // Misma ventana que el X de arriba (turno abierto, o el día completo si
+    // no hay caja abierta): el detalle siempre suma exactamente lo mismo.
+    api.get('/reports/x-report/bills', { params: { date: iso } })
+      .then((res) => setBills(res.data?.bills ?? []))
+      .catch(() => setBills([]));
   }, []);
 
   const loadHistory = useCallback((offset: number) => {
@@ -105,6 +136,18 @@ export function CashRegisterReport() {
   const soldCents = session ? expectedCents - session.openingFloatCents : 0;
 
   const measureLabel = (id: string) => t(`measures.${id}` as never);
+  const unitLabel = (unit: string | null) =>
+    tProducts(`saleUnit${String(unit).charAt(0).toUpperCase()}${String(unit).slice(1)}` as never);
+  const paymentMethodLabel = (method: string) =>
+    method === 'cash' ? tPos('methodCash') : method === 'card' ? tPos('methodCard') : method;
+  const formatQuantity = (item: BillItem) =>
+    isWeighedProduct({
+      sale_unit: (item.saleUnit ?? undefined) as 'each' | 'kg' | 'g' | 'lb' | undefined,
+      allow_fractional_quantity: item.allowFractionalQuantity,
+      weight_precision: item.weightPrecision ?? undefined,
+    })
+      ? `${formatWeight(item.quantity, clampWeightPrecision(item.weightPrecision), locale)} ${unitLabel(item.saleUnit)}`
+      : String(item.quantity);
 
   const cell = 'border-b border-border px-3 py-2';
 
@@ -138,6 +181,70 @@ export function CashRegisterReport() {
           </p>
         )}
       </section>
+
+      {session && (
+        <section className="flex flex-col gap-2">
+          <h2 className="flex items-center gap-2 font-semibold text-foreground">
+            <Receipt size={16} />
+            {t('billingDetail')}
+          </h2>
+          {bills.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              {t('noBillsYet')}
+            </p>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              {bills.map((bill) => {
+                const expanded = expandedBillId === bill.id;
+                return (
+                  <div key={bill.id} className="border-b border-border last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedBillId(expanded ? null : bill.id)}
+                      aria-expanded={expanded}
+                      aria-label={t('toggleItems')}
+                      className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-start hover:bg-muted/40"
+                    >
+                      <div className="flex min-w-0 flex-col">
+                        <span className="font-medium text-foreground">
+                          <Ltr>#{bill.billNumber}</Ltr>
+                          {bill.customerName && <span className="font-normal text-muted-foreground"> · {bill.customerName}</span>}
+                        </span>
+                        <span className="ltr-island text-xs text-muted-foreground">
+                          <Ltr>
+                            {bill.paidAt ? new Date(bill.paidAt.replace(' ', 'T') + 'Z').toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '—'}
+                            {bill.paymentMethods.length > 0 && ` · ${bill.paymentMethods.map((p) => paymentMethodLabel(p.method)).join(', ')}`}
+                          </Ltr>
+                        </span>
+                      </div>
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span className="ltr-island tabular-nums font-semibold text-foreground"><Ltr>{fmt(bill.total)}</Ltr></span>
+                        <ChevronDown size={16} className={`text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                      </span>
+                    </button>
+                    {expanded && (
+                      <div className="border-t border-dashed border-border bg-muted/20 px-3 py-2">
+                        <table className="w-full text-sm">
+                          <tbody className="divide-y divide-border/60">
+                            {bill.items.map((item, idx) => (
+                              <tr key={idx}>
+                                <td className="py-1.5 text-foreground">{item.productName}</td>
+                                <td className="ltr-island py-1.5 text-end tabular-nums text-muted-foreground"><Ltr>{formatQuantity(item)}</Ltr></td>
+                                <td className="ltr-island py-1.5 text-end tabular-nums text-muted-foreground"><Ltr>{fmt(item.unitPrice)}</Ltr></td>
+                                <td className="ltr-island py-1.5 text-end tabular-nums font-medium text-foreground"><Ltr>{fmt(item.total)}</Ltr></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="flex flex-col gap-2">
         <h2 className="font-semibold text-foreground">{t('closureHistory')}</h2>
