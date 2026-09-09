@@ -2550,6 +2550,25 @@
       "lt": "inférieur à",
       "lte": "au plus",
       "in": "fait partie de"
-    }
+    },
+    "tabBuilder": "Générateur",
+    "tabRegister": "Caisse",
+    "registerNow": "Caisse en cours",
+    "noRegisterOpen": "Aucune caisse ouverte",
+    "openedBy": "Ouverte par {name} à {time}",
+    "elapsed": "Ouverte depuis {hours} h {minutes} min",
+    "startedWith": "A commencé avec",
+    "salesSinceOpen": "Vendu depuis l’ouverture",
+    "expectedNow": "Devrait contenir",
+    "closureHistory": "Historique des clôtures",
+    "zNumber": "Z",
+    "shift": "Service",
+    "closedBy": "Clôturée par",
+    "amended": "Corrigée",
+    "noClosures": "Aucune clôture pour l’instant",
+    "loadMore": "Voir plus",
+    "shiftScope": "Service",
+    "dayScope": "Jour",
+    "counted": "Compté"
   }
 }

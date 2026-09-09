@@ -2550,6 +2550,25 @@
       "lt": "less than",
       "lte": "at most",
       "in": "is one of"
-    }
+    },
+    "tabBuilder": "Builder",
+    "tabRegister": "Register",
+    "registerNow": "Register in progress",
+    "noRegisterOpen": "No register is open",
+    "openedBy": "Opened by {name} at {time}",
+    "elapsed": "Open for {hours} h {minutes} min",
+    "startedWith": "Started with",
+    "salesSinceOpen": "Sold since opening",
+    "expectedNow": "Should hold now",
+    "closureHistory": "Closure history",
+    "zNumber": "Z",
+    "shift": "Shift",
+    "closedBy": "Closed by",
+    "amended": "Amended",
+    "noClosures": "No closures yet",
+    "loadMore": "Load more",
+    "shiftScope": "Shift",
+    "dayScope": "Day",
+    "counted": "Counted"
   }
 }

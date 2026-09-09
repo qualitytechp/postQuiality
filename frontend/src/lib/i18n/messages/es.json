@@ -2550,6 +2550,25 @@
       "lt": "menor que",
       "lte": "menor o igual",
       "in": "está en"
-    }
+    },
+    "tabBuilder": "Generador",
+    "tabRegister": "Caja",
+    "registerNow": "Caja en curso",
+    "noRegisterOpen": "No hay ninguna caja abierta",
+    "openedBy": "Abierta por {name} a las {time}",
+    "elapsed": "Lleva {hours} h {minutes} min",
+    "startedWith": "Comenzó con",
+    "salesSinceOpen": "Vendido desde la apertura",
+    "expectedNow": "Debería haber ahora",
+    "closureHistory": "Historial de cierres",
+    "zNumber": "Z",
+    "shift": "Turno",
+    "closedBy": "Cerró",
+    "amended": "Corregido",
+    "noClosures": "Todavía no hay cierres",
+    "loadMore": "Ver más",
+    "shiftScope": "Turno",
+    "dayScope": "Día",
+    "counted": "Contado"
   }
 }

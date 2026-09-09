@@ -237,7 +237,33 @@ async function main() {
       assertEqual(unchanged.status, 400, 'an amendment that changes nothing is refused');
     }
 
-    console.log('\n6. Sales are not required to be recomputed by an amendment');
+    console.log('\n6. The closure history is owner-only and carries the shift');
+    {
+      const refused = await call(baseUrl, 'GET', '/api/cash-closures', manager);
+      assertEqual(refused.status, 403, 'a manager cannot read the history');
+
+      const list = await call(baseUrl, 'GET', '/api/cash-closures?per_page=10', owner);
+      assertEqual(list.status, 200, 'the owner can');
+      assertEqual(list.data.closures.length, 2, 'both closures are listed');
+      assertEqual(list.data.pagination.total, 2, 'the total is reported');
+
+      const newest = list.data.closures[0];
+      assert(newest.z_number > list.data.closures[1].z_number, 'newest first');
+      assertEqual(newest.opened_by_name, 'manager', 'the row says who opened the shift');
+      assertEqual(newest.closed_by_name, 'owner', 'and who closed it');
+
+      const amended = list.data.closures.find((c) => c.amendment_count > 0);
+      assert(!!amended, 'an amended closure is flagged in the list');
+
+      const page = await call(baseUrl, 'GET', '/api/cash-closures?per_page=1', owner);
+      assertEqual(page.data.closures.length, 1, 'per_page limits the page');
+      assertEqual(page.data.pagination.has_more, true, 'and says there is more');
+
+      const bad = await call(baseUrl, 'GET', '/api/cash-closures?per_page=0', owner);
+      assertEqual(bad.status, 400, 'a non-positive page size is rejected');
+    }
+
+    console.log('\n7. Sales are not required to be recomputed by an amendment');
     {
       const row = db.prepare('SELECT gross_collected_cents, bill_count FROM cash_closures ORDER BY id LIMIT 1').get() as any;
       assertEqual(row.gross_collected_cents, 0, 'the sales snapshot is untouched by the amendment');

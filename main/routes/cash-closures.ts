@@ -624,6 +624,82 @@ router.put('/:id', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Respon
   }
 });
 
+// ── GET / — historial de cierres ────────────────────────────────────────────
+// Owner-only, paginado como el resto de listados (bills.ts). Cada fila trae
+// quién cerró, si el Z fue corregido y la ventana del turno, que es lo que el
+// propietario necesita para leer una caja sin abrir cada reporte.
+router.get('/', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const parseInteger = (value: unknown, fallback: number): number | null => {
+      if (value === undefined || value === null || value === '') return fallback;
+      if (Array.isArray(value)) return null;
+      const parsed = Number(value);
+      return Number.isInteger(parsed) ? parsed : null;
+    };
+
+    const requestedLimit = parseInteger(req.query.per_page ?? req.query.limit, 30);
+    if (requestedLimit === null || requestedLimit < 1) {
+      throw httpError('per_page must be a positive integer', 400);
+    }
+    const limit = Math.min(requestedLimit, 200);
+    const offset = parseInteger(req.query.offset, 0);
+    if (offset === null || offset < 0) {
+      throw httpError('offset must be a non-negative integer', 400);
+    }
+
+    const wheres: string[] = [];
+    const params: any[] = [];
+    if (typeof req.query.from === 'string' && ISO_DATE_RE.test(req.query.from)) {
+      wheres.push('c.business_date >= ?');
+      params.push(req.query.from);
+    }
+    if (typeof req.query.to === 'string' && ISO_DATE_RE.test(req.query.to)) {
+      wheres.push('c.business_date <= ?');
+      params.push(req.query.to);
+    }
+    const whereSql = wheres.length > 0 ? `WHERE ${wheres.join(' AND ')}` : '';
+
+    const rows = db.prepare(`
+      SELECT
+        c.id, c.z_number, c.scope, c.business_date, c.period_start, c.period_end,
+        c.opening_float_cents, c.expected_cash_cents, c.counted_cash_cents, c.variance_cents,
+        c.gross_collected_cents, c.refunded_cents, c.net_collected_cents,
+        c.bill_count, c.refund_count, c.notes, c.created_at,
+        u.name AS closed_by_name,
+        s.opened_at, s.opened_by AS opened_by_id, ou.name AS opened_by_name,
+        (SELECT COUNT(*) FROM cash_closure_amendments a WHERE a.closure_id = c.id) AS amendment_count
+      FROM cash_closures c
+      LEFT JOIN users u ON u.id = c.closed_by
+      LEFT JOIN cash_sessions s ON s.closure_id = c.id
+      LEFT JOIN users ou ON ou.id = s.opened_by
+      ${whereSql}
+      ORDER BY c.z_number DESC
+      LIMIT ? OFFSET ?
+    `).all(...params, limit, offset) as any[];
+
+    const total = Number((db.prepare(
+      `SELECT COUNT(*) AS count FROM cash_closures c ${whereSql}`
+    ).get(...params) as any)?.count || 0);
+
+    res.json({
+      closures: rows,
+      pagination: {
+        limit,
+        per_page: limit,
+        offset,
+        total,
+        next_offset: offset + rows.length < total ? offset + rows.length : null,
+        has_more: offset + rows.length < total,
+      },
+    });
+  } catch (error: any) {
+    const status = error.statusCode || 500;
+    if (status === 500) console.error('[CashClosures] Internal error:', error);
+    res.status(status).json({ error: status === 500 ? 'Internal server error' : error.message });
+  }
+});
+
 // ── GET /:id/amendments — historial de correcciones de un cierre ────────────
 router.get('/:id/amendments', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response) => {
   try {

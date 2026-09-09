@@ -2550,6 +2550,25 @@
       "lt": "küçüktür",
       "lte": "en çok",
       "in": "içinde"
-    }
+    },
+    "tabBuilder": "Oluşturucu",
+    "tabRegister": "Kasa",
+    "registerNow": "Açık kasa",
+    "noRegisterOpen": "Açık kasa yok",
+    "openedBy": "{time} saatinde {name} açtı",
+    "elapsed": "{hours} sa {minutes} dk açık",
+    "startedWith": "Şununla başladı",
+    "salesSinceOpen": "Açılıştan beri satış",
+    "expectedNow": "Şu an olması gereken",
+    "closureHistory": "Kapanış geçmişi",
+    "zNumber": "Z",
+    "shift": "Vardiya",
+    "closedBy": "Kapatan",
+    "amended": "Düzeltildi",
+    "noClosures": "Henüz kapanış yok",
+    "loadMore": "Daha fazla",
+    "shiftScope": "Vardiya",
+    "dayScope": "Gün",
+    "counted": "Sayılan"
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { BarChart3, Download, LineChart, Loader2, Table2 } from 'lucide-react';
+import { BarChart3, Download, LineChart, Loader2, Table2, Wallet } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslations } from 'use-intl';
 import { Button } from '@/components/ui/button';
 import { useReportBuilder } from '@/hooks/useReportBuilder';
@@ -8,10 +9,12 @@ import { ReportBuilderPanel } from '@/components/reports/ReportBuilderPanel';
 import { ReportResultTable } from '@/components/reports/ReportResultTable';
 import { ReportChart } from '@/components/reports/ReportChart';
 import { SavedReportsMenu } from '@/components/reports/SavedReportsMenu';
+import { CashRegisterReport } from '@/components/reports/CashRegisterReport';
 
 export default function ReportsPage() {
   const t = useTranslations('reports');
   const model = useReportBuilder();
+  const [tab, setTab] = useState<'builder' | 'register'>('builder');
   const { view, setView, loading, error, valid, result, exportCsv, setPeriod, definition } = model;
 
   const views: { id: typeof view; label: string; icon: typeof Table2 }[] = [
@@ -27,15 +30,38 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
           <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <SavedReportsMenu model={model} />
-          <Button variant="outline" size="sm" onClick={() => { void exportCsv(); }} disabled={!valid || !result} className="h-9">
-            <Download size={14} />
-            {t('exportCsv')}
-          </Button>
-        </div>
+        {tab === 'builder' && (
+          <div className="flex flex-wrap items-center gap-2">
+            <SavedReportsMenu model={model} />
+            <Button variant="outline" size="sm" onClick={() => { void exportCsv(); }} disabled={!valid || !result} className="h-9">
+              <Download size={14} />
+              {t('exportCsv')}
+            </Button>
+          </div>
+        )}
       </div>
 
+      <div className="mb-4 flex gap-1.5">
+        {([
+          { id: 'builder' as const, label: t('tabBuilder'), icon: BarChart3 },
+          { id: 'register' as const, label: t('tabRegister'), icon: Wallet },
+        ]).map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            aria-pressed={tab === id}
+            className={`flex min-h-9 items-center gap-1.5 rounded-lg border px-3 text-sm ${
+              tab === id ? 'border-brand bg-brand text-white' : 'border-border bg-card text-foreground hover:border-brand'
+            }`}
+          >
+            <Icon size={14} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'register' ? <CashRegisterReport /> : (
       <div className="grid gap-4 lg:grid-cols-[17rem_1fr]">
         <aside className="rounded-xl border border-border bg-card p-4 lg:sticky lg:top-6 lg:self-start">
           <ReportBuilderPanel model={model} />
@@ -99,6 +125,7 @@ export default function ReportsPage() {
           )}
         </section>
       </div>
+      )}
     </div>
   );
 }

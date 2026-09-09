@@ -375,6 +375,7 @@ function tagParityErrors(enFlat: Record<string, string>, localeFlat: Record<stri
  * must be fixed (or added here with a comment explaining why it is shared).
  */
 const FA_INTENTIONAL_IDENTICAL: ReadonlySet<string> = new Set([
+  'reports.zNumber', // fiscal Z-report letter, same everywhere
   'auth.emailPlaceholder', // example email
   'common.appTitle', // brand
   'common.brandName', // brand
@@ -427,6 +428,7 @@ function faFallbackErrors(faFlat: Record<string, string>, enFlat: Record<string,
  * untranslated so the French UI cannot silently regress to English.
  */
 const FR_INTENTIONAL_IDENTICAL: ReadonlySet<string> = new Set([
+  'reports.zNumber', // fiscal Z-report letter, same everywhere
   'reports.total', // same word in French
   'reports.dimensions.table', // same word in French
   'auth.emailPlaceholder', // example email
@@ -533,6 +535,7 @@ function frFallbackErrors(frFlat: Record<string, string>, enFlat: Record<string,
 }
 
 const TR_INTENTIONAL_IDENTICAL = new Set<string>([
+  'reports.zNumber', // fiscal Z-report letter, same everywhere
   'reports.dimensions.online_platform', // same word in Turkish
   'settings.paymentMethodUpi', // technical acronym (payment rail name)
   'common.appTitle', // brand name "Flo"
@@ -582,6 +585,7 @@ function trFallbackErrors(trFlat: Record<string, string>, enFlat: Record<string,
 }
 
 const FIL_INTENTIONAL_IDENTICAL = new Set<string>([
+  'reports.zNumber', // fiscal Z-report letter, same everywhere
   'reports.measures.subtotal', // same word in Filipino
   'reports.dimensions.online_platform', // same word in Filipino
   'auth.countryIndia',
@@ -837,6 +841,7 @@ function filFallbackErrors(filFlat: Record<string, string>, enFlat: Record<strin
  * tokens or identical words.
  */
 const DE_INTENTIONAL_IDENTICAL = new Set<string>([
+  'reports.zNumber', // fiscal Z-report letter, same everywhere
   'auth.countryThailand',
   'businessType.restaurant',
   'common.appTitle',

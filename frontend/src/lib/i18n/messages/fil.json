@@ -2550,6 +2550,25 @@
       "lt": "mas maliit sa",
       "lte": "hindi hihigit sa",
       "in": "nasa"
-    }
+    },
+    "tabBuilder": "Tagabuo",
+    "tabRegister": "Kaha",
+    "registerNow": "Kasalukuyang kaha",
+    "noRegisterOpen": "Walang bukas na kaha",
+    "openedBy": "Binuksan ni {name} ng {time}",
+    "elapsed": "Bukas nang {hours} h {minutes} min",
+    "startedWith": "Nagsimula sa",
+    "salesSinceOpen": "Nabenta mula sa pagbubukas",
+    "expectedNow": "Dapat naglalaman ngayon",
+    "closureHistory": "Kasaysayan ng closure",
+    "zNumber": "Z",
+    "shift": "Turno",
+    "closedBy": "Nagsara",
+    "amended": "Naiwasto",
+    "noClosures": "Wala pang closure",
+    "loadMore": "Magpakita pa",
+    "shiftScope": "Turno",
+    "dayScope": "Araw",
+    "counted": "Nabilang"
   }
 }

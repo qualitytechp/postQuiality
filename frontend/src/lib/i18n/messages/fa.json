@@ -2550,6 +2550,25 @@
       "lt": "کوچک‌تر از",
       "lte": "حداکثر",
       "in": "یکی از"
-    }
+    },
+    "tabBuilder": "سازنده",
+    "tabRegister": "صندوق",
+    "registerNow": "صندوق جاری",
+    "noRegisterOpen": "هیچ صندوقی باز نیست",
+    "openedBy": "توسط {name} در ساعت {time} باز شد",
+    "elapsed": "{hours} ساعت و {minutes} دقیقه باز",
+    "startedWith": "شروع با",
+    "salesSinceOpen": "فروش از زمان بازگشایی",
+    "expectedNow": "اکنون باید داشته باشد",
+    "closureHistory": "تاریخچه بستن صندوق",
+    "zNumber": "Z",
+    "shift": "شیفت",
+    "closedBy": "بسته توسط",
+    "amended": "اصلاح‌شده",
+    "noClosures": "هنوز بستنی ثبت نشده",
+    "loadMore": "بیشتر",
+    "shiftScope": "شیفت",
+    "dayScope": "روز",
+    "counted": "شمرده‌شده"
   }
 }
