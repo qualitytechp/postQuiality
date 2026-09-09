@@ -159,3 +159,8 @@ main().catch((err) => {
   console.error('Test crashed:', err);
   process.exit(1);
 });
+
+// Top-level export: makes this a module, not a global script, so its
+// boilerplate names stop colliding with every other script-style test file
+// under tsc's whole-project view. No import consumers; harmless at runtime.
+export {};

@@ -129,3 +129,9 @@ main().catch((err) => {
   console.error('Test crashed:', err);
   process.exit(1);
 });
+
+// A top-level export makes this a module rather than a global script, so its
+// top-level names (Module, testDir, assertEqual, ...) stop colliding with the
+// same boilerplate names in every other script-style test file under tsc's
+// whole-project view. Harmless at runtime: this file has no import consumers.
+export {};

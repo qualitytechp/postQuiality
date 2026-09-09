@@ -181,3 +181,8 @@ check('weights are refused for products that are not weighed', () => {
 console.log('\n' + '='.repeat(58));
 console.log(`${passed}/${passed + failed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);
+
+// Top-level export: makes this a module, not a global script, so its
+// boilerplate names stop colliding with every other script-style test file
+// under tsc's whole-project view. No import consumers; harmless at runtime.
+export {};

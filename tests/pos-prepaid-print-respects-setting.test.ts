@@ -63,3 +63,8 @@ console.log('  ✓ the prepaid checkout re-fetches the full bill before printing
 
 console.log('\n' + '='.repeat(70));
 console.log('4/4 passed, 0 failed');
+
+// Top-level export: makes this a module, not a global script, so its
+// boilerplate names stop colliding with every other script-style test file
+// under tsc's whole-project view. No import consumers; harmless at runtime.
+export {};
