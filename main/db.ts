@@ -4027,6 +4027,56 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       `);
     },
   },
+  {
+    version: 82,
+    name: 'add_cash_closure_amendments',
+    up: () => {
+      // El reporte Z es un documento contable: en vez de sobrescribirlo en
+      // silencio, cada corrección deja aquí quién cambió qué, cuándo y por qué.
+      // La fila original conserva su z_number y su instantánea de ventas.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS cash_closure_amendments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          closure_id INTEGER NOT NULL REFERENCES cash_closures(id) ON DELETE CASCADE,
+          field TEXT NOT NULL,
+          old_value TEXT NOT NULL,
+          new_value TEXT NOT NULL,
+          reason TEXT NOT NULL,
+          amended_by TEXT NOT NULL REFERENCES users(id),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS cash_closure_amendments_closure
+          ON cash_closure_amendments(closure_id);
+      `);
+    },
+  },
+  {
+    version: 83,
+    name: 'add_cash_sessions',
+    up: () => {
+      // Apertura y cierre de caja como ciclo propio, no atado al calendario:
+      // se abre una caja con su fondo, se vende, se cierra y se emite su Z.
+      // Varias por día habilitan turnos; el índice parcial garantiza que sólo
+      // haya una caja abierta a la vez, que es lo que tiene un cajón físico.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS cash_sessions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          business_date TEXT NOT NULL CHECK (business_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          opening_float_cents INTEGER NOT NULL DEFAULT 0 CHECK (opening_float_cents >= 0),
+          opened_by TEXT NOT NULL REFERENCES users(id),
+          opened_at TEXT NOT NULL,
+          closed_at TEXT,
+          closure_id INTEGER REFERENCES cash_closures(id),
+          notes TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS cash_sessions_one_open
+          ON cash_sessions((closed_at IS NULL)) WHERE closed_at IS NULL;
+        CREATE INDEX IF NOT EXISTS cash_sessions_business_date
+          ON cash_sessions(business_date);
+      `);
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {

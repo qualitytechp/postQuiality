@@ -295,7 +295,19 @@
     "closeStepDone": "Clôturer",
     "xReportSales": "Ventes du jour",
     "refundsCount": "{count} remboursements",
-    "ticketNoPayments": "Aucun paiement ce jour"
+    "ticketNoPayments": "Aucun paiement ce jour",
+    "amendZ": "Corriger la clôture",
+    "amendReason": "Motif de la correction",
+    "amendReasonHint": "Obligatoire. Conservé avec la modification pour la piste d’audit.",
+    "amendedNotice": "Cette clôture a été corrigée.",
+    "openRegister": "Ouvrir la caisse",
+    "openRegisterTitle": "Ouvrir la caisse",
+    "openRegisterFloat": "Fonds de caisse de départ",
+    "openRegisterHint": "L’espèce présente dans le tiroir avant la première vente.",
+    "openRegisterDone": "Caisse ouverte",
+    "registerOpenSince": "Caisse ouverte depuis {time}, par {name}",
+    "registerClosedNotice": "Aucune caisse ouverte. Les ventes sont enregistrées avec un fonds nul.",
+    "closeRegister": "Fermer la caisse"
   },
   "kds": {
     "addonsLabel": "Options",

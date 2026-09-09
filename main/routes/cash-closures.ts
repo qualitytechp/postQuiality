@@ -40,6 +40,7 @@ import { getTenantCurrency } from '../services/refund';
 import { getCurrencyMinorUnitFactor } from '../countries';
 import { getOrdersWithItemsForBills } from './bills';
 import { getHttpRequestSignal } from '../shutdown';
+import { getOpenCashSession } from './cash-sessions';
 import {
   DisplayTaxComponent,
   aggregateTaxComponents,
@@ -249,8 +250,13 @@ export function paymentMethodBreakdown(
  * duplicating the template or the tax-components hydration. Returns a
  * plain `DayAggregates` shape already converted to INTEGER minor units.
  */
-export function computeDayAggregates(db: ReturnType<typeof getDatabase>, businessDate: string): DayAggregates {
-  const [start, end] = dayBoundsInTimezone(businessDate, tenantTimezone());
+export function computeDayAggregates(
+  db: ReturnType<typeof getDatabase>,
+  businessDate: string,
+  /** Ventana explícita [inicio, fin). Sin ella se usa el día comercial completo. */
+  bounds?: [string, string],
+): DayAggregates {
+  const [start, end] = bounds ?? dayBoundsInTimezone(businessDate, tenantTimezone());
 
   // Display gross — `SUM(paid_amount)` over the paid_at day window (NOT
   // SUM(total) over created_at). This matches financial-summary so display
@@ -405,19 +411,35 @@ router.post('/', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response
     // is the concurrency safety net (a concurrent winner sees 409 here, a
     // race that slips past SELECT hits SQLITE_CONSTRAINT, mapped below).
     const result = withTxn(() => {
-      const existing = db.prepare(
-        `SELECT id FROM cash_closures WHERE business_date = ? AND scope = 'day' LIMIT 1`
-      ).get(businessDate);
-      if (existing) {
-        throw httpError('This day is already closed', 409);
+      // Con una caja abierta el cierre es de turno: cuenta sólo su ventana y
+      // toma el fondo declarado al abrir. Sin caja abierta se conserva el
+      // cierre por día de siempre, uno por fecha.
+      const openSession = getOpenCashSession(db) as any;
+      const scope: 'day' | 'session' = openSession ? 'session' : 'day';
+      if (!openSession) {
+        const existing = db.prepare(
+          `SELECT id FROM cash_closures WHERE business_date = ? AND scope = 'day' LIMIT 1`
+        ).get(businessDate);
+        if (existing) {
+          throw httpError('This day is already closed', 409);
+        }
       }
 
-      const aggregates = computeDayAggregates(db, businessDate);
+      const closingAt = now();
+      const aggregates = openSession
+        ? computeDayAggregates(db, businessDate, [String(openSession.opened_at), closingAt])
+        : computeDayAggregates(db, businessDate);
+
+      // Con caja abierta manda el fondo declarado al abrirla: es el dato que
+      // el operador recibió en el cajón, no uno tecleado al final del turno.
+      const effectiveFloatCents = openSession
+        ? Number(openSession.opening_float_cents)
+        : openingFloatCents;
 
       // Snapshot math (verbatim from spec):
       // expected = opening_float + cashSales − cashRefunds(created_at)
       // variance = counted − expected
-      const expectedCashCents = openingFloatCents
+      const expectedCashCents = effectiveFloatCents
         + aggregates.cashSalesCents
         - aggregates.cashRefundsByCreatedAtCents;
       const varianceCents = countedCashCents - expectedCashCents;
@@ -440,7 +462,7 @@ router.post('/', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response
             payment_methods_json, staff_sales_json, tax_components_json,
             z_number, closed_by, notes, created_at
           ) VALUES (
-            'day', ?, ?, ?,
+            ?, ?, ?, ?,
             ?, ?, ?, ?,
             ?, ?, ?,
             ?, ?,
@@ -448,8 +470,10 @@ router.post('/', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response
             ?, ?, ?, ?
           )
         `).run(
-          businessDate, periodStart, periodEnd,
-          openingFloatCents, expectedCashCents, countedCashCents, varianceCents,
+          scope, businessDate,
+          openSession ? String(openSession.opened_at) : periodStart,
+          openSession ? closingAt : periodEnd,
+          effectiveFloatCents, expectedCashCents, countedCashCents, varianceCents,
           aggregates.grossCollectedCents, aggregates.refundedCents, aggregates.netCollectedCents,
           aggregates.billCount, aggregates.refundCount,
           JSON.stringify(aggregates.paymentMethods),
@@ -468,16 +492,23 @@ router.post('/', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response
       }
 
       const id = Number((db.prepare(
-        `SELECT id FROM cash_closures WHERE business_date = ? AND scope = 'day'`
-      ).get(businessDate) as { id: number }).id);
+        `SELECT id FROM cash_closures WHERE z_number = ?`
+      ).get(zNumber) as { id: number }).id);
+
+      // La caja abierta queda cerrada y enlazada a su Z.
+      if (openSession) {
+        db.prepare(`UPDATE cash_sessions SET closed_at = ?, closure_id = ? WHERE id = ?`)
+          .run(closingAt, id, openSession.id);
+      }
 
       return {
         id,
-        scope: 'day',
+        scope,
         business_date: businessDate,
-        period_start: periodStart,
-        period_end: periodEnd,
-        opening_float_cents: openingFloatCents,
+        period_start: openSession ? String(openSession.opened_at) : periodStart,
+        period_end: openSession ? closingAt : periodEnd,
+        cash_session_id: openSession ? Number(openSession.id) : null,
+        opening_float_cents: effectiveFloatCents,
         expected_cash_cents: expectedCashCents,
         counted_cash_cents: countedCashCents,
         variance_cents: varianceCents,
@@ -497,6 +528,118 @@ router.post('/', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response
     });
 
     res.status(201).json({ zReport: result });
+  } catch (error: any) {
+    const status = error.statusCode || 500;
+    if (status === 500) console.error('[CashClosures] Internal error:', error);
+    res.status(status).json({ error: status === 500 ? 'Internal server error' : error.message || 'Internal server error' });
+  }
+});
+
+// ── PUT /:id — corregir un cierre ya emitido ────────────────────────────────
+// Owner-only. Sólo se corrigen los importes que declara el operador (fondo,
+// conteo) y las notas; lo que sale de las ventas (`expected_cash_cents`, los
+// totales, el z_number) no se toca, porque falsearlo sería falsear la venta.
+// La diferencia se recalcula, nunca se escribe a mano, y cada campo cambiado
+// queda registrado en `cash_closure_amendments` con su motivo.
+router.put('/:id', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw httpError('id must be a positive integer', 400);
+    }
+    const body = req.body || {};
+    const amendedBy = String((req as any).user?.userId || '');
+    if (!amendedBy) throw httpError('Authentication required', 401);
+
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+    if (!reason) throw httpError('reason is required to amend a closure', 400);
+    if (reason.length > MAX_NOTES_LENGTH) throw httpError('reason is too long', 400);
+
+    const existing = db.prepare('SELECT * FROM cash_closures WHERE id = ?').get(id) as any;
+    if (!existing) throw httpError('Closure not found', 404);
+
+    const openingFloatCents = body.opening_float_cents === undefined
+      ? Number(existing.opening_float_cents)
+      : validateCents(body.opening_float_cents, 'opening_float_cents');
+    const countedCashCents = body.counted_cash_cents === undefined
+      ? Number(existing.counted_cash_cents)
+      : validateCents(body.counted_cash_cents, 'counted_cash_cents');
+    if (body.notes !== undefined && body.notes !== null && typeof body.notes !== 'string') {
+      throw httpError('notes must be a string', 400);
+    }
+    if (typeof body.notes === 'string' && body.notes.length > MAX_NOTES_LENGTH) {
+      throw httpError('notes is too long', 400);
+    }
+    const notes = body.notes === undefined ? existing.notes : (body.notes || null);
+
+    // El esperado conserva las ventas de la instantánea; corregir el fondo lo
+    // desplaza en la misma medida, que es justo lo que el operador está
+    // declarando al enmendar.
+    const salesComponentCents = Number(existing.expected_cash_cents) - Number(existing.opening_float_cents);
+    const expectedCashCents = openingFloatCents + salesComponentCents;
+    const varianceCents = countedCashCents - expectedCashCents;
+
+    const changes: { field: string; oldValue: string; newValue: string }[] = [];
+    const track = (field: string, before: unknown, after: unknown) => {
+      const a = before === null || before === undefined ? '' : String(before);
+      const b = after === null || after === undefined ? '' : String(after);
+      if (a !== b) changes.push({ field, oldValue: a, newValue: b });
+    };
+    track('opening_float_cents', existing.opening_float_cents, openingFloatCents);
+    track('counted_cash_cents', existing.counted_cash_cents, countedCashCents);
+    track('expected_cash_cents', existing.expected_cash_cents, expectedCashCents);
+    track('variance_cents', existing.variance_cents, varianceCents);
+    track('notes', existing.notes, notes);
+
+    if (changes.length === 0) throw httpError('Nothing to amend', 400);
+
+    const updated = withTxn(() => {
+      db.prepare(`
+        UPDATE cash_closures
+        SET opening_float_cents = ?, expected_cash_cents = ?, counted_cash_cents = ?,
+            variance_cents = ?, notes = ?
+        WHERE id = ?
+      `).run(openingFloatCents, expectedCashCents, countedCashCents, varianceCents, notes, id);
+
+      const insertAmendment = db.prepare(`
+        INSERT INTO cash_closure_amendments (closure_id, field, old_value, new_value, reason, amended_by, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      const stamp = now();
+      for (const change of changes) {
+        insertAmendment.run(id, change.field, change.oldValue, change.newValue, reason, amendedBy, stamp);
+      }
+      const row = db.prepare('SELECT * FROM cash_closures WHERE id = ?').get(id);
+      // Misma forma que GET /reports/z-report: el ticket necesita los arreglos
+      // de metodos de pago, ventas por personal e impuestos ya parseados.
+      return shapeZReportSnapshot(db, row, false);
+    });
+
+    res.json({ closure: updated, amended_fields: changes.map((c) => c.field) });
+  } catch (error: any) {
+    const status = error.statusCode || 500;
+    if (status === 500) console.error('[CashClosures] Internal error:', error);
+    res.status(status).json({ error: status === 500 ? 'Internal server error' : error.message || 'Internal server error' });
+  }
+});
+
+// ── GET /:id/amendments — historial de correcciones de un cierre ────────────
+router.get('/:id/amendments', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw httpError('id must be a positive integer', 400);
+    }
+    const rows = db.prepare(`
+      SELECT a.*, u.name AS amended_by_name
+      FROM cash_closure_amendments a
+      LEFT JOIN users u ON u.id = a.amended_by
+      WHERE a.closure_id = ?
+      ORDER BY a.id
+    `).all(id);
+    res.json({ amendments: rows });
   } catch (error: any) {
     const status = error.statusCode || 500;
     if (status === 500) console.error('[CashClosures] Internal error:', error);

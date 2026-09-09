@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth';
 import api from '@/lib/api';
-import { Banknote, ChefHat, Clock, LayoutGrid, TrendingUp, ClipboardList, ArrowRight, Timer, Trophy, Tags, BarChart3, Wallet, RotateCcw, ReceiptText, Hourglass, CalendarDays, Lock } from 'lucide-react';
+import { Banknote, ChefHat, Clock, LayoutGrid, TrendingUp, ClipboardList, ArrowRight, Timer, Trophy, Tags, BarChart3, Wallet, RotateCcw, ReceiptText, Hourglass, CalendarDays, Lock, LockOpen } from 'lucide-react';
 import { useTranslations, useLocale, type AppConfig } from 'use-intl';
 import { Ltr } from '@/components/layout/Ltr';
 import { CashCloseModal } from '@/components/dashboard/CashCloseModal';
+import { OpenRegisterModal } from '@/components/dashboard/OpenRegisterModal';
 import { useCashClose } from '@/hooks/useCashClose';
 import toast from 'react-hot-toast';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
@@ -267,6 +268,16 @@ export default function DashboardPage() {
   // Day-close wizard lives in useCashClose + CashCloseModal; the page
   // only opens it and mounts it.
   const cashClose = useCashClose();
+  const [openRegisterOpen, setOpenRegisterOpen] = useState(false);
+  const [registerSession, setRegisterSession] = useState<{ id: number; opened_at: string; opened_by_name: string | null } | null>(null);
+
+  const refreshRegister = useCallback(() => {
+    api.get('/cash-sessions/current')
+      .then((res) => setRegisterSession(res.data.session ?? null))
+      .catch(() => setRegisterSession(null));
+  }, []);
+
+  useEffect(() => { refreshRegister(); }, [refreshRegister]);
 
   if (!isOwner) return null;
 
@@ -460,20 +471,39 @@ export default function DashboardPage() {
               </button>
             </div>
           )}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={cashClose.openCloseModal}
-            className="h-9"
-          >
-            <Lock size={14} />
-            {t('closeShift')}
-          </Button>
+          {registerSession ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={cashClose.openCloseModal}
+              className="h-9"
+            >
+              <Lock size={14} />
+              {t('closeShift')}
+            </Button>
+          ) : (
+            <>
+              <Button type="button" variant="outline" onClick={() => setOpenRegisterOpen(true)} className="h-9">
+                <LockOpen size={14} />
+                {t('openRegister')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={cashClose.openCloseModal}
+                className="h-9"
+              >
+                <Lock size={14} />
+                {t('closeShift')}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
 
       <CashCloseModal model={cashClose} />
+      <OpenRegisterModal open={openRegisterOpen} onOpenChange={setOpenRegisterOpen} onOpened={refreshRegister} />
 
       {loading ? (
         <div className="flex items-center justify-center py-20">

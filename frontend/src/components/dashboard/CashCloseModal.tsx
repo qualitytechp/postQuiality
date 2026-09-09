@@ -10,7 +10,7 @@ import type { CashCloseModel } from '@/hooks/useCashClose';
  *  Pure view over useCashClose: every value and action arrives on
  *  `model`, so this file holds JSX only. */
 export function CashCloseModal({ model }: { model: CashCloseModel }) {
-  const { closeOpen, setCloseOpen, closeAnotherDay, businessDate, setBusinessDate, xReport, xLoading, xError, closeStep, setCloseStep, openingFloatInput, setOpeningFloatInput, countedInput, setCountedInput, submittingClose, submitError, alreadyClosedOverride, setAlreadyClosedOverride, amountsValid, expectedCashTotalCents, varianceCents, closedZ, printingZ, hasPrintedFresh, setHasPrintedFresh, hydratedZ, minorFactor, fmt, unitAdapter, t, tCommon, shiftDate, todayLocal, submitClose, printZ } = model;
+  const { closeOpen, setCloseOpen, closeAnotherDay, businessDate, setBusinessDate, xReport, xLoading, xError, closeStep, setCloseStep, openingFloatInput, setOpeningFloatInput, countedInput, setCountedInput, submittingClose, submitError, alreadyClosedOverride, setAlreadyClosedOverride, amountsValid, expectedCashTotalCents, varianceCents, closedZ, printingZ, hasPrintedFresh, setHasPrintedFresh, hydratedZ, minorFactor, fmt, t, tCommon, amendMode, amendReason, setAmendReason, amendReasonValid, startAmend, shiftDate, todayLocal, submitClose, printZ } = model;
   return (
     <>
 {/* ── Close-day modal ─────────────────────────────────────────────── */}
@@ -172,10 +172,8 @@ export function CashCloseModal({ model }: { model: CashCloseModel }) {
             </label>
             <input
               id="opening-float"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min={0}
-              step={unitAdapter.step}
               value={openingFloatInput}
               onChange={(e) => setOpeningFloatInput(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground outline-none focus:ring-2 focus:ring-brand/30"
@@ -190,15 +188,28 @@ export function CashCloseModal({ model }: { model: CashCloseModel }) {
             </label>
             <input
               id="counted-cash"
-              type="number"
+              type="text"
               inputMode="decimal"
-              min={0}
-              step={unitAdapter.step}
               value={countedInput}
               onChange={(e) => setCountedInput(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground outline-none focus:ring-2 focus:ring-brand/30"
             />
           </div>
+          {amendMode && (
+            <div>
+              <label htmlFor="amend-reason" className="block text-sm text-muted-foreground mb-1">
+                {t('amendReason')}
+              </label>
+              <input
+                id="amend-reason"
+                type="text"
+                value={amendReason}
+                onChange={(e) => setAmendReason(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground outline-none focus:ring-2 focus:ring-brand/30"
+              />
+              <p className="text-xs text-muted-foreground mt-1">{t('amendReasonHint')}</p>
+            </div>
+          )}
           {/* Two hero numbers dominate step 2: expected (left) and
               variance (right). Same color logic as the existing
               variance box. */}
@@ -311,6 +322,9 @@ export function CashCloseModal({ model }: { model: CashCloseModel }) {
           <Button variant="outline" onClick={() => setCloseOpen(false)}>
             {tCommon('close')}
           </Button>
+          <Button variant="outline" onClick={startAmend} disabled={!closedZ}>
+            {t('amendZ')}
+          </Button>
           {(hasPrintedFresh || hydratedZ) ? (
             <Button onClick={() => { if (closedZ) printZ(closedZ, true); }} disabled={printingZ || !closedZ}>
               {printingZ ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
@@ -358,7 +372,7 @@ export function CashCloseModal({ model }: { model: CashCloseModel }) {
             {closeStep === 2 && (
               <Button
                 onClick={submitClose}
-                disabled={submittingClose || !xReport || !amountsValid || xReport.alreadyClosed || alreadyClosedOverride}
+                disabled={submittingClose || !xReport || !amountsValid || !amendReasonValid || (!amendMode && (xReport.alreadyClosed || alreadyClosedOverride))}
               >
                 {submittingClose ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
                 {t('closeShift')}

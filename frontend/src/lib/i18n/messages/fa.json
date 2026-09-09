@@ -295,7 +295,19 @@
     "closeStepDone": "بستن",
     "xReportSales": "فروش امروز",
     "refundsCount": "{count} بازپرداخت",
-    "ticketNoPayments": "در این روز پرداختی نشده"
+    "ticketNoPayments": "در این روز پرداختی نشده",
+    "amendZ": "اصلاح بستن صندوق",
+    "amendReason": "دلیل اصلاح",
+    "amendReasonHint": "الزامی است. همراه با تغییر برای پیگیری ذخیره می‌شود.",
+    "amendedNotice": "این بستن صندوق اصلاح شد.",
+    "openRegister": "باز کردن صندوق",
+    "openRegisterTitle": "باز کردن صندوق",
+    "openRegisterFloat": "موجودی اولیه صندوق",
+    "openRegisterHint": "وجه نقد داخل کشو پیش از نخستین فروش.",
+    "openRegisterDone": "صندوق باز شد",
+    "registerOpenSince": "صندوق از ساعت {time} باز است، توسط {name}",
+    "registerClosedNotice": "هیچ صندوقی باز نیست. فروش‌ها با موجودی صفر ثبت می‌شوند.",
+    "closeRegister": "بستن صندوق"
   },
   "kds": {
     "addonsLabel": "افزودنی‌ها",

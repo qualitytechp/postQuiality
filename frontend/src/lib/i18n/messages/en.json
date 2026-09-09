@@ -295,7 +295,19 @@
     "closeStepDone": "Close",
     "xReportSales": "Sales today",
     "refundsCount": "{count} refunds",
-    "ticketNoPayments": "No payments for this day"
+    "ticketNoPayments": "No payments for this day",
+    "amendZ": "Amend closure",
+    "amendReason": "Reason for the correction",
+    "amendReasonHint": "Required. It is stored with the change for the audit trail.",
+    "amendedNotice": "This closure was amended.",
+    "openRegister": "Open register",
+    "openRegisterTitle": "Open the register",
+    "openRegisterFloat": "Cash float you are starting with",
+    "openRegisterHint": "The cash in the drawer before the first sale.",
+    "openRegisterDone": "Register opened",
+    "registerOpenSince": "Register open since {time}, opened by {name}",
+    "registerClosedNotice": "No register is open. Sales are recorded with a zero float.",
+    "closeRegister": "Close register"
   },
   "kds": {
     "addonsLabel": "Add-ons",

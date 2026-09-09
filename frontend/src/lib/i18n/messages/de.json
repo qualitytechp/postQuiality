@@ -295,7 +295,19 @@
     "closeStepDone": "Abschließen",
     "xReportSales": "Heutiger Umsatz",
     "refundsCount": "{count} Erstattungen",
-    "ticketNoPayments": "Keine Zahlungen an diesem Tag"
+    "ticketNoPayments": "Keine Zahlungen an diesem Tag",
+    "amendZ": "Abschluss korrigieren",
+    "amendReason": "Grund der Korrektur",
+    "amendReasonHint": "Pflichtfeld. Wird zur Nachvollziehbarkeit mit der Änderung gespeichert.",
+    "amendedNotice": "Dieser Abschluss wurde korrigiert.",
+    "openRegister": "Kasse öffnen",
+    "openRegisterTitle": "Kasse öffnen",
+    "openRegisterFloat": "Wechselgeld zum Start",
+    "openRegisterHint": "Das Bargeld in der Schublade vor dem ersten Verkauf.",
+    "openRegisterDone": "Kasse geöffnet",
+    "registerOpenSince": "Kasse offen seit {time}, geöffnet von {name}",
+    "registerClosedNotice": "Keine Kasse geöffnet. Verkäufe werden mit Wechselgeld null erfasst.",
+    "closeRegister": "Kasse schließen"
   },
   "kds": {
     "addonsLabel": "Zusätze",

@@ -295,7 +295,19 @@
     "closeStepDone": "Fechar",
     "xReportSales": "Vendas do dia",
     "refundsCount": "{count} reembolsos",
-    "ticketNoPayments": "Sem pagamentos neste dia"
+    "ticketNoPayments": "Sem pagamentos neste dia",
+    "amendZ": "Corrigir fechamento",
+    "amendReason": "Motivo da correção",
+    "amendReasonHint": "Obrigatório. Fica guardado junto com a alteração para auditoria.",
+    "amendedNotice": "Este fechamento foi corrigido.",
+    "openRegister": "Abrir caixa",
+    "openRegisterTitle": "Abrir o caixa",
+    "openRegisterFloat": "Fundo de troco inicial",
+    "openRegisterHint": "O dinheiro na gaveta antes da primeira venda.",
+    "openRegisterDone": "Caixa aberto",
+    "registerOpenSince": "Caixa aberto desde {time}, por {name}",
+    "registerClosedNotice": "Nenhum caixa aberto. As vendas ficam com fundo zero.",
+    "closeRegister": "Fechar caixa"
   },
   "kds": {
     "addonsLabel": "Adicionais",

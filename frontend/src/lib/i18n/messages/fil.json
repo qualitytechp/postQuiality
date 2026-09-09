@@ -295,7 +295,19 @@
     "closeStepDone": "Isara",
     "xReportSales": "Mga benta ngayong araw",
     "refundsCount": "{count} refundo",
-    "ticketNoPayments": "Walang bayad sa araw na ito"
+    "ticketNoPayments": "Walang bayad sa araw na ito",
+    "amendZ": "Iwasto ang closure",
+    "amendReason": "Dahilan ng pagwawasto",
+    "amendReasonHint": "Kailangan. Naka-save kasama ng pagbabago para sa audit trail.",
+    "amendedNotice": "Naiwasto ang closure na ito.",
+    "openRegister": "Buksan ang kaha",
+    "openRegisterTitle": "Buksan ang kaha",
+    "openRegisterFloat": "Panimulang panukli",
+    "openRegisterHint": "Ang pera sa drawer bago ang unang benta.",
+    "openRegisterDone": "Bukas na ang kaha",
+    "registerOpenSince": "Bukas mula {time}, binuksan ni {name}",
+    "registerClosedNotice": "Walang bukas na kaha. Zero ang panimulang pondo ng mga benta.",
+    "closeRegister": "Isara ang kaha"
   },
   "kds": {
     "addonsLabel": "Mga Addon",

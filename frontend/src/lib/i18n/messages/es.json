@@ -295,7 +295,19 @@
     "closeStepDone": "Cerrar",
     "xReportSales": "Ventas del día",
     "refundsCount": "{count} reembolsos",
-    "ticketNoPayments": "No hay pagos en este día"
+    "ticketNoPayments": "No hay pagos en este día",
+    "amendZ": "Corregir cierre",
+    "amendReason": "Motivo de la corrección",
+    "amendReasonHint": "Obligatorio. Queda guardado junto al cambio como respaldo.",
+    "amendedNotice": "Este cierre fue corregido.",
+    "openRegister": "Abrir caja",
+    "openRegisterTitle": "Abrir la caja",
+    "openRegisterFloat": "Fondo de cambio con el que arranca",
+    "openRegisterHint": "El efectivo que hay en el cajón antes de la primera venta.",
+    "openRegisterDone": "Caja abierta",
+    "registerOpenSince": "Caja abierta desde las {time}, por {name}",
+    "registerClosedNotice": "No hay caja abierta. Las ventas quedan con fondo cero.",
+    "closeRegister": "Cerrar caja"
   },
   "kds": {
     "addonsLabel": "Adicionales",

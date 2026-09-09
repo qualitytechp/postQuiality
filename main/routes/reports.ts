@@ -8,6 +8,7 @@ import { aggregateTaxComponents } from '../services/tax-components';
 import { getTenantCurrency } from '../services/refund';
 import { getCurrencyMinorUnitFactor } from '../countries';
 import { computeDayAggregates, paymentMethodBreakdown } from './cash-closures';
+import { getOpenCashSession } from './cash-sessions';
 
 const router = Router();
 
@@ -625,7 +626,11 @@ router.get('/x-report', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
     const minorFactor = getCurrencyMinorUnitFactor(getTenantCurrency(db));
     const [periodStart, periodEnd] = reportDayBounds(date);
 
-    const aggregates = computeDayAggregates(db, date);
+    const openSession = getOpenCashSession(db) as any;
+    // Con caja abierta el X refleja el turno en curso, no el día entero.
+    const aggregates = openSession && date === today
+      ? computeDayAggregates(db, date, [String(openSession.opened_at), new Date().toISOString().replace('T', ' ').slice(0, 19)])
+      : computeDayAggregates(db, date);
 
     const closedRow = db.prepare(
       `SELECT z_number FROM cash_closures WHERE business_date = ? AND scope = 'day' LIMIT 1`
@@ -669,7 +674,15 @@ router.get('/x-report', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
         // this is genuinely null (never on transport error).
         priorClosedCashCents: priorRow?.counted_cash_cents ?? null,
         priorBusinessDate: priorRow?.business_date ?? null,
-        alreadyClosed: !!closedRow,
+        alreadyClosed: !!closedRow && !openSession,
+        openSession: openSession
+          ? {
+              id: Number(openSession.id),
+              openedAt: String(openSession.opened_at),
+              openedByName: openSession.opened_by_name ?? null,
+              openingFloatCents: Number(openSession.opening_float_cents),
+            }
+          : null,
         zNumber: closedRow?.z_number,
       },
     });

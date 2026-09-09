@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { parseCurrencyAmountInput } from '@/lib/currency-input';
 import axios from 'axios';
 import { useAuthStore } from '@/store/auth';
 import api from '@/lib/api';
@@ -128,6 +129,10 @@ export function useCashClose() {
   const [printingZ, setPrintingZ] = useState(false);
   const [hasPrintedFresh, setHasPrintedFresh] = useState(false);
   const [hydratedZ, setHydratedZ] = useState(false);
+  // Corrección de un Z ya emitido: la fila conserva su número y su
+  // instantánea de ventas; sólo se reescriben los importes declarados.
+  const [amendMode, setAmendMode] = useState(false);
+  const [amendReason, setAmendReason] = useState("");
   const unitAdapter = useCurrencyUnitAdapter();
   // Storage minor-unit factor (`Math.pow(10, fractionDigits)`) is the cents
   // denominator; the adapter's `maxDecimals` would be wrong for IRR/Toman
@@ -279,7 +284,8 @@ export function useCashClose() {
   // of step 3. Fire only after the closed-Z hydrate finishes — otherwise the
   // operator lands on a blank step 3 with no Back path. Recomputes on every
   // render of the open modal — the cost is two field reads and a conditional.
-  if (closeOpen && xReport?.alreadyClosed && !xLoading && closedZ !== null && closeStep !== 3) {
+  // En modo corrección el operador vuelve al paso de conteo a propósito.
+  if (closeOpen && xReport?.alreadyClosed && !xLoading && closedZ !== null && closeStep !== 3 && !amendMode) {
     setCloseStep(3);
   }
 
@@ -310,8 +316,8 @@ export function useCashClose() {
   // `amountsValid`, so we can return null and let the caller decide.
   const displayToCents = (raw: string): number | null => {
     if (raw.trim() === '') return null;
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n < 0) return null;
+    const n = parseCurrencyAmountInput(raw, unitAdapter.maxDecimals);
+    if (n === null || n < 0) return null;
     return Math.round(unitAdapter.toStored(n) * minorFactor);
   };
 
@@ -320,6 +326,18 @@ export function useCashClose() {
   const openingFloatCents = openingFloatCentsOrNull ?? 0;
   const countedCashCents = countedCashCentsOrNull ?? 0;
   const amountsValid = openingFloatCentsOrNull !== null && countedCashCentsOrNull !== null;
+  const amendReasonValid = !amendMode || amendReason.trim().length > 0;
+
+  /** Vuelve al paso de conteo con los importes del Z para corregirlos. */
+  const startAmend = () => {
+    if (!closedZ) return;
+    setOpeningFloatInput(unitAdapter.toDisplay(closedZ.opening_float_cents / minorFactor).toString());
+    setCountedInput(unitAdapter.toDisplay(closedZ.counted_cash_cents / minorFactor).toString());
+    setAmendReason("");
+    setAmendMode(true);
+    setSubmitError(null);
+    setCloseStep(2);
+  };
   const expectedCashTotalCents = xReport ? xReport.expectedCashCents + openingFloatCents : 0;
   const varianceCents = countedCashCents - expectedCashTotalCents;
 
@@ -328,14 +346,27 @@ export function useCashClose() {
     setSubmittingClose(true);
     setSubmitError(null);
     try {
-      const res = await api.post('/cash-closures', {
-        business_date: businessDate,
-        opening_float_cents: openingFloatCents,
-        counted_cash_cents: countedCashCents,
-      });
-      setClosedZ(res.data.zReport);
-      setHydratedZ(false);
-      setCloseStep(3);
+      if (amendMode && closedZ) {
+        const res = await api.put(`/cash-closures/${closedZ.id}`, {
+          opening_float_cents: openingFloatCents,
+          counted_cash_cents: countedCashCents,
+          reason: amendReason.trim(),
+        });
+        setClosedZ(res.data.closure);
+        setAmendMode(false);
+        setAmendReason("");
+        setHydratedZ(true);
+        setCloseStep(3);
+      } else {
+        const res = await api.post('/cash-closures', {
+          business_date: businessDate,
+          opening_float_cents: openingFloatCents,
+          counted_cash_cents: countedCashCents,
+        });
+        setClosedZ(res.data.zReport);
+        setHydratedZ(false);
+        setCloseStep(3);
+      }
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response?.status === 409) {
         // The backend's 409 carries alreadyClosed; surface the message and
@@ -394,6 +425,7 @@ export function useCashClose() {
     xReport, xLoading, xError, closeStep, setCloseStep,
     openingFloatInput, setOpeningFloatInput, countedInput, setCountedInput,
     submittingClose, submitError, alreadyClosedOverride, setAlreadyClosedOverride,
+    amendMode, setAmendMode, amendReason, setAmendReason, amendReasonValid, startAmend,
     amountsValid, expectedCashTotalCents, varianceCents, closedZ, printingZ,
     hasPrintedFresh, setHasPrintedFresh, hydratedZ, minorFactor, fmt, unitAdapter, t, tCommon,
     shiftDate, todayLocal, submitClose, printZ,

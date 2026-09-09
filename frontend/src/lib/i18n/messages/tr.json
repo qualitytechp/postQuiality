@@ -295,7 +295,19 @@
     "closeStepDone": "Kapat",
     "xReportSales": "Bugünkü satışlar",
     "refundsCount": "{count} iade",
-    "ticketNoPayments": "Bu gün ödeme yok"
+    "ticketNoPayments": "Bu gün ödeme yok",
+    "amendZ": "Kapanışı düzelt",
+    "amendReason": "Düzeltme gerekçesi",
+    "amendReasonHint": "Zorunlu. Denetim izi için değişiklikle birlikte saklanır.",
+    "amendedNotice": "Bu kapanış düzeltildi.",
+    "openRegister": "Kasa aç",
+    "openRegisterTitle": "Kasayı aç",
+    "openRegisterFloat": "Başlangıç bozuk para tutarı",
+    "openRegisterHint": "İlk satıştan önce çekmecedeki nakit.",
+    "openRegisterDone": "Kasa açıldı",
+    "registerOpenSince": "{time} saatinden beri açık, açan: {name}",
+    "registerClosedNotice": "Açık kasa yok. Satışlar sıfır başlangıçla kaydedilir.",
+    "closeRegister": "Kasayı kapat"
   },
   "kds": {
     "addonsLabel": "Eklentiler",
