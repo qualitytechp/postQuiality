@@ -37,3 +37,6 @@ export const RECEIPT_BRANDING_NAME = `Powered by ${BRAND.shortName}`;
  */
 export const TELEMETRY_ENABLED = false;
 export const CLOUD_SERVICES_ENABLED = false;
+
+/** Nombre mDNS anunciado en la red local: se resuelve como <MDNS_HOST>.local */
+export const MDNS_HOST = BRAND.shortName.toLowerCase().replace(/[^a-z0-9-]/g, '');

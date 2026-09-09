@@ -1,4 +1,5 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
+import { BRAND } from '../shared/brand';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import * as http from 'http';
@@ -169,7 +170,7 @@ export function startServerApp(): Promise<void> {
     app.get('/api/health', (_req: Request, res: Response) => {
       res.json({
         status: 'ok',
-        service: 'Flo Server App',
+        service: `${BRAND.productName} Server App`,
         version: '1.0.0',
         timestamp: new Date().toISOString(),
       });
@@ -284,7 +285,7 @@ export function startServerApp(): Promise<void> {
       app.get('/', (_req: Request, res: Response) => {
         res.send(`
           <html><body style="font-family:sans-serif;padding:2rem">
-            <h2>Flo Server App - Build not found</h2>
+            <h2>${BRAND.productName} - Build not found</h2>
             <p>Run <code>npm run build:frontend</code> then restart the app.</p>
           </body></html>
         `);

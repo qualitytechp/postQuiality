@@ -1,4 +1,5 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
+import { BRAND } from '../shared/brand';
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import * as http from 'http';
@@ -186,7 +187,7 @@ export function startServer(): Promise<void> {
       res.status(db.ok ? 200 : 503).json({
         status: db.ok ? 'ok' : 'error',
         db: db.ok ? 'ok' : db.error,
-        service: 'Flo Local API',
+        service: `${BRAND.productName} Local API`,
         version: process.env.npm_package_version || '2.4.7',
         timestamp: new Date().toISOString(),
       });

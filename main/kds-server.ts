@@ -1,4 +1,5 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
+import { BRAND } from '../shared/brand';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { WebSocketServer } from 'ws';
@@ -146,7 +147,7 @@ export function startKdsServer(): Promise<void> {
     app.get('/api/health', (_req: Request, res: Response) => {
       res.json({
         status: 'ok',
-        service: 'Flo KDS Server',
+        service: `${BRAND.productName} KDS Server`,
         version: '1.0.0',
         timestamp: new Date().toISOString(),
       });
@@ -551,7 +552,7 @@ export function startKdsServer(): Promise<void> {
       app.get('/', (_req: Request, res: Response) => {
         res.send(`
           <html><body style="font-family:sans-serif;padding:2rem">
-            <h2>Flo KDS – Build not found</h2>
+            <h2>${BRAND.productName} KDS - Build not found</h2>
             <p>Run <code>npm run build:frontend</code> then restart the app.</p>
           </body></html>
         `);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { BRAND } from '@shared/brand';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { useCartStore } from '@/store/cart';
@@ -997,7 +998,7 @@ export default function POSPage() {
                     try {
                       await api.post('/support-ticket', {
                         ...supportError.payload,
-                        subject: 'FloCafe printing problem',
+                        subject: `${BRAND.productName} printing problem`,
                         correlation_id: crypto.randomUUID(),
                         client_ticket_id: clientTicketId,
                       });

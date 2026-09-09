@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
+import { BRAND } from '@shared/brand';
 import '../globals.css';
 import { KdsHtmlLang } from '@/components/kds/KdsHtmlLang';
 
 export const metadata: Metadata = {
-  title: 'Flo KDS - Kitchen Display',
+  title: `${BRAND.productName} — Cocina`,
   description: 'Kitchen Display System',
 };
 

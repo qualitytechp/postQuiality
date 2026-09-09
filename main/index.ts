@@ -20,7 +20,7 @@ import { authorizeMasterPin } from './services/master-pin';
 import { initFromDb as initWhatsAppFromDb, requestShutdown as requestWhatsAppShutdown, shutdown as shutdownWhatsApp } from './services/whatsapp';
 import log from 'electron-log/main';
 import { autoUpdater } from 'electron-updater';
-import { BRAND, CLOUD_SERVICES_ENABLED, TELEMETRY_ENABLED } from '../shared/brand';
+import { BRAND, CLOUD_SERVICES_ENABLED, MDNS_HOST, TELEMETRY_ENABLED } from '../shared/brand';
 import { isAllowedLocalWindowUrl, isSafeExternalUrl } from './security/url-allowlist';
 
 /** Esta distribución no envía telemetría; los emisores quedan intactos. */
@@ -516,7 +516,7 @@ async function showRuntimeStuckDialog(reason: string): Promise<void> {
 
   await dialog.showMessageBox({
     type: sent ? 'info' : 'warning',
-    title: 'Flo',
+    title: BRAND.productName,
     message: sent
       ? 'Diagnostic report sent. Thank you.'
       : 'Could not send the diagnostic report (diagnostics may be disabled in '
@@ -974,7 +974,7 @@ function createTray(): void {
       { label: 'Quit', click: () => { isQuitting = true; app.quit(); } },
     ]);
 
-    tray.setToolTip('Flo');
+    tray.setToolTip(BRAND.productName);
     tray.setContextMenu(contextMenu);
     tray.on('double-click', () => { showMainWindow(); });
   } catch {
@@ -986,16 +986,16 @@ function startMdns(): void {
   try {
     bonjour = new Bonjour();
     bonjour.publish({
-      name: 'Flo',
+      name: BRAND.productName,
       type: 'http',
       port: getServerPort(),
-      host: 'flo',   // resolves as flo.local on the LAN
+      host: MDNS_HOST,   // se resuelve como <MDNS_HOST>.local en la red
       txt: { version: app.getVersion(), kds: `/kds`, kds_port: String(getKdsPort()), server_app: '/server-standalone', server_app_port: String(getServerAppPort()) },
     });
     const ip = getLocalIP();
-    console.log(`[mDNS] Advertising flo.local:${getServerPort()}  (IP fallback: http://${ip}:${getServerPort()})`);
-    console.log(`[mDNS] KDS available at http://flo.local:${getKdsPort()}  (IP fallback: http://${ip}:${getKdsPort()})`);
-    console.log(`[mDNS] Server App available at http://flo.local:${getServerAppPort()}  (IP fallback: http://${ip}:${getServerAppPort()})`);
+    console.log(`[mDNS] Advertising ${MDNS_HOST}.local:${getServerPort()}  (IP fallback: http://${ip}:${getServerPort()})`);
+    console.log(`[mDNS] KDS available at http://${MDNS_HOST}.local:${getKdsPort()}  (IP fallback: http://${ip}:${getKdsPort()})`);
+    console.log(`[mDNS] Server App available at http://${MDNS_HOST}.local:${getServerAppPort()}  (IP fallback: http://${ip}:${getServerAppPort()})`);
   } catch (err) {
     console.warn('[mDNS] Could not start Bonjour:', err);
   }
@@ -1163,9 +1163,9 @@ function showAbout(): void {
       'A self-hosted, offline-first Point of Sale system.',
       'Your data stays yours.',
       '',
-      `POS URL: http://flo.local:${getServerPort()}`,
-      `KDS URL: http://flo.local:${kdsPort}`,
-      `Server App URL: http://flo.local:${serverAppPort}`,
+      `POS URL: http://${MDNS_HOST}.local:${getServerPort()}`,
+      `KDS URL: http://${MDNS_HOST}.local:${kdsPort}`,
+      `Server App URL: http://${MDNS_HOST}.local:${serverAppPort}`,
       '',
       `KDS IP fallback: http://${ip}:${kdsPort}`,
       `Server App IP fallback: http://${ip}:${serverAppPort}`,

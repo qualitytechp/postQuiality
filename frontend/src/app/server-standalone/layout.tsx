@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { BRAND } from '@shared/brand';
 import { Inter } from 'next/font/google';
 import '../globals.css';
 import { DirectionalToaster } from '@/components/layout/DirectionalToaster';
@@ -7,8 +8,8 @@ import { KdsHtmlLang } from '@/components/kds/KdsHtmlLang';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Flo Server App',
-  description: 'Tableside ordering for FloCafe',
+  title: `${BRAND.productName} — Meseros`,
+  description: `Tableside ordering for ${BRAND.productName}`,
 };
 
 export default function ServerStandaloneLayout({

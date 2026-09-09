@@ -25,8 +25,6 @@
     "changelog:generate": "npx --yes git-cliff@2.8.0 --prepend CHANGELOG.md",
     "build:win": "npm run build:frontend && npm run build && electron-builder --win",
     "build:mac": "npm run build:frontend && npm run build && electron-builder --mac",
-    "build:mas": "MAS_BUILD=1 npm run build:frontend && MAS_BUILD=1 npm run build && MAS_BUILD=1 electron-builder --mac mas --universal",
-    "build:mas-dev": "MAS_BUILD=1 npm run build:frontend && MAS_BUILD=1 npm run build && MAS_BUILD=1 electron-builder --mac masDev",
     "build:linux": "npm run build:frontend && npm run build && electron-builder --linux",
     "release:linux": "npm run build:frontend && npm run build && electron-builder --linux --publish never",
     "release:mac": "npm run build:frontend && npm run build && electron-builder --mac --publish never",

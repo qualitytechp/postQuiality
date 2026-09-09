@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { BRAND } from '@shared/brand';
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import MenuActionHandler from "@/components/layout/MenuActionHandler";
@@ -23,13 +24,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Flo",
+  title: BRAND.productName,
   description: "Smart Point of Sale for restaurants",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Flo",
+    title: BRAND.productName,
   },
   icons: {
     icon: [

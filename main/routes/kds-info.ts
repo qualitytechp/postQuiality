@@ -1,5 +1,6 @@
 /** Returns KDS access URLs (mDNS and local IP) for POS QR code generation. */
 import { Router, Request, Response } from 'express';
+import { MDNS_HOST } from '../../shared/brand';
 import QRCode from 'qrcode';
 import { getLocalIP, getAllLocalIPs } from '../server';
 import { getKdsPort } from '../kds-server';
@@ -16,7 +17,7 @@ router.get('/', asyncHandler(async (_req: Request, res: Response) => {
     const ip = getLocalIP();
     const allIps = getAllLocalIPs();
 
-    const mdnsUrl = `http://flo.local:${kdsPort}`;
+    const mdnsUrl = `http://${MDNS_HOST}.local:${kdsPort}`;
     const ipUrl   = `http://${ip}:${kdsPort}`;
     const qrUrl   = ipUrl;
 

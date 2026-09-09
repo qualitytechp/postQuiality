@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws';
+import { BRAND } from '../../shared/brand';
 import { getDatabase, getKdsStationCategoryIds, getKdsStationRoutingScope, getUserKdsStationIds, hasUserKdsStationAssignments, isDatabaseMaintenanceActive, isKdsStationItemAllowed, now, parseItemJson, attachEffectiveAddons, isKdsEnabled, isVoidedItemKdsVisible, KDS_VOIDED_ITEM_VISIBILITY_MS, projectKdsItem, projectKdsOrder, registerDatabaseMaintenanceStartListener, withTxn } from '../db';
 import * as jwt from 'jsonwebtoken';
 import { getJWTSecret, parseCategoryIds } from '../routes/auth';
@@ -178,7 +179,7 @@ export function setupKdsWebSocket(wss: WebSocketServer): void {
 
     ws.send(JSON.stringify({
       type: 'connected',
-      message: 'Connected to Flo KDS',
+      message: `Connected to ${BRAND.productName} KDS`,
       timestamp: new Date().toISOString(),
     }));
   });
