@@ -201,6 +201,10 @@ export interface OrderItem {
   addons: { id?: number | string | null; name: string; price?: number; quantity?: number }[] | null;
   special_instructions: string | null;
   status: 'pending' | 'preparing' | 'ready' | 'served' | 'cancelled' | 'voided' | 'void_adjustment';
+  /** Current product's sale unit, joined at read time — not a sale-time snapshot. */
+  sale_unit?: Product['sale_unit'] | null;
+  weight_precision?: number | null;
+  allow_fractional_quantity?: boolean | number | null;
 }
 
 export interface Bill {

@@ -275,7 +275,14 @@ export function getOrderWithItems(db: ReturnType<typeof getDatabase>, orderId: n
       childItemAllocations = childAllocationsForBills(childBills, childRows, Number(billId));
     }
   }
-  const itemRows = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId) as any[];
+  // order_items only snapshots name/sku/price at sale time, not sale_unit — join the
+  // current product so a weighed line (e.g. "0.750") can print its unit on the receipt.
+  const itemRows = db.prepare(`
+    SELECT oi.*, p.sale_unit, p.weight_precision, p.allow_fractional_quantity
+    FROM order_items oi
+    LEFT JOIN products p ON p.id = oi.product_id
+    WHERE oi.order_id = ?
+  `).all(orderId) as any[];
   const minorFactor = getCurrencyMinorUnitFactor(getTenantCurrency());
   const projectedItems = projectOrderItems(order, itemRows, allocations, childItemAllocations, minorFactor);
   const childScopedItems = billId === undefined

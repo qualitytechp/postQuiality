@@ -8,10 +8,18 @@
  * turning it off had no effect, and a bare-bones setup with no thermal printer
  * configured would pop the browser print dialog on every single sale.
  *
+ * Also guards a second regression found while verifying the first fix: the
+ * bill object handed to `printBillForTenant` here (`paidBill`, straight from
+ * `/bills/:id/payments`) never carries `order.items` — that endpoint's response
+ * is `{ bill }` only, no nested order. Every immediate-payment receipt was
+ * printing with an empty item table, for every prepaid tenant, since before
+ * this fix. `handlePaymentComplete` (the postpaid sibling) already re-fetches
+ * the full bill before printing; this call site now does the same.
+ *
  * This is a source-level guard rather than a rendered/interaction test because
- * exercising the real regression needs a live payment round-trip; it was
- * verified manually via Playwright (0 `popup` windows after confirming a
- * prepaid payment with the setting off) before writing this guard.
+ * exercising the real regression needs a live payment round-trip; both were
+ * verified manually via Playwright (0 `popup` windows with the setting off;
+ * the printed item table populated with a real product) before writing this.
  */
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
@@ -46,5 +54,12 @@ assert.doesNotMatch(
 );
 console.log('  ✓ no caller passes a second argument that could bypass the setting again');
 
+assert.match(
+  posPage,
+  /await printBillForTenant\(await fetchLatestBill\(paidBill\.id\)\)/,
+  'the prepaid checkout re-fetches the full bill before printing, so the receipt has its items',
+);
+console.log('  ✓ the prepaid checkout re-fetches the full bill before printing, so the receipt has its items');
+
 console.log('\n' + '='.repeat(70));
-console.log('3/3 passed, 0 failed');
+console.log('4/4 passed, 0 failed');

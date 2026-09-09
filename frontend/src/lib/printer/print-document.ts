@@ -18,6 +18,7 @@ import { LANGUAGES, getLanguageDirection, type Language } from '@/lib/i18n/langu
 import { usePosSettingsStore } from '@/store/pos-settings';
 import { getCountryByCode, getCurrencySymbol, resolveTenantCurrency } from '@countries';
 import { resolveTaxComponents } from './tax-components';
+import { clampWeightPrecision, isWeighedProduct } from '@/lib/weight-input';
 import type { Bill, Order, OrderItem } from '@/lib/types';
 
 /** Business contact facts and visibility flags for one bill print run. */
@@ -142,9 +143,21 @@ export function buildBillPrintData(bill: Bill, opts: BillBusinessOptions = {}): 
       tableName: String(order?.table?.name ?? ''),
       onlinePlatform: String(order?.online_platform ?? ''),
       externalOrderId: String(order?.external_order_id ?? ''),
-      items: items.map((item) => ({
+      items: items.map((item) => {
+        // sale_unit/weight_precision are joined from the current product, not a
+        // sale-time snapshot — absent (or since-deleted product) just omits the unit.
+        const weighed = isWeighedProduct({
+          sale_unit: item?.sale_unit ?? undefined,
+          allow_fractional_quantity: Boolean(item?.allow_fractional_quantity),
+          weight_precision: item?.weight_precision ?? undefined,
+        });
+        return {
         productName: String(item?.product_name ?? ''),
         quantity: Number(item?.quantity) || 0,
+        ...(weighed ? {
+          weightUnit: item!.sale_unit as 'kg' | 'g' | 'lb',
+          weightPrecision: clampWeightPrecision(item?.weight_precision),
+        } : {}),
         unitPrice: Number(item?.unit_price) || 0,
         total: Number(item?.total) || 0,
         addons: (Array.isArray(item?.addons) ? item.addons : []).map((addon) => {
@@ -157,7 +170,8 @@ export function buildBillPrintData(bill: Bill, opts: BillBusinessOptions = {}): 
           };
         }),
         specialInstructions: String(item?.special_instructions ?? ''),
-      })),
+        };
+      }),
     },
     bill: {
       billNumber: String(bill?.bill_number ?? ''),

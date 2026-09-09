@@ -821,7 +821,17 @@ export default function POSPage() {
       // "Autoimprimir comprobante" gobierna esto igual que en el cobro
       // posterior (handlePaymentComplete): forzarlo aquí habría dejado el
       // interruptor sin efecto para cualquier negocio que cobra por adelantado.
-      await printBillForTenant(paidBill);
+      //
+      // paidBill (de /payments) nunca trae `order.items` — el recibo saldría
+      // sin la lista de productos. Se vuelve a pedir la factura completa,
+      // igual que ya hace handlePaymentComplete, en su propio try/catch: la
+      // venta ya quedó registrada, así que un fallo aquí es solo de impresión,
+      // no del checkout completo.
+      try {
+        await printBillForTenant(await fetchLatestBill(paidBill.id));
+      } catch {
+        toast.error(t('receiptPrintFailed'));
+      }
     } catch {
       toast.error(t('processOrderFailed'));
     } finally {

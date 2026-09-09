@@ -1,6 +1,8 @@
 # Plan: Asocampo — self-service store instance
 
-**Status:** ACTIVE DESIGN. Phases 0–3 are implemented; phase 4 is pending.
+**Status:** ACTIVE DESIGN, functionally complete. Phases 0–4 are implemented;
+both open questions below are settled or are business decisions left to the
+owner, not outstanding engineering work.
 
 Asocampo is an agricultural association running a counter-service store: no waiters,
 no kitchen, no tables. Customers pick goods off the shelf and pay at a single
@@ -107,9 +109,9 @@ Behaviour worth keeping:
 - **`itemCount()` counts a weighed line as 1.** Summing weights produced "0.75 items".
 - Prices read `$5.000/kg` wherever a weighed product's unit price is shown.
 
-**Still pending:** receipts print the bare number (`0.75`) with no unit. Adding it
-touches all four printer document builders, so it is deliberately left out of this
-phase.
+**Resolved in Phase 4:** receipts printed the bare number (`0.75`) with no unit.
+Rather than touching all four printer document builders, the fix was scoped to
+the browser-print path only — see Phase 4 below.
 
 ## Phase 3 — Customer document *(done)*
 
@@ -316,9 +318,53 @@ loads the full catalogue — matching on name, SKU, barcode, and category name a
 once, the same "search everything in one field" shape as the customer picker. Not
 Asocampo-specific: any tenant's catalogue page gets it.
 
-## Phase 4 — Finishing *(pending)*
+## Phase 4 — Finishing
 
-Receipt branding, cash open/close (already built), and reports.
+**Weight unit on receipts** *(done, browser-print path only, generic)*. The
+printed quantity was correct but bare ("0.5"); the owner chose a fixed-abbreviation,
+browser-print-only scope over touching the ESC/POS thermal renderers or the
+translated unit-label pipeline (kg/g/lb read as full translated words in some
+languages — French "kilogramme", Persian — so hardcoding an abbreviation
+sidesteps that entirely, and receipts commonly show unit abbreviations regardless
+of language anyway).
+
+Implementation, once traced: `order_items` never stored `sale_unit` (only a
+`product_name`/`product_sku` snapshot), so `getOrderWithItems` (`main/routes/bills.ts`)
+now LEFT JOINs the *current* product for `sale_unit`/`weight_precision`/
+`allow_fractional_quantity` — current, not a sale-time snapshot, deliberately: a migration to snapshot it at
+sale time would be worst-case fidelity for a product at this scale, the same
+"match effort to actual usage" call AGENTS.md makes elsewhere for this codebase.
+`shared/print/document.ts`'s
+`ItemTableRow`/`OrderItemSnapshot` gained optional `weightUnit`/`weightPrecision`
+fields — additive and optional, so the untouched ESC/POS renderers and their
+extensive golden-format tests (print-parity: 495 assertions, receipt-column-width,
+merchant-print-templates, etc. — all reran green) never see them.
+`frontend/src/lib/printer/print-document.ts` populates them using the same
+`isWeighedProduct`/`clampWeightPrecision` helpers Phase 2 already built — one
+"is this line weighed" definition shared between the POS cart and the receipt,
+not two. `web-print.ts` prints `formatWeight(...) + ' ' + unit` when present, the
+bare tenant-locale number otherwise — unit-based products are provably unaffected
+(verified: "Champú 1 $19.000" unchanged).
+
+**Adjacent bug found and fixed while verifying this**: the immediate-payment
+receipt (`handlePrepaidCheckout`) printed with an **empty item table** — for
+every prepaid tenant, since before this session, unrelated to weight. Its bill
+object comes straight from `POST /bills/:id/payments`, whose response is
+`{ bill }` with no nested `order` at all; `handlePaymentComplete` (the postpaid
+sibling) already knew to re-fetch the full bill before printing. Confirmed with
+the user before fixing (bigger than "add a unit label," touches every prepaid
+tenant's receipts) — same one-line pattern as the sibling, wrapped in its own
+try/catch so a network hiccup on that re-fetch reports as a print failure, not a
+false "the whole sale failed" after the payment already succeeded.
+
+Tests: `tests/bill-items-weight-unit.test.ts` (12 checks — weighed line, plain
+line, soft-deleted product still joins its unit like it already does its name,
+a genuinely-gone product row omits it without failing the fetch) and two more
+assertions added to `tests/pos-prepaid-print-respects-setting.test.ts` guarding
+the re-fetch-before-print line itself.
+
+Cash open/close (already built) and reports remain generically usable as they
+already were — no Asocampo-specific work landed here.
 
 ## Open questions
 

@@ -110,6 +110,13 @@ export interface OrderItemSnapshot {
   readonly total: number;
   readonly addons: readonly ItemAddonSnapshot[];
   readonly specialInstructions: string;
+  /**
+   * Weighed-sale unit ('kg'/'g'/'lb') and its decimal precision, when the line
+   * was sold by weight. Absent for unit-based items — renderers that don't
+   * check for it keep printing the bare quantity exactly as before.
+   */
+  readonly weightUnit?: 'kg' | 'g' | 'lb';
+  readonly weightPrecision?: number;
 }
 
 /** The order behind the bill, as printed truth. */
@@ -294,6 +301,9 @@ export interface ItemTableRow {
   readonly direction: TextDirection;
   readonly name: DirectionalText;
   readonly quantity: number;
+  /** Weighed-sale unit and precision, when this line was sold by weight. */
+  readonly weightUnit?: 'kg' | 'g' | 'lb';
+  readonly weightPrecision?: number;
   /** Per-unit price as printed truth, when the surface prints a rate column. */
   readonly unitPrice?: number;
   /** Line total as printed truth. */
@@ -563,6 +573,8 @@ export function buildBillDocument(printData: PrintData, printContext: PrintConte
       direction: base,
       name: directionalText(item.productName, base),
       quantity: item.quantity,
+      weightUnit: item.weightUnit,
+      weightPrecision: item.weightPrecision,
       unitPrice: item.unitPrice,
       amount: item.total,
       addons: Object.freeze(item.addons.map((addon) => Object.freeze({

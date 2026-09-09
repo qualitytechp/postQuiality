@@ -3,6 +3,7 @@
 import type { Bill, Tenant } from '@/lib/types';
 import toast from 'react-hot-toast';
 import type { PrintWarning } from './warnings';
+import { clampWeightPrecision, formatWeight } from '@/lib/weight-input';
 import {
   getCountryByCode,
   getCurrencyFractionDigits,
@@ -284,11 +285,18 @@ export function generateBillHtml(
 
   const items = itemsBlock?.rows ?? [];
   const fmtAmount = (value: number) => formatAmount(value, tenant, trimDecimals);
-  const fmtQuantity = (value: number) => formatNumberForTenant(
-    Number(value) || 0,
-    tenant.country,
-    { digits: tenant.number_digits },
-  );
+  const fmtQuantity = (row: { quantity: number; weightUnit?: string; weightPrecision?: number }) => {
+    if (row.weightUnit) {
+      const locale = getCountryByCode(tenant.country)?.locale ?? 'en-US';
+      const precision = clampWeightPrecision(row.weightPrecision);
+      return `${formatWeight(row.quantity, precision, locale)} ${row.weightUnit}`;
+    }
+    return formatNumberForTenant(
+      Number(row.quantity) || 0,
+      tenant.country,
+      { digits: tenant.number_digits },
+    );
+  };
 
   const hasTax = (totals?.tax != null)
     || (breakdown != null && breakdown.lines.length > 0);
@@ -349,7 +357,7 @@ export function generateBillHtml(
               ${row.addons.length > 0 ? `<br><small class="text-muted">${row.addons.map(a => `+ ${escapeHtml(a.name.text)}${(a.quantity ?? 1) > 1 ? ` ×${escapeHtml(a.quantity)}` : ''}`).join(', ')}</small>` : ''}
               ${row.specialInstructions ? `<br><small class="text-italic">${escapeHtml(row.specialInstructions.text)}</small>` : ''}
             </td>
-            <td class="text-end num">${fmtQuantity(row.quantity)}</td>
+            <td class="text-end num">${fmtQuantity(row)}</td>
             <td class="text-end num">${fmtAmount(row.unitPrice ?? 0)}</td>
             <td class="text-end num">${fmtAmount(row.amount)}</td>
           </tr>
