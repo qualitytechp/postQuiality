@@ -9,7 +9,7 @@ import { useHeldOrdersStore } from '@/store/held-orders';
 import { usePosSettingsStore } from '@/store/pos-settings';
 import { useSidebar } from '@/components/ui/sidebar';
 import toast from 'react-hot-toast';
-import { ShoppingCart, X } from 'lucide-react';
+import { ShoppingCart, X , AlertTriangle } from 'lucide-react';
 import type { Addon, Category, Product, Table, Bill, Order, CartItem } from '@/lib/types';
 import { useConfirm } from '@/hooks/use-confirm';
 import {
@@ -94,6 +94,9 @@ export default function POSPage() {
   // Modal state
   const [showTablePicker, setShowTablePicker] = useState(false);
   const [addonProduct, setAddonProduct] = useState<Product | null>(null);
+  // Vender sin caja abierta se avisa, no se impide: un olvido a las 7 de la
+  // mañana no puede frenar el local entero. El cierre asumirá fondo cero.
+  const [registerOpen, setRegisterOpen] = useState<boolean | null>(null);
   const [editingCartItem, setEditingCartItem] = useState<CartItem | null>(null);
   const [checkoutTable, setCheckoutTable] = useState<Table | null>(null);
   const [paymentBill, setPaymentBill] = useState<Bill | null>(null);
@@ -443,6 +446,12 @@ export default function POSPage() {
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRestaurant, setBillingType, setTablesRequired, setKotPrintingEnabled]);
+
+  useEffect(() => {
+    api.get('/cash-sessions/current')
+      .then((res) => setRegisterOpen(Boolean(res.data?.session)))
+      .catch(() => setRegisterOpen(null));
+  }, []);
 
   const handleProductClick = (product: Product) => {
     // Always open modal so user can add notes and adjust quantity
@@ -955,6 +964,12 @@ export default function POSPage() {
 
   return (
     <>
+      {registerOpen === false && (
+        <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          <AlertTriangle size={15} className="shrink-0" />
+          <span>{t('noOpenRegister')}</span>
+        </div>
+      )}
       {supportError && (
         <div className="fixed bottom-4 start-4 z-50 w-[min(28rem,calc(100vw-2rem))] rounded-xl border border-red-200 bg-card p-4 shadow-xl">
           {sentTicketId ? (
