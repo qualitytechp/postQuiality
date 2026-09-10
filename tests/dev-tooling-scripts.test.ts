@@ -246,6 +246,16 @@ exit 0
 `;
     fs.writeFileSync(path.join(fixtureDir, 'tests/run-test.sh'), runTestSh, { mode: 0o755 });
 
+    // El particionador lee la lista canónica desde tests/run-all.cjs, así que el
+    // fixture debe proveerla ahí (antes iba dentro del script "test").
+    const escribirLista = (suites: string[]) => {
+      fs.writeFileSync(
+        path.join(fixtureDir, 'tests/run-all.cjs'),
+        `module.exports = { SUITES: ${JSON.stringify(suites)} };\n`,
+      );
+    };
+    escribirLista(['test:suite-1', 'test:suite-2', 'test:suite-3', 'test:suite-4', 'test:suite-5']);
+
     // Create fixture package.json
     const fixturePkg = {
       name: 'fixture-app',
@@ -288,9 +298,8 @@ exit 0
     assert.doesNotMatch(shard1.stdout, /RUNNING_MOCK_SUITE:test:suite-3/);
     assert.doesNotMatch(shard1.stdout, /RUNNING_MOCK_SUITE:test:suite-5/);
 
-    // Test Fail-fast on failing suite
-    fixturePkg.scripts.test = fixturePkg.scripts['test-with-fail'];
-    fs.writeFileSync(path.join(fixtureDir, 'package.json'), JSON.stringify(fixturePkg, null, 2));
+    // Test Fail-fast on failing suite — failing-suite queda en el índice 1
+    escribirLista(['test:suite-1', 'test:failing-suite', 'test:suite-3']);
 
     const failingShard = spawnSync('node', ['scripts/ci/run-test-shard.cjs'], {
       encoding: 'utf8',
@@ -336,11 +345,19 @@ exit 0
     );
   }
 
-  const suitePattern = /(?:bash\s+tests\/run-test\.sh\s+)?npm\s+run\s+(test:[\w-]+)/g;
+  // La lista canónica se movió del script `test` a tests/run-all.cjs: como
+  // cadena en package.json superaba el límite de línea de cmd.exe y `npm test`
+  // no arrancaba en Windows. Sigue siendo una sola lista, y este guardián la
+  // vigila donde vive ahora.
+  assert.ok(
+    testScript.includes('tests/run-all.cjs'),
+    'el script "test" debe delegar en tests/run-all.cjs',
+  );
+
+  const { SUITES } = require('./run-all.cjs') as { SUITES: string[] };
   const allSuites: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = suitePattern.exec(testScript)) !== null) {
-    if (!allSuites.includes(match[1])) allSuites.push(match[1]);
+  for (const suite of SUITES) {
+    if (!allSuites.includes(suite)) allSuites.push(suite);
   }
 
   assert.ok(allSuites.length >= 90, `Expected at least 90 test suites in "test" script, got ${allSuites.length}`);

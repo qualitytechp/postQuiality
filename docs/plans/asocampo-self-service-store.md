@@ -366,6 +366,23 @@ the re-fetch-before-print line itself.
 Cash open/close (already built) and reports remain generically usable as they
 already were — no Asocampo-specific work landed here.
 
+**Per-invoice detail on the cash register report** *(done, generic)*. The owner
+wanted to see which bills make up the X-report totals, not just the aggregate.
+New `GET /reports/x-report/bills` shares its window logic with `/x-report`
+itself via an extracted `resolveXReportWindow` helper (same open-session-scoped
+bounds, or the full business day with no session open) — otherwise the bill
+list an owner expands wouldn't add up to the totals already shown above it.
+Returns bills with a `LEFT JOIN customers` for the name, parsed
+`payment_details`, and items joined the same way Phase 4's receipt fix already
+does (current product's `sale_unit`/`weight_precision`). `CashRegisterReport.tsx`
+renders an expandable "Detalle de facturación" section — same
+`isWeighedProduct`/`formatWeight` helpers as everywhere else, so a weighed line
+shows "0.500 kg" here too, not a bare number.
+
+Tests: `tests/x-report-bill-detail.test.ts` (13 checks — no-session fallback,
+open-session scoping excludes/includes the right bills, customer-name join,
+payment-method parsing, weighed-item fields).
+
 ## Open questions
 
 1. ~~Three products priced by the litre.~~ **Settled:** the owner confirmed goat milk

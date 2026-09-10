@@ -2,6 +2,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const Module = require('module');
+const { TELEMETRY_ENABLED } = require('../shared/brand');
 
 const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'flo-startup-failure-'));
 const events = [];
@@ -159,7 +160,9 @@ setTimeout(() => {
     : [
       'database.init',
       'dialog.showErrorBox',
-      'telemetry.startup-failed',
+      // El emisor de telemetría está gateado por TELEMETRY_ENABLED en el punto
+      // de composición: con el flag apagado no se llama y el evento no aparece.
+      ...(TELEMETRY_ENABLED ? ['telemetry.startup-failed'] : []),
       'server-app.stop',
       'server.stop',
       'kds.stop',

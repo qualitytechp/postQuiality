@@ -10,6 +10,7 @@ import * as dns from 'dns';
 import * as https from 'https';
 import * as net from 'net';
 import { asyncHandler } from '../middleware/async-handler';
+import { applyStockMovement } from '../services/inventory';
 
 const MAX_FETCH_BYTES = 10 * 1024 * 1024;
 
@@ -1011,19 +1012,23 @@ router.post('/:id/stock', requireRole(...ROLE_ACCESS.ownerManager), (req: Reques
       return res.status(404).json({ error: 'Product not found' });
     }
 
-    let result;
-    if (action === 'set') {
-      result = db.prepare('UPDATE products SET stock_quantity = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL')
-        .run(quantity, now(), req.params.id);
-    } else if (action === 'increase') {
-      result = db.prepare('UPDATE products SET stock_quantity = stock_quantity + ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL')
-        .run(quantity, now(), req.params.id);
-    } else {
-      result = db.prepare('UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL AND stock_quantity >= ?')
-        .run(quantity, now(), req.params.id, quantity);
-    }
-    if (result.changes === 0) {
-      return res.status(400).json({ error: action === 'decrease' ? 'Insufficient stock' : 'Product not found' });
+    // `set` se expresa como el delta que hace falta para llegar a la cifra
+    // tecleada, que es lo que el libro necesita registrar. `decrease` conserva
+    // su rechazo por faltante; los otros dos nunca dejan el saldo en negativo.
+    const currentStock = Number((product as any).stock_quantity) || 0;
+    const delta = action === 'set' ? quantity - currentStock
+      : action === 'increase' ? quantity
+        : -quantity;
+
+    const applied = applyStockMovement(db, {
+      productId: String(req.params.id),
+      delta,
+      reason: 'adjustment',
+      note: action,
+      userId: (req as any).user?.id ?? null,
+    });
+    if (!applied.ok) {
+      return res.status(400).json({ error: applied.reason === 'insufficient' ? 'Insufficient stock' : 'Product not found' });
     }
     const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
     res.json({ product: serializeProduct(updated) });

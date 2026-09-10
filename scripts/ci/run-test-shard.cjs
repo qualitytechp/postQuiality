@@ -2,11 +2,11 @@
 /*
  * CI test sharding for the FloCafe "Core test suite" (`npm test`).
  *
- * The canonical, ordered suite list lives in package.json's "test" script as a
- * chain of `bash tests/run-test.sh npm run test:<name>` invocations. This helper
- * reads that script at run time (so there is no second list to drift), assigns
- * suites to shards round-robin by position, and runs this shard's subset with
- * the same `run-test.sh` wrapper that `npm test` uses.
+ * La lista canónica y ordenada vive en `tests/run-all.cjs`, que es lo mismo que
+ * ejecuta `npm test`. Este ayudante la importa en tiempo de ejecución (para que
+ * no haya una segunda lista que se desincronice), reparte las suites entre
+ * shards por posición (round-robin) y corre el subconjunto de este shard con el
+ * mismo envoltorio `run-test.sh` que usa `npm test`.
  *
  * Usage:
  *   SHARD_TOTAL=2 SHARD_INDEX=0 node scripts/ci/run-test-shard.cjs
@@ -18,7 +18,6 @@
 'use strict';
 
 const { spawnSync } = require('node:child_process');
-const fs = require('node:fs');
 const path = require('node:path');
 
 function parseIntEnv(name, value, fallback, min) {
@@ -38,23 +37,15 @@ if (index >= total) {
   process.exit(2);
 }
 
-const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
-const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-const testScript = pkg.scripts && pkg.scripts.test;
-if (typeof testScript !== 'string' || testScript.length === 0) {
-  console.error('package.json has no "test" script to shard.');
-  process.exit(2);
-}
+const { SUITES } = require(path.join(__dirname, '..', '..', 'tests', 'run-all.cjs'));
 
-const suitePattern = /(?:bash\s+tests\/run-test\.sh\s+)?npm\s+run\s+(test:[\w-]+)/g;
 const suites = [];
-let match;
-while ((match = suitePattern.exec(testScript)) !== null) {
-  if (!suites.includes(match[1])) suites.push(match[1]);
+for (const suite of SUITES) {
+  if (!suites.includes(suite)) suites.push(suite);
 }
 
 if (suites.length === 0) {
-  console.error('Could not extract any test suites from package.json "test" script.');
+  console.error('tests/run-all.cjs no exportó ninguna suite para repartir.');
   process.exit(2);
 }
 

@@ -25,6 +25,7 @@ import { kdsInfoRoutes } from './kds-info';
 import { posInfoRoutes } from './pos-info';
 import { serverAppInfoRoutes } from './server-app-info';
 import { moreAppsRoutes } from './more-apps';
+import { moduleRoutes } from './modules';
 import { notifyKdsUpdate } from '../services/kds';
 import { printerRoutes } from './printers';
 import { databaseRoutes } from './database';
@@ -48,6 +49,7 @@ import {
   invertTaxSnapshot,
 } from '../services/tax';
 import { cloudSync } from '../services/cloud-sync';
+import { applyStockMovement } from '../services/inventory';
 import { parsePhoneE164, stripPhoneDigits } from '../lib/phone';
 import QRCode from 'qrcode';
 import { asyncHandler } from '../middleware/async-handler';
@@ -101,6 +103,7 @@ export function registerRoutes(app: Express): void {
   app.use('/api/pos-info', posInfoRoutes);
   app.use('/api/server-app-info', serverAppInfoRoutes);
   app.use('/api/more-apps', moreAppsRoutes);
+  app.use('/api/modules', moduleRoutes);
   app.use('/api/printers', printerRoutes);
   app.use('/api/db', databaseRoutes);
   app.use('/api/db-tools', databaseToolsRoutes);
@@ -410,8 +413,15 @@ export function registerRoutes(app: Express): void {
 
           const product = db.prepare('SELECT * FROM products WHERE id = ?').get(currentItem.product_id) as any;
           if (product && currentItem.inventory_deducted_quantity > 0) {
-            db.prepare('UPDATE products SET stock_quantity = stock_quantity + ?, updated_at = ? WHERE id = ?')
-              .run(currentItem.inventory_deducted_quantity, now(), product.id);
+            applyStockMovement(db, {
+              productId: product.id,
+              delta: currentItem.inventory_deducted_quantity,
+              reason: 'sale_cancel',
+              refType: 'order_item',
+              refId: itemId,
+              userId: (req as any).user?.id ?? null,
+              allowNegative: true,
+            });
           }
         }
 
@@ -593,8 +603,15 @@ export function registerRoutes(app: Express): void {
           if (product.stock_quantity < currentItem.inventory_deducted_quantity) {
             throw Object.assign(new Error(`Insufficient stock to restore item (Available: ${product.stock_quantity}, Required: ${currentItem.inventory_deducted_quantity})`), { statusCode: 400 });
           }
-          db.prepare('UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ? WHERE id = ?')
-            .run(currentItem.inventory_deducted_quantity, now(), product.id);
+          applyStockMovement(db, {
+            productId: product.id,
+            delta: -currentItem.inventory_deducted_quantity,
+            reason: 'sale_restore',
+            refType: 'order_item',
+            refId: itemId,
+            userId: (req as any).user?.id ?? null,
+            allowNegative: true,
+          });
         }
 
         // Restore - mark as pending

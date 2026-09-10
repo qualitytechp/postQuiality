@@ -1,0 +1,445 @@
+<title>Auditoría QA QualityTech</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+  :root {
+    --bg: #F2F5F3;
+    --fg: #0F211E;
+    --muted: #526763;
+    --faint: #7E938F;
+    --card: #FFFFFF;
+    --line: #DCE5E1;
+    --rule: #D5DFDA;
+    --brand: #0D3B36;
+    --brand-fg: #EAF4F0;
+    --brand-muted: #9CBDB6;
+    --brand-line: #1E524B;
+    --accent: #E8930C;
+    --accent-fg: #241500;
+    --accent-text: #8A5200;
+    --accent-wash: #FDF3E1;
+    --ok: #0E8F68;
+    --ok-text: #0B6E51;
+    --ok-wash: #E6F5EF;
+    --warn-text: #8A5200;
+    --sans: 'Instrument Sans', 'Segoe UI', system-ui, sans-serif;
+    --display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+    --shadow: 0 1px 2px rgba(15,33,30,.05), 0 10px 28px -16px rgba(15,33,30,.2);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #091513; --fg: #E9F2EF; --muted: #A0B6B1; --faint: #7A938D;
+      --card: #10231F; --line: #1E3A34; --rule: #1E3A34;
+      --brand: #05100E; --brand-fg: #E9F2EF; --brand-muted: #92AAA4; --brand-line: #1B332E;
+      --accent: #F0A62E; --accent-fg: #1A1000; --accent-text: #F3B043; --accent-wash: #22190A;
+      --ok: #21B588; --ok-text: #3FD0A2; --ok-wash: #0D2A22; --warn-text: #F3B043;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px -16px rgba(0,0,0,.7);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #091513; --fg: #E9F2EF; --muted: #A0B6B1; --faint: #7A938D;
+    --card: #10231F; --line: #1E3A34; --rule: #1E3A34;
+    --brand: #05100E; --brand-fg: #E9F2EF; --brand-muted: #92AAA4; --brand-line: #1B332E;
+    --accent: #F0A62E; --accent-fg: #1A1000; --accent-text: #F3B043; --accent-wash: #22190A;
+    --ok: #21B588; --ok-text: #3FD0A2; --ok-wash: #0D2A22; --warn-text: #F3B043;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 28px -16px rgba(0,0,0,.7);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 16.5px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 { font-family: var(--display); line-height: 1.1; margin: 0; text-wrap: balance; letter-spacing: -.02em; }
+  p { margin: 0; }
+
+  .wrap { max-width: 940px; margin-inline: auto; padding-inline: 22px; }
+
+  header.top { background: var(--brand); color: var(--brand-fg); padding-block: 44px 40px; }
+  header.top .eyebrow { color: var(--accent); }
+  h1 { font-size: clamp(2rem, 4.6vw, 3.05rem); font-weight: 800; margin-block: 14px 16px; }
+  header.top p { color: var(--brand-muted); max-width: 62ch; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: .73rem; letter-spacing: .14em;
+    text-transform: uppercase; font-weight: 500; color: var(--accent-text);
+  }
+
+  .meta {
+    display: flex; gap: 10px 28px; flex-wrap: wrap;
+    margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--brand-line);
+    font-family: var(--mono); font-size: .8rem; color: var(--brand-muted);
+  }
+  .meta b { color: var(--brand-fg); font-weight: 600; }
+
+  section { padding-block: clamp(38px, 5vw, 58px); }
+  section + section { border-top: 1px solid var(--rule); }
+  h2 { font-size: clamp(1.5rem, 3vw, 2.05rem); font-weight: 700; margin-top: 12px; }
+  .sec-intro { color: var(--muted); margin-top: 14px; max-width: 68ch; }
+
+  /* Veredicto */
+  .verdict {
+    background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 12px; padding: 24px 26px; margin-top: 26px; box-shadow: var(--shadow);
+  }
+  .verdict h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; }
+  .verdict p { color: var(--muted); }
+  .verdict p + p { margin-top: 11px; }
+  .verdict b { color: var(--fg); font-weight: 600; }
+
+  /* Tarjetas de verificación */
+  .checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 14px; margin-top: 26px; }
+  .check {
+    background: var(--card); border: 1px solid var(--line); border-radius: 11px; padding: 18px 18px 20px;
+  }
+  .check .k { font-size: .84rem; color: var(--muted); margin-bottom: 7px; }
+  .check .v {
+    font-family: var(--display); font-size: 1.5rem; font-weight: 700;
+    letter-spacing: -.03em; font-variant-numeric: tabular-nums;
+  }
+  .check .v.ok { color: var(--ok-text); }
+  .check .n { font-size: .8rem; color: var(--faint); margin-top: 5px; }
+
+  /* Hallazgos */
+  .finding {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 22px 24px 24px; margin-top: 16px;
+  }
+  .finding.fixed { border-left: 4px solid var(--ok); }
+  .finding.notbug { border-left: 4px solid var(--faint); }
+  .fhead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .fhead h3 { font-size: 1.13rem; font-weight: 700; }
+  .tag {
+    font-family: var(--mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+    font-weight: 600; padding: 3px 9px; border-radius: 5px; white-space: nowrap;
+  }
+  .tag.ok { background: var(--ok-wash); color: var(--ok-text); }
+  .tag.grey { background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+  .tag.hi { background: var(--accent); color: var(--accent-fg); }
+  .finding dl { margin: 0; display: grid; grid-template-columns: 92px minmax(0,1fr); gap: 7px 16px; }
+  .finding dt { font-family: var(--mono); font-size: .73rem; letter-spacing: .06em; text-transform: uppercase; color: var(--faint); padding-top: 3px; }
+  .finding dd { margin: 0; color: var(--muted); font-size: .97rem; }
+  .finding dd b { color: var(--fg); font-weight: 600; }
+  @media (max-width: 620px) { .finding dl { grid-template-columns: 1fr; gap: 3px; } .finding dt { padding-top: 9px; } }
+
+  code {
+    font-family: var(--mono); font-size: .87em;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 4px; padding: 1px 5px;
+  }
+  .finding.fixed code, .finding.notbug code { background: var(--bg); }
+
+  /* Tabla de inventario */
+  .tablewrap { overflow-x: auto; margin-top: 24px; border: 1px solid var(--line); border-radius: 11px; background: var(--card); }
+  table { border-collapse: collapse; width: 100%; min-width: 580px; }
+  th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--line); font-size: .93rem; }
+  th { font-family: var(--mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); font-weight: 500; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  td b { font-weight: 600; }
+  td .sub { display: block; color: var(--faint); font-size: .85rem; margin-top: 2px; }
+
+  ul.plain { list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+  ul.plain li { display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 12px; align-items: start; color: var(--muted); font-size: .97rem; }
+  ul.plain li b { color: var(--fg); font-weight: 600; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-top: 9px; }
+  .dot.ok { background: var(--ok); }
+
+  .caveat {
+    background: var(--accent-wash); border: 1px solid var(--accent);
+    border-radius: 12px; padding: 22px 24px; margin-top: 24px;
+  }
+  .caveat h3 { font-size: 1.08rem; font-weight: 700; margin-bottom: 12px; color: var(--fg); }
+  .caveat li { color: var(--fg); }
+  .caveat .dot { background: var(--accent-text); }
+
+  footer { background: var(--brand); color: var(--brand-muted); padding-block: 24px; font-size: .87rem; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <span class="eyebrow">Auditoría de calidad</span>
+    <h1>QualityTech POS: revisión módulo por módulo</h1>
+    <p>
+      Inventario de funcionalidades, verificación automática completa, recorrido en vivo
+      de cada pantalla y caza de errores. Cuatro defectos encontrados y corregidos; tres
+      sospechas descartadas tras comprobarlas.
+    </p>
+    <div class="meta">
+      <span>Versión <b>3.7.2</b></span>
+      <span>Fecha <b>10 sep 2026</b></span>
+      <span>Endpoints <b>236</b></span>
+      <span>Suites <b>142</b></span>
+      <span>Migraciones <b>85</b></span>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Veredicto</span>
+    <h2>Qué tan lista está para producción</h2>
+
+    <div class="verdict">
+      <h3>El código de producto está sólido. Los defectos estaban en las herramientas.</h3>
+      <p>
+        Revisé autorización, manejo de dinero, consultas a base de datos y migraciones
+        buscando fallas reales. <b>No encontré ninguna en la lógica del negocio.</b> Los
+        cuatro defectos que sí aparecieron estaban en la infraestructura de pruebas y en
+        una migración — incluyendo uno que tenía la batería completa en rojo y otro que
+        rompía silenciosamente un job de CI en Windows.
+      </p>
+      <p>
+        <b>Con la salvedad de abajo</b>: quedan pendientes verificaciones que solo se
+        pueden hacer con hardware y equipos reales, y que ningún análisis de código
+        sustituye.
+      </p>
+    </div>
+
+    <div class="checks">
+      <div class="check">
+        <div class="k">Batería completa</div>
+        <div class="v ok">142 / 142</div>
+        <div class="n">0 fallidas · 0 omitidas</div>
+      </div>
+      <div class="check">
+        <div class="k">Lint</div>
+        <div class="v ok">0 errores</div>
+        <div class="n">1.047 avisos (preexistentes)</div>
+      </div>
+      <div class="check">
+        <div class="k">Tipos</div>
+        <div class="v ok">Limpio</div>
+        <div class="n">Backend y frontend</div>
+      </div>
+      <div class="check">
+        <div class="k">Traducciones</div>
+        <div class="v ok">8 idiomas</div>
+        <div class="n">Paridad exacta de claves</div>
+      </div>
+      <div class="check">
+        <div class="k">Pantallas en vivo</div>
+        <div class="v ok">15 / 15</div>
+        <div class="n">Sin excepciones de JS</div>
+      </div>
+      <div class="check">
+        <div class="k">Esquema</div>
+        <div class="v ok">v0 → v85</div>
+        <div class="n">Integridad y claves foráneas ok</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Defectos corregidos</span>
+    <h2>Cuatro errores encontrados y arreglados</h2>
+    <p class="sec-intro">
+      Cada uno verificado antes y después: reproduje la falla, apliqué el arreglo y
+      confirmé que la prueba correspondiente pasa.
+    </p>
+
+    <article class="finding fixed">
+      <div class="fhead">
+        <span class="tag hi">Bloqueante</span>
+        <h3>La batería de pruebas estaba en rojo por una expectativa vencida</h3>
+      </div>
+      <dl>
+        <dt>Síntoma</dt>
+        <dd><code>test:shutdown-lifecycle</code> fallaba: esperaba el evento <code>telemetry.startup-failed</code> y no llegaba.</dd>
+        <dt>Causa</dt>
+        <dd>Esta distribución <b>apaga la telemetría a propósito</b> (<code>TELEMETRY_ENABLED = false</code>), así que el emisor nunca se llama. La app estaba bien; <b>la prueba quedó desactualizada</b> respecto a ese cambio.</dd>
+        <dt>Arreglo</dt>
+        <dd>La expectativa ahora sigue al flag en vez de darlo por sentado: si algún día se enciende la telemetría, la prueba vuelve a exigir el evento sin tocar nada.</dd>
+        <dt>Archivo</dt>
+        <dd><code>tests/startup-failure-child.cjs</code></dd>
+      </dl>
+    </article>
+
+    <article class="finding fixed">
+      <div class="fhead">
+        <span class="tag hi">CI roto</span>
+        <h3><code>npm test</code> no se podía ejecutar en Windows</h3>
+      </div>
+      <dl>
+        <dt>Síntoma</dt>
+        <dd>«La línea de comandos es demasiado larga» — la batería moría antes de correr un solo test.</dd>
+        <dt>Causa</dt>
+        <dd>La lista de suites vivía como una cadena de ~140 <code>&&</code> dentro de package.json. Había llegado a <b>8.190 caracteres y cmd.exe corta en 8.191</b>: a un carácter del borde. En Linux pasaba solo porque su límite es mucho mayor.</dd>
+        <dt>Alcance</dt>
+        <dd>Además del desarrollo local, <b>el job nocturno de CI corre <code>npm test</code> en <code>windows-latest</code></b>, así que esa verificación de plataforma venía cayendo por lo mismo.</dd>
+        <dt>Arreglo</dt>
+        <dd>Moví la lista canónica a <code>tests/run-all.cjs</code>. Sigue existiendo <b>una sola lista</b>: actualicé también a sus dos consumidores, el particionador de CI y el guardián que la vigila. La lista se extrajo de forma mecánica y verifiqué que coincide exactamente — 142 suites, mismo orden.</dd>
+        <dt>Archivos</dt>
+        <dd><code>tests/run-all.cjs</code> · <code>package.json</code> · <code>scripts/ci/run-test-shard.cjs</code> · <code>tests/dev-tooling-scripts.test.ts</code></dd>
+      </dl>
+    </article>
+
+    <article class="finding fixed">
+      <div class="fhead">
+        <span class="tag ok">Diagnóstico engañoso</span>
+        <h3>Un test de Electron fallaba con un error que no tenía nada que ver</h3>
+      </div>
+      <dl>
+        <dt>Síntoma</dt>
+        <dd><code>test:raster-electron</code> reventaba con <code>Cannot read properties of undefined (reading 'isReady')</code>.</dd>
+        <dt>Causa</dt>
+        <dd>Algunas terminales integradas (VS Code, entre otras) exportan <code>ELECTRON_RUN_AS_NODE=1</code>. Heredada, hace que el binario arranque <b>como Node en vez de Electron</b>: <code>app</code> queda indefinido. El repo pone esa variable a propósito en sus otros tests, pero este —el único que necesita Chromium de verdad— no se protegía de heredarla.</dd>
+        <dt>Arreglo</dt>
+        <dd>Un lanzador que borra la variable antes de invocar Electron, siguiendo el patrón que el repo ya usaba para el caso contrario.</dd>
+        <dt>Archivo</dt>
+        <dd><code>tests/run-electron-gui-test.cjs</code></dd>
+      </dl>
+    </article>
+
+    <article class="finding fixed">
+      <div class="fhead">
+        <span class="tag ok">Latente</span>
+        <h3>Una migración usaba un chequeo ciego a columnas generadas</h3>
+      </div>
+      <dl>
+        <dt>Síntoma</dt>
+        <dd>Ninguno visible hoy — por eso lo clasifico como latente, no como falla activa.</dd>
+        <dt>Causa</dt>
+        <dd>La migración v22 comprobaba <code>phone_digits</code> con <code>PRAGMA table_info</code>, que <b>no lista las columnas generadas</b>. Comprobado en vivo: <code>table_info</code> efectivamente no la ve. Es el mismo defecto que ya se había corregido en la v85, que quedó asimétrica.</dd>
+        <dt>Arreglo</dt>
+        <dd>Alineada a <code>table_xinfo</code>, igual que la v85. Verifiqué que el esquema se construye limpio de v0 a v85 y que ambas columnas generadas quedan presentes.</dd>
+        <dt>Archivo</dt>
+        <dd><code>main/db.ts</code></dd>
+      </dl>
+    </article>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Sospechas descartadas</span>
+    <h2>Tres cosas que parecían errores y no lo eran</h2>
+    <p class="sec-intro">
+      Las incluyo porque un informe que solo lista lo que confirma es un informe que no
+      se puede auditar. En los tres casos comprobé antes de concluir.
+    </p>
+
+    <article class="finding notbug">
+      <div class="fhead">
+        <span class="tag grey">Por diseño</span>
+        <h3><code>/api/reports</code> montado dos veces</h3>
+      </div>
+      <dl>
+        <dt>Comprobación</dt>
+        <dd>Son dos routers con rutas <b>disjuntas</b> sobre el mismo prefijo: uno atiende <code>/catalog</code>, <code>/query</code>, <code>/saved</code>; el otro <code>/summary</code>, <code>/x-report</code> y demás. Express cae del primero al segundo sin colisión. Es una forma válida de partir una superficie grande.</dd>
+      </dl>
+    </article>
+
+    <article class="finding notbug">
+      <div class="fhead">
+        <span class="tag grey">Error mío de prueba</span>
+        <h3>La pantalla KDS devolvía 404</h3>
+      </div>
+      <dl>
+        <dt>Comprobación</dt>
+        <dd>Yo estaba pidiendo <code>/kds/</code> en el puerto del POS. <b>El KDS se sirve en su propio puerto</b> (3002), donde responde 200 correctamente; el puerto principal lo excluye a propósito. El enlace del menú tampoco apunta ahí, sino a <code>/settings?tab=kds</code>. Falso positivo.</dd>
+      </dl>
+    </article>
+
+    <article class="finding notbug">
+      <div class="fhead">
+        <span class="tag grey">Por diseño</span>
+        <h3>Configuración pedía dos ajustes que daban 404</h3>
+      </div>
+      <dl>
+        <dt>Comprobación</dt>
+        <dd>Las claves del pulso de cajón monedero no existen hasta que se guarden por primera vez, y la migración v80 solo las siembra si un impresor traía el flag antiguo. El frontend <b>atrapa el 404 deliberadamente</b> y usa su valor por defecto. Corresponde a la simplificación que el propio repo documenta tras revertir ese mecanismo.</dd>
+      </dl>
+    </article>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Auditoría dirigida</span>
+    <h2>Lo que revisé a fondo y encontré bien</h2>
+
+    <ul class="plain">
+      <li><span class="dot ok"></span><span><b>Autorización.</b> Hay un <code>requireAuth</code> global sobre <code>/api</code> con denegación por defecto y una lista de excepciones corta y justificada (salud, login, imágenes de producto). Verifica revocación de token, <b>relee el rol desde la base de datos en vez de confiar en el JWT</b> —así un cambio de rol surte efecto de inmediato— y rechaza tokens emitidos antes del último cambio de contraseña.</span></li>
+      <li><span class="dot ok"></span><span><b>Dinero.</b> Los cálculos van en unidades menores (centavos), lo que evita los errores clásicos de coma flotante. Hay idempotencia por clave de transacción, los métodos de pago personalizados se validan contra filas activas de la base, y el pago con monedero exige cliente asociado.</span></li>
+      <li><span class="dot ok"></span><span><b>Consultas.</b> El detalle por factura no hace N+1: agrupa por lotes con <code>IN (...)</code>, y esos lotes se fragmentan de a 400 — cómodamente por debajo del límite de 999 variables de SQLite. Un día de mucho volumen no lo tumba.</span></li>
+      <li><span class="dot ok"></span><span><b>Sin envío de datos a terceros.</b> <code>TELEMETRY_ENABLED</code> y <code>CLOUD_SERVICES_ENABLED</code> están en <code>false</code>, gateados en el punto de composición. Busqué dominios externos y llamadas de red en todo el backend y el frontend: no hay ninguna fuera de la API local.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Inventario</span>
+    <h2>Módulos y funcionalidades</h2>
+    <p class="sec-intro">
+      236 endpoints repartidos en 34 módulos de API, 15 pantallas de dashboard y 3 apps
+      independientes (cocina, meseros, pantalla de cliente).
+    </p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Área</th><th>Qué cubre</th><th class="num">Endpoints</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><b>Venta</b><span class="sub">pos, orders, order-items, held-orders</span></td><td>Carrito, pedidos en mesa y para llevar, venta al peso, pedidos en espera</td><td class="num">21</td></tr>
+          <tr><td><b>Cobro</b><span class="sub">bills, refunds, payment-methods</span></td><td>Facturación, pagos divididos, métodos configurables, devoluciones</td><td class="num">19</td></tr>
+          <tr><td><b>Caja</b><span class="sub">cash-sessions, cash-closures</span></td><td>Apertura y cierre de turno, arqueo contado contra esperado, reportes X y Z numerados</td><td class="num">8</td></tr>
+          <tr><td><b>Reportes</b><span class="sub">reports, report-query</span></td><td>Generador a medida, agrupación por mes/día/hora/producto/cajero, vistas guardadas, exportación CSV</td><td class="num">18</td></tr>
+          <tr><td><b>Catálogo</b><span class="sub">products, categories, addon-groups, menu-csv</span></td><td>Productos por unidad y por peso, adiciones con grupos obligatorios, importación por CSV, códigos de barras</td><td class="num">30</td></tr>
+          <tr><td><b>Cocina</b><span class="sub">kds, kitchen, kitchen-stations</span></td><td>Pantalla de cocina en tiempo real, estaciones, comandas</td><td class="num">11</td></tr>
+          <tr><td><b>Clientes</b><span class="sub">customers</span></td><td>Búsqueda por nombre, teléfono o documento; fidelidad y descuentos</td><td class="num">8</td></tr>
+          <tr><td><b>Impresión</b><span class="sub">printers, print-templates</span></td><td>ESC/POS térmica, red, USB, cola del sistema, WebUSB; plantillas propias</td><td class="num">20</td></tr>
+          <tr><td><b>Configuración</b><span class="sub">settings, tax-packs</span></td><td>Datos del negocio, flujo del POS, apariencia, configuración fiscal por país</td><td class="num">47</td></tr>
+          <tr><td><b>Acceso</b><span class="sub">auth, staff</span></td><td>Sesión, roles y permisos, PIN maestro, recuperación de contraseña</td><td class="num">16</td></tr>
+          <tr><td><b>Datos</b><span class="sub">db, db-tools</span></td><td>Copias de seguridad, restauración, salud del esquema, herramientas de mantenimiento</td><td class="num">12</td></tr>
+          <tr><td><b>Otros</b><span class="sub">whatsapp, support-ticket, tables, info</span></td><td>Mensajería, soporte, mesas, descubrimiento de servicios en la red</td><td class="num">26</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">Límites de esta auditoría</span>
+    <h2>Lo que no puedo dar por verificado</h2>
+
+    <div class="caveat">
+      <h3>Antes de decir «listo para producción», falta esto</h3>
+      <ul class="plain">
+        <li><span class="dot"></span><span><b>Impresión en hardware real.</b> La lógica y los formatos están cubiertos por pruebas, pero no imprimí en una térmica física. El repo tiene un protocolo de prueba de hardware justamente para esto.</span></li>
+        <li><span class="dot"></span><span><b>Varias cajas simultáneas.</b> Probé un solo equipo. El comportamiento con tres o cuatro cajas facturando a la vez sobre la misma red no está verificado.</span></li>
+        <li><span class="dot"></span><span><b>Instalador empaquetado.</b> No corrí el ciclo completo de instalar, actualizar desde una versión anterior real y desinstalar.</span></li>
+        <li><span class="dot"></span><span><b>Integraciones externas.</b> Google Drive y WhatsApp no se probaron contra servicios en vivo.</span></li>
+        <li><span class="dot"></span><span><b>1.042 avisos de tipo <code>any</code></b> en el backend. No son errores y no rompen nada, pero debilitan la seguridad de tipos donde aparecen.</span></li>
+      </ul>
+    </div>
+
+    <ul class="plain" style="margin-top: 26px;">
+      <li><span class="dot"></span><span><b>No hice commit de nada.</b> Los cambios están en el árbol de trabajo para que usted los revise: 5 archivos modificados y 2 nuevos.</span></li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>QualityTech POS 3.7.2 · Auditoría QA</span>
+    <span>142 suites · 236 endpoints · 85 migraciones</span>
+  </div>
+</footer>

@@ -2464,7 +2464,12 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
     version: 22,
     name: 'add_customers_phone_digits',
     up: () => {
-      if (!getColumns(db, 'customers').includes('phone_digits')) {
+      // `table_info` (que es lo que usa getColumns) esconde las columnas
+      // generadas, así que nunca vería `phone_digits` y la migración intentaría
+      // crearla otra vez. `table_xinfo` sí las lista — mismo criterio que la v85.
+      const columnas = (db.prepare('PRAGMA table_xinfo(customers)').all() as { name: string }[])
+        .map((columna) => columna.name);
+      if (!columnas.includes('phone_digits')) {
         db.exec(`
           ALTER TABLE customers ADD COLUMN phone_digits TEXT
             GENERATED ALWAYS AS (
@@ -4135,6 +4140,46 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
         CREATE INDEX IF NOT EXISTS idx_customers_document_digits
         ON customers(document_digits)
         WHERE document_digits IS NOT NULL AND document_digits != ''
+      `);
+    },
+  },
+  {
+    version: 86,
+    name: 'add_stock_movements',
+    up: () => {
+      // Historia de las existencias. Hasta ahora `products.stock_quantity` era
+      // una columna que escribían la venta, la anulación, la reactivación y el
+      // ajuste manual sin dejar rastro: nadie podía responder por qué un
+      // producto tiene las unidades que tiene.
+      //
+      // La columna se conserva tal cual, como caché del saldo, así que nada de
+      // lo que ya funciona cambia de forma. `balance_after` guarda el saldo
+      // resultante, y eso hace comprobable la caché contra el libro sobre una
+      // base real, no solo en pruebas.
+      //
+      // Sin este libro, anular una compra obligaría a restar a ciegas de un
+      // número que quizá ya se vendió. Con él, anular escribe un movimiento en
+      // contra: el saldo puede quedar negativo, pero queda explicado.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS stock_movements (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          product_id    TEXT NOT NULL REFERENCES products(id),
+          delta         REAL NOT NULL CHECK (delta <> 0),
+          balance_after REAL NOT NULL,
+          reason        TEXT NOT NULL CHECK (reason IN (
+                          'sale', 'sale_cancel', 'sale_restore',
+                          'purchase', 'purchase_void', 'adjustment')),
+          ref_type      TEXT,
+          ref_id        TEXT,
+          note          TEXT,
+          occurred_at   TEXT NOT NULL,
+          business_date TEXT NOT NULL CHECK (business_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          created_by    TEXT REFERENCES users(id),
+          created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS stock_movements_product ON stock_movements(product_id, id);
+        CREATE INDEX IF NOT EXISTS stock_movements_ref ON stock_movements(ref_type, ref_id);
+        CREATE INDEX IF NOT EXISTS stock_movements_date ON stock_movements(business_date);
       `);
     },
   },

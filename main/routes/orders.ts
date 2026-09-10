@@ -17,6 +17,7 @@ import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS, hasRole } from '../../shared/role-permissions';
 import { getCurrencyFractionDigits, getCurrencyMinorUnitFactor } from '../countries';
 import { getTenantCurrency } from './bills';
+import { applyStockMovement } from '../services/inventory';
 import expressRateLimit from 'express-rate-limit';
 
 const router = Router();
@@ -594,8 +595,15 @@ router.post('/', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: R
         insertOrderItemAddons(db, insertItemResult.lastInsertRowid, item.addons, itemCreatedAt);
 
         if (product.track_inventory) {
-          db.prepare('UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ? WHERE id = ?')
-            .run(quantity, now(), product.id);
+          applyStockMovement(db, {
+            productId: product.id,
+            delta: -quantity,
+            reason: 'sale',
+            refType: 'order_item',
+            refId: insertItemResult.lastInsertRowid,
+            userId: (req as any).user?.id ?? null,
+            allowNegative: true,
+          });
         }
       }
 
@@ -800,8 +808,18 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
         insertOrderItemAddons(db, insertItemResult.lastInsertRowid, item.addons, itemCreatedAt);
 
         if (product.track_inventory) {
-          db.prepare('UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ? WHERE id = ?')
-            .run(quantity, now(), product.id);
+          // La comprobación de existencias de arriba ya decidió si la venta
+          // procede; aquí sólo se aplica, para no cambiar el comportamiento al
+          // introducir el libro.
+          applyStockMovement(db, {
+            productId: product.id,
+            delta: -quantity,
+            reason: 'sale',
+            refType: 'order_item',
+            refId: insertItemResult.lastInsertRowid,
+            userId: (req as any).user?.id ?? null,
+            allowNegative: true,
+          });
         }
       }
 
@@ -1042,8 +1060,15 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
           for (const item of eligibleItems) {
             const product = db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id) as any;
             if (product && item.inventory_deducted_quantity > 0) {
-              db.prepare('UPDATE products SET stock_quantity = stock_quantity + ?, updated_at = ? WHERE id = ?')
-                .run(item.inventory_deducted_quantity, nowStr, product.id);
+              applyStockMovement(db, {
+                productId: product.id,
+                delta: item.inventory_deducted_quantity,
+                reason: 'sale_cancel',
+                refType: 'order_item',
+                refId: item.id,
+                userId: (req as any).user?.id ?? null,
+                allowNegative: true,
+              });
             }
           }
 

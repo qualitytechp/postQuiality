@@ -4,6 +4,7 @@ import { getDatabase, now } from '../db';
 import { cloudSync, DEFAULT_CLOUD_SERVER_URL, normalizeCloudServerUrl } from '../services/cloud-sync';
 import { googleDrive } from '../services/google-drive';
 import { requireRole } from '../middleware/security';
+import { MODULE_SETTING_KEYS } from '../../shared/modules';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { requireMasterPin } from '../middleware/master-pin';
 import { resolveTaxIdFormat, validateTaxRegistrationNumber } from '../services/tax';
@@ -859,6 +860,7 @@ const ALLOWED_WILDCARD_KEYS = new Set([
   'telemetry_enabled',
   'diagnostics_consent',
   'kds_enabled', 'server_app_enabled', 'kot_printing_enabled',
+  ...MODULE_SETTING_KEYS,
   'split_checks_enabled',
   BILL_LANGUAGE_POLICY_KEY, KOT_LANGUAGE_POLICY_KEY,
   'currency_display', 'number_digits', 'calendar',
@@ -957,6 +959,11 @@ router.put('/:key', settingsWriteRateLimit, requireRole(...ROLE_ACCESS.ownerMana
     }
     if (req.params.key === 'theme_mode' && !isThemeMode(value)) {
       return res.status(400).json({ error: 'Invalid theme_mode value' });
+    }
+    // Un valor que no sea booleano caería en el valor por defecto del módulo sin
+    // avisar, dejando el interruptor diciendo una cosa y el backend haciendo otra.
+    if (MODULE_SETTING_KEYS.includes(String(req.params.key)) && !['true', 'false'].includes(String(value))) {
+      return res.status(400).json({ error: 'Module setting must be "true" or "false"' });
     }
     let valueToPersist: unknown = value;
     if (req.params.key === 'currency') {
