@@ -456,6 +456,8 @@ async function runCatalogSaveBoundaryTests() {
       let stateCall = 0;
       React.useState = ((initial: unknown) => {
         stateCall += 1;
+        // React invoca el inicializador perezoso; el sustituto también debe hacerlo.
+        const resolved = typeof initial === 'function' ? (initial as () => unknown)() : initial;
         if (stateCall === 1) return [activeTab, () => undefined];
         if (stateCall === 7) return [false, () => undefined];
         if (stateCall === 8) return [activeTab === 'products', () => undefined];
@@ -467,7 +469,7 @@ async function runCatalogSaveBoundaryTests() {
           tax_behavior: 'country_default', description: '', track_inventory: false, stock_quantity: '0',
           low_stock_threshold: '5', is_active: true, tags: [], customTag: '', addon_group_ids: [], image_url: null,
         }, () => undefined];
-        return [initial, () => undefined];
+        return [resolved, () => undefined];
       }) as typeof React.useState;
       return ProductsPage();
     };

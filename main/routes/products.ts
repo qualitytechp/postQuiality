@@ -498,6 +498,8 @@ router.get('/', (req: Request, res: Response) => {
         // A combo keeps no stock of its own; what it has is whatever its
         // scarcest part allows. Null on an ordinary product.
         available_units: combo ? combo.available : null,
+        // Nor a cost of its own: a combo costs what its parts cost.
+        cost: combo ? combo.cost : product.cost,
       });
     });
 
@@ -603,8 +605,8 @@ router.get('/:id', (req: Request, res: Response) => {
 function comboAvailabilityBatch(
   db: ReturnType<typeof getDatabase>,
   productIds: string[],
-): Map<string, { available: number | null }> {
-  const result = new Map<string, { available: number | null }>();
+): Map<string, { available: number | null; cost: number }> {
+  const result = new Map<string, { available: number | null; cost: number }>();
   if (productIds.length === 0) return result;
 
   // Chunked at 400 to stay under SQLite's variable limit, the same bound the
@@ -614,20 +616,21 @@ function comboAvailabilityBatch(
     const placeholders = chunk.map(() => '?').join(',');
     const rows = db.prepare(`
       SELECT pc.parent_product_id AS parent,
-             c.track_inventory, c.stock_quantity, pc.quantity
+             c.track_inventory, c.stock_quantity, c.cost, pc.quantity
       FROM product_components pc
       JOIN products c ON c.id = pc.component_product_id
       WHERE pc.parent_product_id IN (${placeholders})
     `).all(...chunk) as {
-      parent: string; track_inventory: number; stock_quantity: number; quantity: number;
+      parent: string; track_inventory: number; stock_quantity: number; cost: number | null; quantity: number;
     }[];
 
     for (const row of rows) {
-      const current = result.get(row.parent) ?? { available: null };
+      const current = result.get(row.parent) ?? { available: null, cost: 0 };
       if (row.track_inventory) {
         const possible = Math.max(0, Math.floor((Number(row.stock_quantity) || 0) / Number(row.quantity)));
         current.available = current.available === null ? possible : Math.min(current.available, possible);
       }
+      current.cost += (Number(row.cost) || 0) * Number(row.quantity);
       result.set(row.parent, current);
     }
   }

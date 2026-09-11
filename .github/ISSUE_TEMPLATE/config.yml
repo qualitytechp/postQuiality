@@ -1,14 +1,14 @@
 blank_issues_enabled: false
 contact_links:
   - name: Download FloCafe
-    url: https://flopos.com/download
+    url: 
     about: Get the latest packaged release before reporting an issue.
   - name: FloCafe documentation
-    url: https://flopos.com/documentation
+    url: 
     about: Setup, installation, printers, backups, and operating guidance.
   - name: Architecture & general discussions
-    url: https://github.com/FreeOpenSourcePOS/FloCafe/discussions
+    url: 
     about: Propose architecture changes, ask questions, or discuss early ideas.
   - name: Report a security vulnerability
-    url: https://github.com/FreeOpenSourcePOS/FloCafe/security/advisories/new
+    url: 
     about: Report potential vulnerabilities privately per SECURITY.md.

@@ -70,7 +70,7 @@ export interface Product {
   weight_precision: number;
   description: string | null;
   price: number;
-  cost_price: number | null;
+  cost: number | null;
   cb_percent?: number | null;
   tax_type: 'none' | 'inclusive' | 'exclusive';
   tax_rate: number;

@@ -52,6 +52,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
 
@@ -175,8 +176,8 @@ export default function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
+          <SidebarMenuItem className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1.5">
+            <SidebarMenuButton size="lg" asChild className="min-w-0 flex-1">
               <Link href={homeHref}>
                 <div className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground font-semibold">
                   {(currentTenant?.business_name || tCommon('brandName')).charAt(0).toUpperCase()}
@@ -186,6 +187,11 @@ export default function AppSidebar() {
                 </div>
               </Link>
             </SidebarMenuButton>
+            <SidebarTrigger
+              aria-label={t('toggleSidebar')}
+              title={t('toggleSidebar')}
+              className="size-7 shrink-0 text-muted-foreground hover:text-foreground"
+            />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

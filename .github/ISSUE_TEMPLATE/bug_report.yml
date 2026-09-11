@@ -7,7 +7,7 @@ body:
       value: |
         Thanks for reporting an issue! Please provide the details below.
 
-        > **Security & Privacy Reminder:** Do NOT upload real customer databases, credentials, API keys, `.env` files, or private business records. If reporting a security vulnerability, please report it privately per [SECURITY.md](https://github.com/FreeOpenSourcePOS/FloCafe/blob/main/SECURITY.md).
+        > **Security & Privacy Reminder:** Do NOT upload real customer databases, credentials, API keys, `.env` files, or private business records. If reporting a security vulnerability, please report it privately per 
 
   - type: textarea
     id: description

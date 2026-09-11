@@ -124,10 +124,62 @@ export default function ProductsPage() {
   const [comboLines, setComboLines] = useState<{ product_id: string; quantity: string }[]>([]);
   const [comboAvailable, setComboAvailable] = useState<number | null>(null);
   const [comboComponentCost, setComboComponentCost] = useState<number | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = window.localStorage.getItem('products.hiddenColumns');
+      const parsed = saved ? JSON.parse(saved) : null;
+      return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
 
   const currency = getCurrencySymbol(currentTenant?.currency || 'INR', getCountryByCode(currentTenant?.country ?? 'IN')?.locale);
   const unitAdapter = getCurrencyUnitAdapter(currentTenant?.currency || 'INR', currentTenant?.country);
   const fmt = useFormatCurrency();
+
+  // Qué columnas se pueden esconder. El producto y las acciones no: sin ellas
+  // la fila no se sabe de quién es ni se puede hacer nada con ella.
+  const OPTIONAL_COLUMNS = [
+    { key: 'category', label: 'columnCategory' },
+    { key: 'addons', label: 'columnAddons' },
+    { key: 'cost', label: 'columnCost' },
+    { key: 'price', label: 'columnPrice' },
+    { key: 'margin', label: 'columnMargin' },
+    { key: 'tax', label: 'columnTax' },
+    { key: 'cashback', label: 'columnCashback' },
+    { key: 'stock', label: 'columnStock' },
+    { key: 'status', label: 'columnStatus' },
+  ] as const;
+
+  const COLUMNS_STORAGE_KEY = 'products.hiddenColumns';
+  const showColumn = (key: string) => !hiddenColumns.includes(key);
+
+  const toggleColumn = (key: string) => {
+    setHiddenColumns((previous) => {
+      const next = previous.includes(key)
+        ? previous.filter((k) => k !== key)
+        : [...previous, key];
+      // Es una preferencia de esta pantalla y de este equipo, no del negocio.
+      try { window.localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(next)); } catch { /* modo privado */ }
+      return next;
+    });
+  };
+  const percentLocale = getCountryByCode(currentTenant?.country ?? 'IN')?.locale;
+
+  // Lo que se le gana encima de lo que costó. Sin costo cargado no hay
+  // porcentaje que calcular: dividir por cero no da "0%", da nada.
+  const markupPercent = (price: number, cost: number | null): number | null => {
+    if (cost == null || !Number.isFinite(cost) || cost <= 0) return null;
+    if (!Number.isFinite(price)) return null;
+    return ((price - cost) / cost) * 100;
+  };
+
+  const formatPercent = (value: number): string =>
+    new Intl.NumberFormat(percentLocale, { maximumFractionDigits: 1 }).format(value) + ' %';
   const isRestaurant = (currentTenant?.business_type ?? 'restaurant') === 'restaurant';
   const isOwnerOrManager = hasRole(currentTenant?.role, ROLE_ACCESS.ownerManager);
 
@@ -272,7 +324,7 @@ export default function ProductsPage() {
       name: product.name,
       category_id: product.category_id != null ? String(product.category_id) : '',
       price: String(product.price),
-      cost_price: String(product.cost_price || ''),
+      cost_price: product.cost != null ? String(product.cost) : '',
       cb_percent: product.cb_percent === null || product.cb_percent === undefined ? '' : String(product.cb_percent),
       sku: product.sku || '',
       barcode: product.barcode || '',
@@ -535,13 +587,13 @@ export default function ProductsPage() {
   }
 
   const normalizedProductSearch = productSearch.trim().toLowerCase();
-  const filteredProducts = normalizedProductSearch
-    ? products.filter((product) => {
-        const categoryName = categories.find((c) => String(c.id) === String(product.category_id))?.name || '';
-        return [product.name, product.sku, product.barcode, categoryName]
-          .some((field) => field?.toLowerCase().includes(normalizedProductSearch));
-      })
-    : products;
+  const filteredProducts = products.filter((product) => {
+    if (categoryFilter && String(product.category_id) !== categoryFilter) return false;
+    if (!normalizedProductSearch) return true;
+    const categoryName = categories.find((c) => String(c.id) === String(product.category_id))?.name || '';
+    return [product.name, product.sku, product.barcode, categoryName]
+      .some((field) => field?.toLowerCase().includes(normalizedProductSearch));
+  });
 
   return (
     <div>
@@ -565,7 +617,8 @@ export default function ProductsPage() {
 
       {activeTab === 'products' && (
         <>
-          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+          <div className="flex flex-wrap justify-between items-start gap-2 mb-4">
+            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
             <div className="relative w-full max-w-xs">
               <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <input
@@ -576,7 +629,79 @@ export default function ProductsPage() {
                 className="w-full ps-9 pe-4 py-2 bg-card border border-border rounded-lg focus:ring-2 focus:ring-brand outline-none text-sm"
               />
             </div>
-            <div className="flex gap-2">
+            {categories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setCategoryFilter('')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                    categoryFilter === ''
+                      ? 'bg-brand text-white'
+                      : 'bg-card text-foreground border border-border hover:bg-muted'
+                  }`}
+                >
+                  {t('filterAllCategories')}
+                </button>
+                {categories.filter((cat) => cat.id != null).map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCategoryFilter(String(cat.id))}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                      categoryFilter === String(cat.id)
+                        ? 'bg-brand text-white'
+                        : 'bg-card text-foreground border border-border hover:bg-muted'
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            </div>
+            <div className="flex gap-2 shrink-0 items-start">
+              <div className="relative z-20">
+                <Button variant="outline" onClick={() => setColumnsMenuOpen((v) => !v)}>
+                  {t('columnsButton')}
+                  {hiddenColumns.length > 0 && (
+                    <span className="ms-2 text-xs bg-brand text-white rounded-full px-1.5 py-0.5">
+                      {hiddenColumns.length}
+                    </span>
+                  )}
+                </Button>
+                {columnsMenuOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setColumnsMenuOpen(false)} />
+                    <div className="absolute end-0 mt-1 z-20 w-60 bg-card border border-border rounded-lg shadow-lg p-2">
+                      <p className="text-xs text-muted-foreground px-2 py-1">{t('columnsHint')}</p>
+                      {OPTIONAL_COLUMNS.map((col) => (
+                        <label key={col.key} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={showColumn(col.key)}
+                            onChange={() => toggleColumn(col.key)}
+                            className="rounded border-gray-300 dark:border-border text-brand focus:ring-brand"
+                          />
+                          <span className="text-sm text-foreground">{t(col.label)}</span>
+                        </label>
+                      ))}
+                      {hiddenColumns.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHiddenColumns([]);
+                            try { window.localStorage.removeItem('products.hiddenColumns'); } catch { /* modo privado */ }
+                            setColumnsMenuOpen(false);
+                          }}
+                          className="w-full text-start text-sm px-2 py-1.5 mt-1 border-t border-border text-brand hover:bg-muted rounded"
+                        >
+                          {t('columnsShowAll')}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             {isOwnerOrManager && taxCategories.length > 0 && (
               <Button variant="outline" onClick={() => { setBulkTaxCategoryId(''); setShowBulkTaxModal(true); }}>
                 {t('assignTaxCategory')}
@@ -597,13 +722,15 @@ export default function ProductsPage() {
           <thead className="bg-muted">
             <tr>
               <th className="text-start p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnProduct')}</th>
-              <th className="text-start p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnCategory')}</th>
-              <th className="text-center p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnAddons')}</th>
-              <th className="text-end p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnPrice')}</th>
-              <th className="text-start p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnTax')}</th>
-              {loyaltyEnabled && <th className="text-start p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnCashback')}</th>}
-              <th className="text-center p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnStock')}</th>
-              <th className="text-center p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnStatus')}</th>
+              {showColumn('category') && <th className="text-start p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnCategory')}</th>}
+              {showColumn('addons') && <th className="text-center p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnAddons')}</th>}
+              {showColumn('cost') && <th className="text-end p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnCost')}</th>}
+              {showColumn('price') && <th className="text-end p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnPrice')}</th>}
+              {showColumn('margin') && <th className="text-end p-4 text-xs font-medium text-muted-foreground uppercase" title={t('columnMarginHint')}>{t('columnMargin')}</th>}
+              {showColumn('tax') && <th className="text-start p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnTax')}</th>}
+              {loyaltyEnabled && showColumn('cashback') && <th className="text-start p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnCashback')}</th>}
+              {showColumn('stock') && <th className="text-center p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnStock')}</th>}
+              {showColumn('status') && <th className="text-center p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnStatus')}</th>}
               <th className="text-end p-4 text-xs font-medium text-muted-foreground uppercase">{t('columnActions')}</th>
             </tr>
           </thead>
@@ -649,6 +776,7 @@ export default function ProductsPage() {
                     </div>
                   </div>
                 </td>
+                {showColumn('category') && (
                 <td className="p-4 text-sm text-muted-foreground">
                   <div className="flex flex-col gap-0.5">
                     <span>{product.category?.name || '—'}</span>
@@ -659,6 +787,8 @@ export default function ProductsPage() {
                     )}
                   </div>
                 </td>
+                )}
+                {showColumn('addons') && (
                 <td className="p-4 text-center">
                   {product.addon_groups && product.addon_groups.length > 0 ? (
                     <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
@@ -668,10 +798,32 @@ export default function ProductsPage() {
                     <span className="text-gray-400 text-sm">—</span>
                   )}
                 </td>
-                <td className="p-4 text-end">
-                  <p className="font-medium">{fmt(Number(product.price))}</p>
-                  {product.cost_price != null && product.cost_price > 0 && <p className="text-xs text-gray-400">{t('costLabel', { value: fmt(Number(product.cost_price)) })}</p>}
+                )}
+                {showColumn('cost') && (
+                <td className="p-4 text-end tabular-nums text-sm text-muted-foreground">
+                  {product.cost != null && product.cost > 0 ? fmt(Number(product.cost)) : <span className="text-gray-400">—</span>}
                 </td>
+                )}
+                {showColumn('price') && (
+                <td className="p-4 text-end">
+                  <p className="font-medium tabular-nums">{fmt(Number(product.price))}</p>
+                </td>
+                )}
+                {showColumn('margin') && (
+                <td className="p-4 text-end tabular-nums text-sm">
+                  {(() => {
+                    const ganancia = markupPercent(Number(product.price), product.cost);
+                    if (ganancia === null) return <span className="text-gray-400">—</span>;
+                    // Vender por debajo del costo no es un matiz: se marca en rojo.
+                    return (
+                      <span className={ganancia < 0 ? 'text-red-600 font-medium' : 'text-foreground'}>
+                        {formatPercent(ganancia)}
+                      </span>
+                    );
+                  })()}
+                </td>
+                )}
+                {showColumn('tax') && (
                 <td className="p-4 text-sm text-muted-foreground">
                   <div className="flex flex-col gap-0.5">
                     <span>{taxLabel}</span>
@@ -682,7 +834,8 @@ export default function ProductsPage() {
                     )}
                   </div>
                 </td>
-                {loyaltyEnabled && (
+                )}
+                {loyaltyEnabled && showColumn('cashback') && (
                   <td className="p-4 text-sm text-muted-foreground">
                     {product.cb_percent === null || product.cb_percent === undefined ? (
                       <span>{globalCashbackPercent}% <span className="text-gray-400 text-xs">({t('cashbackGlobalBadge')})</span></span>
@@ -693,6 +846,7 @@ export default function ProductsPage() {
                     )}
                   </td>
                 )}
+                {showColumn('stock') && (
                 <td className="p-4 text-center">
                   {product.track_inventory ? (
                     <span className={`text-sm font-medium ${product.stock_quantity <= (product.low_stock_threshold || 0) ? 'text-red-600' : 'text-foreground'}`}>
@@ -702,6 +856,8 @@ export default function ProductsPage() {
                     <span className="text-gray-400 text-sm">—</span>
                   )}
                 </td>
+                )}
+                {showColumn('status') && (
                 <td className="p-4 text-center">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     product.is_active ? 'bg-green-100 text-green-800' : 'bg-muted text-muted-foreground'
@@ -712,6 +868,7 @@ export default function ProductsPage() {
                     <span className="text-[10px] text-amber-600 font-medium block mt-1">{t('hiddenOnPos')}</span>
                   )}
                 </td>
+                )}
                 <td className="p-4 text-end">
                   <div className="flex gap-2 justify-end">
                     {isOwnerOrManager && (
@@ -1017,13 +1174,20 @@ export default function ProductsPage() {
 
                 {comboLines.length > 0 && (
                   <div className="space-y-2">
+                    {/* Las columnas se rotulan una sola vez; repetir la etiqueta en
+                        cada renglón ensucia la lista sin agregar información. */}
+                    <div className="hidden sm:grid gap-2 sm:grid-cols-[minmax(0,1fr)_130px_36px] text-xs text-muted-foreground">
+                      <span>{t('comboComponents')}</span>
+                      <span className="text-end">{t('comboQuantity')}</span>
+                      <span />
+                    </div>
                     {comboLines.map((line, index) => (
-                      <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_110px_36px] items-end">
+                      <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_130px_36px] items-center">
                         <label className="block min-w-0">
-                          <span className="text-xs text-muted-foreground">{t('comboComponents')}</span>
+                          <span className="sr-only">{t('comboComponents')}</span>
                           <select value={line.product_id}
                             onChange={(e) => setComboLines(comboLines.map((l, i) => (i === index ? { ...l, product_id: e.target.value } : l)))}
-                            className="mt-1 w-full px-2 py-1.5 border border-border rounded bg-card text-sm outline-none focus:ring-2 focus:ring-brand">
+                            className="w-full px-2 py-1.5 border border-border rounded bg-card text-sm outline-none focus:ring-2 focus:ring-brand">
                             <option value="">—</option>
                             {products
                               .filter((candidate) => candidate.id !== editingProduct?.id)
@@ -1033,10 +1197,10 @@ export default function ProductsPage() {
                           </select>
                         </label>
                         <label className="block">
-                          <span className="text-xs text-muted-foreground">{t('comboQuantity')}</span>
+                          <span className="sr-only">{t('comboQuantity')}</span>
                           <input type="number" min="0" step="any" inputMode="decimal" value={line.quantity}
                             onChange={(e) => setComboLines(comboLines.map((l, i) => (i === index ? { ...l, quantity: e.target.value } : l)))}
-                            className="mt-1 w-full px-2 py-1.5 border border-border rounded bg-card text-sm text-end tabular-nums outline-none focus:ring-2 focus:ring-brand" />
+                            className="w-full px-2 py-1.5 border border-border rounded bg-card text-sm text-end tabular-nums outline-none focus:ring-2 focus:ring-brand" />
                         </label>
                         <button type="button" aria-label={t('comboRemoveComponent')}
                           onClick={() => setComboLines(comboLines.filter((_, i) => i !== index))}
