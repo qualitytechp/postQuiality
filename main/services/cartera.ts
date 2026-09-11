@@ -232,9 +232,8 @@ export function cashMovementSince(
   const purchasePaid = db.prepare(`
     SELECT COALESCE(SUM(pp.amount_cents), 0) AS cents
     FROM purchase_payments pp
-    JOIN cartera_accounts a ON a.id = pp.account_id
     JOIN purchases p ON p.id = pp.purchase_id
-    WHERE a.kind = 'cash' AND p.status != 'void'
+    WHERE pp.method = 'cash' AND p.status != 'void'
       AND pp.paid_at >= ? AND pp.paid_at < ? ${sessionFilter.replace('cash_session_id', 'pp.cash_session_id')}
   `).get(start, end, ...sessionParam) as { cents: number };
 

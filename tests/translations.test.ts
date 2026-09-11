@@ -600,6 +600,8 @@ function trFallbackErrors(trFlat: Record<string, string>, enFlat: Record<string,
 }
 
 const FIL_INTENTIONAL_IDENTICAL = new Set<string>([
+  'purchases.colSubtotal', // same word in Filipino
+  'purchases.methodCash', // borrowed word, used as-is in Filipino
   'receivables.kindDigital', // same word in Filipino
   'receivables.kindCash', // same word in Filipino
   'receivables.projectionNet', // same word in Filipino

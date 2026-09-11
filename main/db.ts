@@ -4425,6 +4425,34 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       `).run(today);
     },
   },
+  {
+    version: 90,
+    name: 'add_purchase_amendments',
+    up: () => {
+      // Una compra mueve inventario y plata, así que corregirla no puede ser
+      // una edición silenciosa: queda escrito qué cambió, de qué a qué y quién
+      // lo hizo. Es la misma idea de `cash_closure_amendments`.
+      //
+      // A diferencia de aquella, el motivo es opcional: un reporte Z es un
+      // documento fiscal y allí se exige explicación; una compra es un registro
+      // interno, y pedir un motivo para corregir un número de factura mal
+      // tecleado sería un estorbo que llevaría a no corregirlo.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS purchase_amendments (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          purchase_id INTEGER NOT NULL REFERENCES purchases(id) ON DELETE CASCADE,
+          field       TEXT NOT NULL,
+          old_value   TEXT,
+          new_value   TEXT,
+          reason      TEXT,
+          amended_by  TEXT NOT NULL REFERENCES users(id),
+          created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS purchase_amendments_purchase
+          ON purchase_amendments(purchase_id, id);
+      `);
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {

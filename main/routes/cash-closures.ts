@@ -347,9 +347,10 @@ export function computeDayAggregates(
       COALESCE((
         SELECT SUM(pp.amount_cents)
         FROM purchase_payments pp
-        JOIN cartera_accounts a ON a.id = pp.account_id
         JOIN purchases p ON p.id = pp.purchase_id
-        WHERE a.kind = 'cash' AND p.status != 'void' AND pp.paid_at >= ? AND pp.paid_at < ?
+        -- Matched by method, not by treasury account: paying a supplier in
+        -- cash empties the drawer whether or not Cartera is set up.
+        WHERE pp.method = 'cash' AND p.status != 'void' AND pp.paid_at >= ? AND pp.paid_at < ?
       ), 0) AS purchases_out_cents,
       COALESCE((
         SELECT SUM(gpp.amount_cents)

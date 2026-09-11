@@ -133,6 +133,8 @@ const SUITES = [
   'test:issue-252',
   'test:stock-ledger',
   'test:purchases',
+  'test:purchases-hardening',
+  'test:purchases-edit',
   'test:receivables',
   'test:cartera',
   'test:issue-258-bill-pagination',

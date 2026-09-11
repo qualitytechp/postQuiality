@@ -124,6 +124,8 @@
     "test:modules-toggle": "node tests/run-electron-node-test.cjs tests/modules-toggle.test.ts",
     "test:stock-ledger": "node tests/run-electron-node-test.cjs tests/stock-ledger.test.ts",
     "test:purchases": "node tests/run-electron-node-test.cjs tests/purchases.test.ts",
+    "test:purchases-hardening": "node tests/run-electron-node-test.cjs tests/purchases-hardening.test.ts",
+    "test:purchases-edit": "node tests/run-electron-node-test.cjs tests/purchases-edit.test.ts",
     "test:receivables": "node tests/run-electron-node-test.cjs tests/receivables.test.ts",
     "test:cartera": "node tests/run-electron-node-test.cjs tests/cartera.test.ts",
     "test:discount-system": "node tests/run-electron-node-test.cjs tests/discount-system.test.ts",

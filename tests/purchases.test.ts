@@ -251,24 +251,51 @@ async function main() {
     const noReason = await call(baseUrl, 'POST', `/api/purchases/${received.data.id}/void`, owner, {});
     assertEqual(noReason.status, 400, 'voiding without a reason is refused');
 
-    // ── 6. Composition: credit needs the other module ────────────────────
-    console.log('\n6. Credit terms need receivables');
+    // ── 6. Paying the supplier later, and in instalments ─────────────────
+    // Deferred payment belongs to buying itself, not to another module: the
+    // purchase tracks its own balance whether or not Cartera is on.
+    console.log('\n6. Credit terms and abonos');
     const credit = await call(baseUrl, 'POST', '/api/purchases', owner, {
       supplier_id: supplierId, payment_terms: 'credit', due_date: '2026-12-31',
-      items: [{ product_id: 'p-arroz', quantity: 1, unit_cost_cents: 2000 }],
+      items: [{ product_id: 'p-arroz', quantity: 10, unit_cost_cents: 2000 }],
     });
-    assertEqual(credit.status, 400, 'a credit purchase is refused while receivables is off');
-    assertEqual(credit.data.module, 'receivables', 'and names the module that would allow it');
+    assertEqual(credit.status, 201, 'a credit purchase stands on its own, with receivables off');
+
+    const creditDetail = await call(baseUrl, 'GET', `/api/purchases/${credit.data.id}`, owner);
+    assertEqual(creditDetail.data.purchase.balance_cents, 20000, 'and leaves the full amount outstanding');
+    assertEqual(creditDetail.data.payments.length, 0, 'with no payment recorded yet');
+
+    const abono = await call(baseUrl, 'POST', `/api/purchases/${credit.data.id}/payments`, owner, {
+      amount_cents: 8000, method: 'transfer',
+    });
+    assertEqual(abono.status, 200, 'an abono is accepted');
+    assertEqual(abono.data.balance_cents, 12000, 'and leaves the rest owed');
+    assertEqual(abono.data.settled, false, 'the purchase is not settled yet');
+
+    const tooMuch = await call(baseUrl, 'POST', `/api/purchases/${credit.data.id}/payments`, owner, {
+      amount_cents: 99999, method: 'transfer',
+    });
+    assertEqual(tooMuch.status, 400, 'paying more than what is owed is refused');
+
+    const settle = await call(baseUrl, 'POST', `/api/purchases/${credit.data.id}/payments`, owner, { method: 'transfer' });
+    assertEqual(settle.status, 200, 'paying with no amount settles the remainder');
+    assertEqual(settle.data.settled, true, 'and marks it settled');
+
+    const again = await call(baseUrl, 'POST', `/api/purchases/${credit.data.id}/payments`, owner, { method: 'transfer' });
+    assertEqual(again.status, 409, 'paying an already-settled purchase is refused');
+
+    // The list carries what the screen needs without a round-trip per row.
+    const listed = await call(baseUrl, 'GET', '/api/purchases', owner);
+    const creditRow = listed.data.purchases.find((row: any) => row.id === credit.data.id);
+    assertEqual(creditRow.settlement, 'paid', 'the list reports it as paid');
+    assertEqual(creditRow.item_count, 1, 'with its line count');
+    assertClose(creditRow.unit_count, 10, 'and its unit count');
+    assertEqual(creditRow.items.length, 1, 'and carries its lines inline');
+    assertEqual(creditRow.payments.length, 2, 'and its payments');
+    assert(!!listed.data.stats, 'the list also brings the month figures');
+    assert(listed.data.stats.spent_cents > 0, 'which count what was bought this month');
 
     setSetting.run(MODULE_SETTING_KEY.receivables, 'true', now());
-    const creditOk = await call(baseUrl, 'POST', '/api/purchases', owner, {
-      supplier_id: supplierId, payment_terms: 'credit', due_date: '2026-12-31',
-      items: [{ product_id: 'p-arroz', quantity: 1, unit_cost_cents: 2000 }],
-    });
-    assertEqual(creditOk.status, 201, 'with receivables on it goes through');
-    const creditDetail = await call(baseUrl, 'GET', `/api/purchases/${creditOk.data.id}`, owner);
-    assertEqual(creditDetail.data.purchase.balance_cents, 2000, 'and leaves an outstanding balance');
-    assertEqual(creditDetail.data.payments.length, 0, 'with no payment recorded yet');
 
     const noDueDate = await call(baseUrl, 'POST', '/api/purchases', owner, {
       supplier_id: supplierId, payment_terms: 'credit',
