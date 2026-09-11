@@ -1029,7 +1029,22 @@
     "updated": "Product updated",
     "uploadCsv": "Upload CSV",
     "searchProducts": "Search by name, SKU, or category",
-    "noSearchResults": "No products match your search"
+    "noSearchResults": "No products match your search",
+    "combo": "Combo",
+    "comboTitle": "What this combo contains",
+    "comboHint": "Selling this takes each component out of stock. The combo keeps no stock of its own — what it has is whatever its scarcest part allows.",
+    "comboComponents": "Components",
+    "comboAddComponent": "Add component",
+    "comboRemoveComponent": "Remove component",
+    "comboQuantity": "Quantity per combo",
+    "comboAvailable": "{count} can be sold",
+    "comboCost": "Cost of the parts",
+    "comboSaved": "Combo saved",
+    "comboEmpty": "This product is sold on its own",
+    "comboMakeCombo": "Turn into a combo",
+    "comboUndo": "Sell on its own again",
+    "comboBadge": "Combo",
+    "comboOutOfStock": "Components ran out"
   },
   "receipt": {
     "amount": "Amount",

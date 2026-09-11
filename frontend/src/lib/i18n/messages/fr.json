@@ -1029,7 +1029,22 @@
     "updated": "Produit mis à jour",
     "uploadCsv": "Téléverser un fichier CSV",
     "searchProducts": "Rechercher par nom, SKU ou catégorie",
-    "noSearchResults": "Aucun produit ne correspond à la recherche"
+    "noSearchResults": "Aucun produit ne correspond à la recherche",
+    "combo": "Formule",
+    "comboTitle": "Ce que contient cette formule",
+    "comboHint": "La vendre sort chaque composant du stock. La formule ne garde pas de stock propre : elle vaut ce que permet sa partie la plus rare.",
+    "comboComponents": "Composants",
+    "comboAddComponent": "Ajouter un composant",
+    "comboRemoveComponent": "Retirer le composant",
+    "comboQuantity": "Quantité par formule",
+    "comboAvailable": "{count} possibles",
+    "comboCost": "Coût des composants",
+    "comboSaved": "Formule enregistrée",
+    "comboEmpty": "Ce produit se vend seul",
+    "comboMakeCombo": "Transformer en formule",
+    "comboUndo": "Le revendre seul",
+    "comboBadge": "Formule",
+    "comboOutOfStock": "Composants épuisés"
   },
   "receipt": {
     "amount": "Montant",

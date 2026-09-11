@@ -608,8 +608,180 @@
     max-width: 60ch;
     margin-inline: auto;
   }
-
   .closer b { color: var(--page-fg); font-weight: 600; }
+
+
+  /* ── Combos ───────────────────────────────────────────── */
+  .recipe {
+    display: grid;
+    grid-template-columns: minmax(0, 320px) 44px minmax(0, 1fr);
+    gap: 0;
+    align-items: center;
+    background: var(--card-bg);
+    border: 1px solid var(--card-line);
+    border-radius: var(--r);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  @media (max-width: 860px) {
+    .recipe { grid-template-columns: minmax(0, 1fr); }
+    .recipe .split { height: 44px; width: 100%; border-inline: 0; border-block: 1px solid var(--rule); }
+    .recipe .split span { display: block; transform: rotate(90deg); }
+    .shelf li { grid-template-columns: minmax(0, 1fr) 3.6rem 5.4rem; gap: 10px; }
+  }
+
+  .recipe .side {
+    padding: 30px 28px;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  .recipe .side.counter { background: var(--accent-wash); }
+
+  .sidelabel {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  /* El azulejo del punto de venta: un solo botón, como lo ve el cajero. */
+  .tile {
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    background: var(--card-bg);
+    padding: 18px 18px 16px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+  }
+
+  .tile .badge {
+    position: absolute;
+    top: 12px;
+    inset-inline-end: 12px;
+    font-family: var(--mono);
+    font-size: .7rem;
+    font-weight: 700;
+    color: var(--accent-text);
+    background: var(--accent-wash);
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: 3px 9px;
+  }
+
+  .tile .tname {
+    font-family: var(--display);
+    font-size: 1.16rem;
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0 76px 8px 0;
+  }
+
+  .tile .tprice {
+    font-family: var(--mono);
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--page-fg);
+  }
+
+  .tile .tqty {
+    margin-top: 10px;
+    font-size: .88rem;
+    color: var(--muted);
+  }
+
+  .split {
+    align-self: stretch;
+    display: grid;
+    place-items: center;
+    background: var(--card-bg);
+    border-inline: 1px solid var(--rule);
+    color: var(--faint);
+    font-size: 1.1rem;
+  }
+
+  /* El estante: una línea por componente, con lo que salió. */
+  .shelf {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .shelf li {
+    display: grid;
+    /* Anchos fijos en las dos columnas de números: así las cifras de una fila
+       caen debajo de las de la anterior, diga kilos o diga unidades. */
+    grid-template-columns: minmax(0, 1fr) 4rem 6.2rem;
+    gap: 14px;
+    align-items: baseline;
+    padding: 13px 2px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .shelf li:last-child { border-bottom: 0; }
+
+  .shelf .part { font-size: .99rem; color: var(--page-fg); }
+
+  .shelf .part small {
+    display: block;
+    color: var(--faint);
+    font-size: .8rem;
+    margin-top: 2px;
+  }
+
+  .shelf .out {
+    font-family: var(--mono);
+    font-size: .9rem;
+    font-weight: 600;
+    color: var(--pos-text);
+    white-space: nowrap;
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .shelf .left {
+    font-family: var(--mono);
+    font-size: .9rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-align: end;
+  }
+
+  .recipe-foot {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--rule);
+    background: var(--paper);
+    padding: 16px 28px;
+    font-size: .93rem;
+    color: var(--muted);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .recipe-foot { background: var(--card-bg); }
+  }
+
+  :root[data-theme="dark"] .recipe-foot { background: var(--card-bg); }
+
+  .recipe-foot b { color: var(--page-fg); font-weight: 600; }
+
+  .cases { margin-top: 22px; }
+
+  .case-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent-text);
+  }
 
   /* ── Reports dashboard ────────────────────────────────── */
   .demo-badge {
@@ -1063,6 +1235,7 @@
     <nav class="links">
       <a href="#videos">Cómo funciona</a>
       <a href="#modulos">Compras y Cartera</a>
+      <a href="#combos">Combos</a>
       <a href="#cajas">Una o varias cajas</a>
       <a href="#reportes">Reportes</a>
       <a href="#soporte">Soporte</a>
@@ -1363,6 +1536,102 @@
   </div>
 </section>
 
+
+<!-- ══ SECCIÓN 2C · COMBOS ══════════════════════════════ -->
+<section id="combos">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Nuevo · productos compuestos</span>
+      <h2>Un botón que descuenta tres cosas</h2>
+      <p class="lead">
+        Las canastas, los paquetes y los combos se venden como un solo producto,
+        pero por dentro son varios. Usted arma la receta una vez y el sistema
+        se encarga: el cajero toca un botón y del inventario sale cada cosa
+        por separado, en su cantidad exacta.
+      </p>
+    </div>
+
+    <div class="recipe">
+      <div class="side counter">
+        <span class="sidelabel">Lo que ve el cajero</span>
+        <div class="tile">
+          <span class="badge">Combo · 6</span>
+          <p class="tname">Canasta Verde</p>
+          <p class="tprice">$ 12.000</p>
+          <p class="tqty">Un solo toque · una sola línea en la factura</p>
+        </div>
+      </div>
+
+      <div class="split" aria-hidden="true"><span>→</span></div>
+
+      <div class="side">
+        <span class="sidelabel">Lo que sale del inventario</span>
+        <ul class="shelf">
+          <li>
+            <span class="part">Apio <small>Manojo</small></span>
+            <span class="out">− 1</span>
+            <span class="left">quedan 29</span>
+          </li>
+          <li>
+            <span class="part">Lechuga <small>Unidad</small></span>
+            <span class="out">− 1</span>
+            <span class="left">quedan 19</span>
+          </li>
+          <li>
+            <span class="part">Espinaca <small>Se vende por peso</small></span>
+            <span class="out">− 1 kg</span>
+            <span class="left">quedan 11 kg</span>
+          </li>
+        </ul>
+      </div>
+
+      <p class="recipe-foot">
+        El <b>6</b> del botón no es un dato que alguien escribió: es hasta dónde
+        alcanza la parte más escasa. Si le quedan 12 kg de espinaca y cada canasta
+        lleva uno, puede armar 12 — pero si el apio se le acabó, el botón lo dice
+        antes de que el cliente esté en la fila.
+      </p>
+    </div>
+
+    <div class="duo cases">
+      <article class="dcard">
+        <span class="case-tag">Fruver</span>
+        <h3>La canasta de la semana</h3>
+        <p>
+          Arma la Canasta Verde con apio, lechuga y un kilo de espinaca. La vende
+          a precio de canasta, no a la suma de las partes, y aun así sabe
+          exactamente cuánta espinaca le queda en la bodega.
+        </p>
+        <ul class="checks">
+          <li><i class="tick">✓</i> Los componentes por peso se descuentan en kilos, no en unidades</li>
+          <li><i class="tick">✓</i> El costo de la canasta se calcula con lo que le costó cada parte</li>
+          <li><i class="tick">✓</i> Si cancela la venta, todo vuelve al inventario</li>
+        </ul>
+      </article>
+
+      <article class="dcard">
+        <span class="case-tag">Restaurante y licorera</span>
+        <h3>El Combo Fiesta</h3>
+        <p>
+          Una botella, una pizza y dos gaseosas por un precio. El mesero lo manda
+          como un solo ítem y la cocina recibe lo que le toca, mientras el
+          inventario descuenta la botella, la pizza y las dos gaseosas.
+        </p>
+        <ul class="checks">
+          <li><i class="tick">✓</i> Un componente puede ir de a dos o de a tres por combo</li>
+          <li><i class="tick">✓</i> No deja vender combos que no alcanza a armar</li>
+          <li><i class="tick">✓</i> Cambió la receta después de vender: devuelve lo que salió ese día, no lo de hoy</li>
+        </ul>
+      </article>
+    </div>
+
+    <p class="closer">
+      El combo <b>no tiene inventario propio</b>, y por eso nunca se desordena:
+      no hay dos cuentas que puedan contradecirse, porque la única existencia
+      real es la de sus partes.
+    </p>
+  </div>
+</section>
 <!-- ══ SECCIÓN 3 · MULTI-CAJA ════════════════════════════ -->
 <section id="cajas">
   <div class="wrap">

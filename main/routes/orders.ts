@@ -18,6 +18,7 @@ import { ROLE_ACCESS, hasRole } from '../../shared/role-permissions';
 import { getCurrencyFractionDigits, getCurrencyMinorUnitFactor } from '../countries';
 import { getTenantCurrency } from './bills';
 import { applyStockMovement } from '../services/inventory';
+import { assertComponentsAvailable, deductComponents, restoreComponents } from '../services/combos';
 import expressRateLimit from 'express-rate-limit';
 
 const router = Router();
@@ -541,6 +542,10 @@ router.post('/', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: R
         if (product.track_inventory && product.stock_quantity < item.quantity) {
           throw new Error(`Insufficient stock for ${product.name}`);
         }
+        // Un combo no tiene existencias propias: lo que limita la venta es su
+        // parte más escasa. Se comprueba antes de escribir nada para no dejar
+        // el pedido a medias con inventario ya descontado.
+        assertComponentsAvailable(db, product.id, item.quantity);
 
         const unitPrice = parseFloat(product.price);
         const quantity = item.quantity;
@@ -605,6 +610,12 @@ router.post('/', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: R
             allowNegative: true,
           });
         }
+        deductComponents(db, {
+          orderItemId: insertItemResult.lastInsertRowid,
+          productId: product.id,
+          quantity,
+          userId: (req as any).user?.userId ?? null,
+        });
       }
 
       const chargeTaxes = calculateConfiguredChargeTaxes(tenantInfo, chargeContext, customer);
@@ -765,6 +776,10 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
         if (product.track_inventory && product.stock_quantity < item.quantity) {
           throw new Error(`Insufficient stock for ${product.name}`);
         }
+        // Un combo no tiene existencias propias: lo que limita la venta es su
+        // parte más escasa. Se comprueba antes de escribir nada para no dejar
+        // el pedido a medias con inventario ya descontado.
+        assertComponentsAvailable(db, product.id, item.quantity);
 
         const unitPrice = parseFloat(product.price);
         const quantity = item.quantity;
@@ -821,6 +836,12 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
             allowNegative: true,
           });
         }
+        deductComponents(db, {
+          orderItemId: insertItemResult.lastInsertRowid,
+          productId: product.id,
+          quantity,
+          userId: (req as any).user?.userId ?? null,
+        });
       }
 
       // BUG #3 FIX: Filter out cancelled items from total recalculation
@@ -1070,6 +1091,9 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
                 allowNegative: true,
               });
             }
+            // Un combo devuelve lo que sacó, tomado del registro de la venta y
+            // no de la receta de hoy: la receta pudo cambiar desde entonces.
+            restoreComponents(db, item.id, (req as any).user?.userId ?? null);
           }
 
           db.prepare(`

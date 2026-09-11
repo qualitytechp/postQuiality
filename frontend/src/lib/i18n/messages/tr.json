@@ -1029,7 +1029,22 @@
     "updated": "Ürün güncellendi",
     "uploadCsv": "CSV Yükle",
     "searchProducts": "Ada, SKU veya kategoriye göre ara",
-    "noSearchResults": "Aramanızla eşleşen ürün yok"
+    "noSearchResults": "Aramanızla eşleşen ürün yok",
+    "combo": "Menü",
+    "comboTitle": "Bu menüde ne var",
+    "comboHint": "Satıldığında her bileşen stoktan düşer. Menünün kendi stoğu yoktur: en az olan parçası kadar yeter.",
+    "comboComponents": "Bileşenler",
+    "comboAddComponent": "Bileşen ekle",
+    "comboRemoveComponent": "Bileşeni kaldır",
+    "comboQuantity": "Menü başına miktar",
+    "comboAvailable": "{count} adet çıkar",
+    "comboCost": "Parçaların maliyeti",
+    "comboSaved": "Menü kaydedildi",
+    "comboEmpty": "Bu ürün tek başına satılıyor",
+    "comboMakeCombo": "Menüye dönüştür",
+    "comboUndo": "Yine tek satılsın",
+    "comboBadge": "Menü",
+    "comboOutOfStock": "Bileşenler tükendi"
   },
   "receipt": {
     "amount": "Tutar",

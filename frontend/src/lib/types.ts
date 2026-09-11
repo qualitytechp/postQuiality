@@ -78,6 +78,9 @@ export interface Product {
   tax_behavior?: 'country_default' | 'inclusive' | 'exclusive' | 'exempt';
   track_inventory: boolean;
   stock_quantity: number;
+  /** Un combo no lleva existencias propias: alcanza lo que su parte más escasa permita. */
+  is_combo?: boolean;
+  available_units?: number | null;
   low_stock_threshold: number | null;
   is_active: boolean;
   available_online: boolean;

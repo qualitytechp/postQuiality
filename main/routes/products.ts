@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { BRAND } from '../../shared/brand';
-import { getDatabase, now, generateShortId, getSettingValue } from '../db';
+import { getDatabase, now, generateShortId, getSettingValue, withTxn } from '../db';
 import { requireRole, isBlockedSsrfTarget } from '../middleware/security';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { getHttpRequestSignal } from '../shutdown';
@@ -11,6 +11,7 @@ import * as https from 'https';
 import * as net from 'net';
 import { asyncHandler } from '../middleware/async-handler';
 import { applyStockMovement } from '../services/inventory';
+import { availableUnits, comboCost, componentsOf, setComponents, ComboError } from '../services/combos';
 
 const MAX_FETCH_BYTES = 10 * 1024 * 1024;
 
@@ -483,14 +484,20 @@ router.get('/', (req: Request, res: Response) => {
 
     // Batch-load relations
     const relations = loadProductRelationsBatch(db, products as any[]);
+    const comboAvailability = comboAvailabilityBatch(db, (products as any[]).map((product: any) => product.id));
 
     const productsWithRelations = (products as any[]).map((product: any) => {
       const rel = relations.get(product.id) || { category: null, addon_groups: [] };
+      const combo = comboAvailability.get(product.id);
       return serializeProduct({
         ...product,
         tags: parseTags(product.tags),
         category: rel.category,
         addon_groups: rel.addon_groups,
+        is_combo: !!combo,
+        // A combo keeps no stock of its own; what it has is whatever its
+        // scarcest part allows. Null on an ordinary product.
+        available_units: combo ? combo.available : null,
       });
     });
 
@@ -568,10 +575,101 @@ router.get('/:id', (req: Request, res: Response) => {
     const relations = loadProductRelationsBatch(db, [product as any]);
     const rel = relations.get((product as any).id) || { category: null, addon_groups: [] };
 
-    res.json({ product: serializeProduct({ ...(product as any), tags: parseTags((product as any).tags), category: rel.category, addon_groups: rel.addon_groups }) });
+    const components = componentsOf(db, (product as any).id);
+    res.json({
+      product: serializeProduct({
+        ...(product as any),
+        tags: parseTags((product as any).tags),
+        category: rel.category,
+        addon_groups: rel.addon_groups,
+        components,
+        // Un combo no guarda existencias: lo que tiene es lo que su parte más
+        // escasa permita. Null cuando no es un combo.
+        available_units: components.length ? availableUnits(db, (product as any).id) : null,
+        combo_cost: components.length ? comboCost(db, (product as any).id) : null,
+      }),
+    });
   } catch (error: any) {
     console.error("[API] Internal error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * How many of each combo its components allow, for a whole page of products at
+ * once. One grouped query rather than one per row: a catalogue of five hundred
+ * products would otherwise mean five hundred round-trips to paint one screen.
+ */
+function comboAvailabilityBatch(
+  db: ReturnType<typeof getDatabase>,
+  productIds: string[],
+): Map<string, { available: number | null }> {
+  const result = new Map<string, { available: number | null }>();
+  if (productIds.length === 0) return result;
+
+  // Chunked at 400 to stay under SQLite's variable limit, the same bound the
+  // rest of the batch loaders in this file use.
+  for (let start = 0; start < productIds.length; start += 400) {
+    const chunk = productIds.slice(start, start + 400);
+    const placeholders = chunk.map(() => '?').join(',');
+    const rows = db.prepare(`
+      SELECT pc.parent_product_id AS parent,
+             c.track_inventory, c.stock_quantity, pc.quantity
+      FROM product_components pc
+      JOIN products c ON c.id = pc.component_product_id
+      WHERE pc.parent_product_id IN (${placeholders})
+    `).all(...chunk) as {
+      parent: string; track_inventory: number; stock_quantity: number; quantity: number;
+    }[];
+
+    for (const row of rows) {
+      const current = result.get(row.parent) ?? { available: null };
+      if (row.track_inventory) {
+        const possible = Math.max(0, Math.floor((Number(row.stock_quantity) || 0) / Number(row.quantity)));
+        current.available = current.available === null ? possible : Math.min(current.available, possible);
+      }
+      result.set(row.parent, current);
+    }
+  }
+  return result;
+}
+
+/** The components a combo is made of. */
+router.get('/:id/components', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const product = db.prepare('SELECT id FROM products WHERE id = ? AND deleted_at IS NULL').get(req.params.id);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    const components = componentsOf(db, String(req.params.id));
+    res.json({
+      components,
+      available_units: components.length ? availableUnits(db, String(req.params.id)) : null,
+      combo_cost: components.length ? comboCost(db, String(req.params.id)) : null,
+    });
+  } catch (error: any) {
+    console.error('[API] Internal error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * Replaces what a combo is made of. An empty list turns it back into an
+ * ordinary product.
+ */
+router.put('/:id/components', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    withTxn(() => setComponents(db, String(req.params.id), Array.isArray(req.body?.components) ? req.body.components : []));
+    const components = componentsOf(db, String(req.params.id));
+    res.json({
+      components,
+      available_units: components.length ? availableUnits(db, String(req.params.id)) : null,
+      combo_cost: components.length ? comboCost(db, String(req.params.id)) : null,
+    });
+  } catch (error: any) {
+    if (error instanceof ComboError) return res.status(error.statusCode).json({ error: error.message });
+    console.error('[API] Internal error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

@@ -119,6 +119,11 @@ export default function ProductsPage() {
   const [bulkTaxCategoryId, setBulkTaxCategoryId] = useState('');
   const [bulkTaxApplying, setBulkTaxApplying] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  // Composición del combo. Vive aparte del formulario del producto porque se
+  // guarda con su propia llamada: el producto puede existir sin ser combo.
+  const [comboLines, setComboLines] = useState<{ product_id: string; quantity: string }[]>([]);
+  const [comboAvailable, setComboAvailable] = useState<number | null>(null);
+  const [comboComponentCost, setComboComponentCost] = useState<number | null>(null);
 
   const currency = getCurrencySymbol(currentTenant?.currency || 'INR', getCountryByCode(currentTenant?.country ?? 'IN')?.locale);
   const unitAdapter = getCurrencyUnitAdapter(currentTenant?.currency || 'INR', currentTenant?.country);
@@ -254,6 +259,9 @@ export default function ProductsPage() {
 
   const openCreate = () => {
     resetForm();
+    setComboLines([]);
+    setComboAvailable(null);
+    setComboComponentCost(null);
     setForm((current) => ({ ...current, tax_category_id: defaultTaxCategoryId }));
     setShowForm(true);
   };
@@ -283,7 +291,29 @@ export default function ProductsPage() {
       addon_group_ids: product.addon_groups?.map((g) => g.id) || [],
       image_url: product.has_image ? 'EXISTING' : null,
     });
+    setComboLines([]);
+    setComboAvailable(null);
+    setComboComponentCost(null);
+    // La composición se pide aparte: la lista de productos no la trae, y
+    // cargarla para cada fila sólo por si acaso sería trabajo desperdiciado.
+    api.get(`/products/${product.id}/components`)
+      .then((res) => {
+        setComboLines((res.data.components || []).map((c: { component_product_id: string; quantity: number }) => ({
+          product_id: c.component_product_id,
+          quantity: String(c.quantity),
+        })));
+        setComboAvailable(res.data.available_units ?? null);
+        setComboComponentCost(res.data.combo_cost ?? null);
+      })
+      .catch(() => { /* Un producto sin composición simplemente no tiene nada que traer. */ });
     setShowForm(true);
+  };
+
+  const saveComponents = async (productId: string) => {
+    const usable = comboLines.filter((line) => line.product_id && Number(line.quantity) > 0);
+    await api.put(`/products/${productId}/components`, {
+      components: usable.map((line) => ({ product_id: line.product_id, quantity: Number(line.quantity) })),
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -326,14 +356,27 @@ export default function ProductsPage() {
         payload.image_url = form.image_url; // Can be a data URI or null (to clear)
       }
 
+      let productId = editingProduct?.id;
       if (editingProduct) {
         await api.put(`/products/${editingProduct.id}`, payload);
         toast.success(t('updated'));
       } else {
-        await api.post('/products', payload);
+        const created = await api.post('/products', payload);
+        productId = created.data?.product?.id;
         toast.success(t('created'));
       }
+      // La composición va en su propia llamada, después de que el producto
+      // exista: un combo nuevo no tiene id hasta que se guarda.
+      if (productId && (comboLines.length > 0 || editingProduct)) {
+        try {
+          await saveComponents(productId);
+        } catch (error: unknown) {
+          const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
+          toast.error(message || t('failedToSave'));
+        }
+      }
       resetForm();
+      setComboLines([]);
       fetchData();
     } catch {
       toast.error(t('failedToSave'));
@@ -948,10 +991,80 @@ export default function ProductsPage() {
                   </div>
                 </div>
               )}
+              {/* Un combo no lleva existencias propias, así que la casilla de
+                  inventario no aplica mientras tenga componentes. */}
+              <div className="border border-border rounded-lg p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{t('comboTitle')}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {comboLines.length === 0 ? t('comboEmpty') : t('comboHint')}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {comboLines.length > 0 && comboAvailable !== null && (
+                      <span className="text-xs bg-muted px-2 py-1 rounded-full tabular-nums">
+                        {t('comboAvailable', { count: comboAvailable })}
+                      </span>
+                    )}
+                    <button type="button"
+                      onClick={() => setComboLines(comboLines.length === 0 ? [{ product_id: '', quantity: '1' }] : [])}
+                      className="text-sm px-3 py-1.5 rounded-lg border border-border hover:bg-muted">
+                      {comboLines.length === 0 ? t('comboMakeCombo') : t('comboUndo')}
+                    </button>
+                  </div>
+                </div>
+
+                {comboLines.length > 0 && (
+                  <div className="space-y-2">
+                    {comboLines.map((line, index) => (
+                      <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_110px_36px] items-end">
+                        <label className="block min-w-0">
+                          <span className="text-xs text-muted-foreground">{t('comboComponents')}</span>
+                          <select value={line.product_id}
+                            onChange={(e) => setComboLines(comboLines.map((l, i) => (i === index ? { ...l, product_id: e.target.value } : l)))}
+                            className="mt-1 w-full px-2 py-1.5 border border-border rounded bg-card text-sm outline-none focus:ring-2 focus:ring-brand">
+                            <option value="">—</option>
+                            {products
+                              .filter((candidate) => candidate.id !== editingProduct?.id)
+                              .map((candidate) => (
+                                <option key={candidate.id} value={candidate.id}>{candidate.name}</option>
+                              ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className="text-xs text-muted-foreground">{t('comboQuantity')}</span>
+                          <input type="number" min="0" step="any" inputMode="decimal" value={line.quantity}
+                            onChange={(e) => setComboLines(comboLines.map((l, i) => (i === index ? { ...l, quantity: e.target.value } : l)))}
+                            className="mt-1 w-full px-2 py-1.5 border border-border rounded bg-card text-sm text-end tabular-nums outline-none focus:ring-2 focus:ring-brand" />
+                        </label>
+                        <button type="button" aria-label={t('comboRemoveComponent')}
+                          onClick={() => setComboLines(comboLines.filter((_, i) => i !== index))}
+                          className="p-2 text-muted-foreground hover:text-red-600">
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button"
+                      onClick={() => setComboLines([...comboLines, { product_id: '', quantity: '1' }])}
+                      className="text-sm px-3 py-1.5 rounded-lg border border-border hover:bg-muted">
+                      + {t('comboAddComponent')}
+                    </button>
+                    {comboComponentCost !== null && comboComponentCost > 0 && (
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        {t('comboCost')}: {comboComponentCost}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={form.track_inventory} onChange={(e) => setForm({ ...form, track_inventory: e.target.checked })}
-                    className="rounded border-gray-300 dark:border-border text-brand focus:ring-brand" />
+                  <input type="checkbox" checked={form.track_inventory && comboLines.length === 0}
+                    disabled={comboLines.length > 0}
+                    onChange={(e) => setForm({ ...form, track_inventory: e.target.checked })}
+                    className="rounded border-gray-300 dark:border-border text-brand focus:ring-brand disabled:opacity-50" />
                   <span className="text-sm text-foreground">{t('fieldTrackInventory')}</span>
                 </label>
                 <label className="flex items-center gap-2">
@@ -960,7 +1073,7 @@ export default function ProductsPage() {
                   <span className="text-sm text-foreground">{t('fieldActive')}</span>
                 </label>
               </div>
-              {!!form.track_inventory && (
+              {!!form.track_inventory && comboLines.length === 0 && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1">{t('fieldStock')}<span className="text-red-500 ms-1">*</span></label>

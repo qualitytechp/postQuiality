@@ -1029,7 +1029,22 @@
     "updated": "Produkt aktualisiert",
     "uploadCsv": "CSV hochladen",
     "searchProducts": "Suche nach Name, SKU oder Kategorie",
-    "noSearchResults": "Keine Produkte entsprechen der Suche"
+    "noSearchResults": "Keine Produkte entsprechen der Suche",
+    "combo": "Kombi",
+    "comboTitle": "Was in dieser Kombi steckt",
+    "comboHint": "Beim Verkauf wird jeder Bestandteil ausgebucht. Die Kombi führt keinen eigenen Bestand: sie reicht so weit wie ihr knappster Teil.",
+    "comboComponents": "Bestandteile",
+    "comboAddComponent": "Bestandteil hinzufügen",
+    "comboRemoveComponent": "Bestandteil entfernen",
+    "comboQuantity": "Menge je Kombi",
+    "comboAvailable": "reicht für {count}",
+    "comboCost": "Kosten der Teile",
+    "comboSaved": "Kombi gespeichert",
+    "comboEmpty": "Dieses Produkt wird einzeln verkauft",
+    "comboMakeCombo": "In eine Kombi umwandeln",
+    "comboUndo": "Wieder einzeln verkaufen",
+    "comboBadge": "Kombi",
+    "comboOutOfStock": "Bestandteile aufgebraucht"
   },
   "receipt": {
     "amount": "Betrag",

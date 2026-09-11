@@ -1029,7 +1029,22 @@
     "updated": "Na-update ang produkto",
     "uploadCsv": "Mag-upload ng CSV",
     "searchProducts": "Maghanap ayon sa pangalan, SKU, o kategorya",
-    "noSearchResults": "Walang produktong tumutugma sa paghahanap"
+    "noSearchResults": "Walang produktong tumutugma sa paghahanap",
+    "combo": "Combo",
+    "comboTitle": "Ano ang laman ng combo na ito",
+    "comboHint": "Kapag naibenta, bawat bahagi ay nababawas sa stock. Walang sariling stock ang combo: kasing dami lang ng pinakakaunting bahagi nito.",
+    "comboComponents": "Mga bahagi",
+    "comboAddComponent": "Magdagdag ng bahagi",
+    "comboRemoveComponent": "Alisin ang bahagi",
+    "comboQuantity": "Dami kada combo",
+    "comboAvailable": "kasya sa {count}",
+    "comboCost": "Halaga ng mga bahagi",
+    "comboSaved": "Na-save ang combo",
+    "comboEmpty": "Mag-isang ibinebenta ang produktong ito",
+    "comboMakeCombo": "Gawing combo",
+    "comboUndo": "Ibenta uling mag-isa",
+    "comboBadge": "Combo",
+    "comboOutOfStock": "Naubos ang mga bahagi"
   },
   "receipt": {
     "amount": "Halaga",

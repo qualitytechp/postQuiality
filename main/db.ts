@@ -4453,6 +4453,54 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       `);
     },
   },
+  {
+    version: 91,
+    name: 'add_product_components',
+    up: () => {
+      // Combos: un producto que, al venderse, saca varios del inventario.
+      // Una canasta de verduras o un combo de restaurante son el mismo hecho —
+      // se cobra uno y salen varios.
+      //
+      // El combo es un producto normal con su propio precio: así el POS lo
+      // muestra como un ítem más, sin saber que por dentro son varios, y el
+      // cajero no tiene que aprender nada nuevo.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS product_components (
+          id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+          parent_product_id    TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+          component_product_id TEXT NOT NULL REFERENCES products(id),
+          quantity             REAL NOT NULL CHECK (quantity > 0),
+          sort_order           INTEGER NOT NULL DEFAULT 0,
+          created_at           TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+          -- Un combo no se contiene a sí mismo. Las cadenas más largas las
+          -- corta la aplicación al no dejar que un combo entre como parte de
+          -- otro; esto ataja al menos el caso directo.
+          CHECK (parent_product_id <> component_product_id)
+        );
+        -- Un componente aparece una sola vez por combo: si va dos veces, es
+        -- una cantidad mayor, no dos renglones que luego hay que sumar.
+        CREATE UNIQUE INDEX IF NOT EXISTS product_components_unique
+          ON product_components(parent_product_id, component_product_id);
+        CREATE INDEX IF NOT EXISTS product_components_component
+          ON product_components(component_product_id);
+
+        -- Lo que de verdad salió del inventario por cada línea vendida.
+        -- Se guarda en vez de recalcularse: si mañana cambian la receta del
+        -- combo, anular una venta vieja tiene que devolver lo que salió
+        -- entonces, no lo que el combo lleva hoy.
+        CREATE TABLE IF NOT EXISTS order_item_components (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          order_item_id INTEGER NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+          product_id    TEXT NOT NULL REFERENCES products(id),
+          quantity      REAL NOT NULL CHECK (quantity > 0),
+          created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS order_item_components_item
+          ON order_item_components(order_item_id);
+      `);
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {

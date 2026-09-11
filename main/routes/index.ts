@@ -54,6 +54,7 @@ import {
 } from '../services/tax';
 import { cloudSync } from '../services/cloud-sync';
 import { applyStockMovement } from '../services/inventory';
+import { redeductComponents, restoreComponents } from '../services/combos';
 import { parsePhoneE164, stripPhoneDigits } from '../lib/phone';
 import QRCode from 'qrcode';
 import { asyncHandler } from '../middleware/async-handler';
@@ -434,6 +435,7 @@ export function registerRoutes(app: Express): void {
               allowNegative: true,
             });
           }
+          restoreComponents(db, Number(itemId), (req as any).user?.userId ?? null);
         }
 
         // Recalculate order totals excluding cancelled, voided, and void_adjustment items
@@ -624,6 +626,9 @@ export function registerRoutes(app: Express): void {
             allowNegative: true,
           });
         }
+        // Reactivar un combo vuelve a sacar sus partes, y se niega si alguna
+        // ya no alcanza — igual que un producto suelto.
+        redeductComponents(db, Number(itemId), (req as any).user?.userId ?? null);
 
         // Restore - mark as pending
         db.prepare("UPDATE order_items SET status = 'pending', updated_at = ? WHERE id = ?")

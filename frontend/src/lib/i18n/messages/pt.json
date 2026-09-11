@@ -1029,7 +1029,22 @@
     "updated": "Produto atualizado",
     "uploadCsv": "Enviar CSV",
     "searchProducts": "Buscar por nome, SKU ou categoria",
-    "noSearchResults": "Nenhum produto corresponde à busca"
+    "noSearchResults": "Nenhum produto corresponde à busca",
+    "combo": "Combo",
+    "comboTitle": "O que este combo traz",
+    "comboHint": "Ao vendê-lo, cada componente sai do estoque. O combo não guarda estoque próprio: vale o que a parte mais escassa permitir.",
+    "comboComponents": "Componentes",
+    "comboAddComponent": "Adicionar componente",
+    "comboRemoveComponent": "Remover componente",
+    "comboQuantity": "Quantidade por combo",
+    "comboAvailable": "dá para {count}",
+    "comboCost": "Custo das partes",
+    "comboSaved": "Combo salvo",
+    "comboEmpty": "Este produto é vendido sozinho",
+    "comboMakeCombo": "Transformar em combo",
+    "comboUndo": "Voltar a vender sozinho",
+    "comboBadge": "Combo",
+    "comboOutOfStock": "Acabaram os componentes"
   },
   "receipt": {
     "amount": "Valor",

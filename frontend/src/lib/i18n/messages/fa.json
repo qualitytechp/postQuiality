@@ -1029,7 +1029,22 @@
     "updated": "کالا به‌روزرسانی شد",
     "uploadCsv": "بارگذاری CSV",
     "searchProducts": "جستجو بر اساس نام، کد کالا یا دسته‌بندی",
-    "noSearchResults": "هیچ محصولی با این جستجو مطابقت ندارد"
+    "noSearchResults": "هیچ محصولی با این جستجو مطابقت ندارد",
+    "combo": "بسته",
+    "comboTitle": "این بسته شامل چیست",
+    "comboHint": "با فروش آن، هر جزء از موجودی کم می‌شود. بسته موجودی مستقل ندارد: به اندازه کمیاب‌ترین جزئش کفاف می‌دهد.",
+    "comboComponents": "اجزا",
+    "comboAddComponent": "افزودن جزء",
+    "comboRemoveComponent": "حذف جزء",
+    "comboQuantity": "مقدار در هر بسته",
+    "comboAvailable": "برای {count} کافی است",
+    "comboCost": "بهای اجزا",
+    "comboSaved": "بسته ذخیره شد",
+    "comboEmpty": "این کالا جداگانه فروخته می‌شود",
+    "comboMakeCombo": "تبدیل به بسته",
+    "comboUndo": "دوباره جداگانه فروخته شود",
+    "comboBadge": "بسته",
+    "comboOutOfStock": "اجزا تمام شده است"
   },
   "receipt": {
     "amount": "مبلغ",

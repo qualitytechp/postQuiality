@@ -154,7 +154,20 @@ export default function ProductGrid({
                 onClick={() => onProductClick(product)}
                 className="min-h-36 bg-card rounded-xl p-2.5 border border-border hover:border-brand/40 active:border-brand active:bg-muted/40 hover:shadow-md transition-all text-start relative cursor-pointer overflow-hidden touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               >
-                {!!product.track_inventory && (
+                {/* Un combo no tiene existencias propias: lo que se muestra es
+                    para cuántos alcanzan sus componentes. */}
+                {product.is_combo && product.available_units !== null && product.available_units !== undefined && (
+                  <span className={`absolute top-2 start-2 text-[10px] font-bold px-2 py-0.5 rounded-full z-10 shadow-sm border pointer-events-none ${
+                    product.available_units <= 0
+                      ? 'bg-red-100 text-red-700 border-red-200'
+                      : product.available_units <= 3
+                        ? 'bg-orange-100 text-orange-700 border-orange-200'
+                        : 'bg-violet-100 text-violet-700 border-violet-200'
+                  }`}>
+                    {product.available_units <= 0 ? t('outOfStock') : `${tProducts('comboBadge')} · ${product.available_units}`}
+                  </span>
+                )}
+                {!!product.track_inventory && !product.is_combo && (
                   <>
                     {product.stock_quantity <= 0 ? (
                       <span className="absolute top-2 start-2 bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full z-10 shadow-sm border border-red-200 pointer-events-none">
