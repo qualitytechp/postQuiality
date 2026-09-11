@@ -135,6 +135,7 @@ const SUITES = [
   'test:purchases',
   'test:purchases-hardening',
   'test:purchases-edit',
+  'test:diagnostics-redaction',
   'test:combos',
   'test:receivables',
   'test:cartera',

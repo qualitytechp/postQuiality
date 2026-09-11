@@ -21,6 +21,7 @@ import { initFromDb as initWhatsAppFromDb, requestShutdown as requestWhatsAppShu
 import log from 'electron-log/main';
 import { autoUpdater } from 'electron-updater';
 import { BRAND, CLOUD_SERVICES_ENABLED, MDNS_HOST, TELEMETRY_ENABLED } from '../shared/brand';
+import { reportDiagnosticError } from './services/diagnostics';
 import { isAllowedLocalWindowUrl, isSafeExternalUrl } from './security/url-allowlist';
 
 /** Esta distribución no envía telemetría; los emisores quedan intactos. */
@@ -743,6 +744,12 @@ function createWindow(): void {
     if (details.reason !== 'clean-exit') {
       // Crash invalidated stability; cancel reset timer.
       clearRendererStabilityResetTimer();
+      // La pantalla se cayó: el comerciante lo vive como "se cerró solo".
+      reportDiagnosticError('app.renderer_gone', new Error('renderer process gone'), {
+        reason: details.reason,
+        exit_code: details.exitCode,
+        consecutive_crashes: consecutiveRendererCrashes + 1,
+      }, 'critical');
       // Report telemetry event for hard renderer crash.
       void sendTelemetryEvent('renderer_process_gone', {
         reason: details.reason,
@@ -1482,6 +1489,7 @@ const { runCleanup, isShutdownRequested, shutdownSignal } = createShutdownEntryp
 process.on('uncaughtException', (error) => {
   log.error('[Flo] Uncaught exception:', error);
   console.error('[Flo] Uncaught exception:', error);
+  reportDiagnosticError('app.uncaught_exception', error, {}, 'critical');
   void sendTelemetryEvent('main_uncaught_exception', {
     message: error?.message?.slice(0, 500),
     stack: error?.stack?.slice(0, 4000),
@@ -1493,6 +1501,7 @@ process.on('unhandledRejection', (reason) => {
   console.error('[Flo] Unhandled rejection:', reason);
   const message = reason instanceof Error ? reason.message : String(reason);
   const stack = reason instanceof Error ? reason.stack : undefined;
+  reportDiagnosticError('app.unhandled_rejection', reason, {}, 'error');
   void sendTelemetryEvent('main_unhandled_rejection', {
     message: message?.slice(0, 500),
     stack: stack?.slice(0, 4000),

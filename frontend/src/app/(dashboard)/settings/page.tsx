@@ -706,9 +706,12 @@ export default function SettingsPage() {
       return;
     }
     if (!masterPinStatus.available) {
+      // Sin llavero no hay PIN que pedir; el servidor acepta la copia con el
+      // rol de dueño, igual que la exportación a JSON.
       try {
         const response = await api.post('/db/backup', {});
-        toast.success(`${t('backupCreated')} ${response.data.path}`, { duration: 5000 });
+        toast.success(`${t('backupCreated')} ${response.data.path}`, { duration: 6000 });
+        fetchBackups();
       } catch {
         toast.error(t('backupFailed'));
       }
@@ -724,15 +727,31 @@ export default function SettingsPage() {
       return;
     }
     if (!masterPinStatus.available) {
-      if (!window.electronAPI?.backupDatabase) {
-        toast.error(tCommon('notAvailable'));
+      if (window.electronAPI?.backupDatabase) {
+        const result = await window.electronAPI.backupDatabase('');
+        if (result.success) {
+          toast.success(`${t('backupCreated')} ${result.path}`, { duration: 5000 });
+        } else if (result.error !== 'Cancelled') {
+          toast.error(result.error || t('backupFailedGeneric'));
+        }
         return;
       }
-      const result = await window.electronAPI.backupDatabase('');
-      if (result.success) {
-        toast.success(`${t('backupCreated')} ${result.path}`, { duration: 5000 });
-      } else if (result.error !== 'Cancelled') {
-        toast.error(result.error || t('backupFailedGeneric'));
+      // En el navegador no hay diálogo nativo que abrir: se entrega el archivo
+      // y el navegador se encarga de preguntar dónde guardarlo.
+      try {
+        toast.loading(t('preparingBackup'), { id: 'descarga-copia' });
+        const response = await api.get('/db/download', { responseType: 'blob' });
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `flo-database-${new Date().toISOString().split('T')[0]}.db`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        toast.success(t('backupDownloaded'), { id: 'descarga-copia' });
+      } catch {
+        toast.error(t('backupFailed'), { id: 'descarga-copia' });
       }
       return;
     }
@@ -781,13 +800,7 @@ export default function SettingsPage() {
       return;
     }
     if (!masterPinStatus.available) {
-      try {
-        await api.post(`/db-tools/backups/${encodeURIComponent(backup.fileName)}/delete`, {});
-        toast.success(t('backupDeleted'));
-        fetchBackups();
-      } catch {
-        toast.error(t('backupDeleteFailed'));
-      }
+      toast.error(t('backupNeedsDesktopApp'), { duration: 7000 });
       return;
     }
     setPinGate({ mode: 'delete-backup', payload: { fileName: backup.fileName } });
@@ -4432,7 +4445,9 @@ export default function SettingsPage() {
                   onClick={handleChooseBackupLocation}
                   className="px-5 py-2 text-sm bg-muted text-foreground rounded-lg hover:bg-muted font-medium"
                 >
-                  {t('chooseBackupLocation')}
+                  {masterPinStatus.available || window.electronAPI?.backupDatabase
+                  ? t('chooseBackupLocation')
+                  : t('downloadBackup')}
                 </button>
               </div>
             </div>
@@ -4751,7 +4766,7 @@ export default function SettingsPage() {
                 {t('masterPinDataDescription')}
               </p>
               {!masterPinStatus.available ? (
-                <p className="text-sm text-amber-600">{t('notAvailableOnDevice')}</p>
+                <p className="text-sm text-amber-600">{t('backupNeedsDesktopApp')}</p>
               ) : (
                 <div className="flex items-center gap-3">
                   <span className={`text-sm font-medium ${masterPinStatus.isSet ? 'text-green-600' : 'text-amber-600'}`}>

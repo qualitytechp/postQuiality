@@ -1114,7 +1114,7 @@
     "title": "App de mesero"
   },
   "settings": {
-    "aboutDescription": "QualityTech POS es un POS para restaurantes de código abierto y gratuito para siempre, para cafeterías, restaurantes, panaderías, camiones de comida, cocinas fantasma y bares. Incluye pedidos, mesas, menús, pantalla de cocina, impresión de recibos, acceso de personal y almacenamiento de datos local. Descárgalo, ejecuta el servicio, mantén tus datos y sé dueño de tu POS.",
+    "aboutDescription": "QualityTech POS es un POS  para cafeterías, restaurantes, panaderías, camiones de comida, cocinas fantasma y bares. Incluye pedidos, mesas, menús, pantalla de cocina, impresión de recibos, acceso de personal y almacenamiento de datos local. Descárgalo, ejecuta el servicio, mantén tus datos y sé dueño de tu POS.",
     "aboutFloCafe": "Acerca de QualityTech POS",
     "aboutGithub": "Repositorio de GitHub",
     "aboutWebsite": "Sitio web de la aplicación",
@@ -1186,6 +1186,9 @@
     "cancel": "Cancelar",
     "checkForUpdates": "Buscar actualizaciones",
     "checking": "Buscando...",
+    "downloadBackup": "Descargar copia",
+    "preparingBackup": "Preparando la copia…",
+    "backupDownloaded": "Copia descargada",
     "chooseBackupLocation": "Elegir ubicación...",
     "chooseTemplate": "Elegir plantilla",
     "close": "Cerrar",
@@ -1535,7 +1538,7 @@
     "noPrintersConfigured": "No hay impresoras configuradas todavía.",
     "noStaffYet": "Todavía no hay logins de personal.",
     "noStationsYet": "Todavía no hay estaciones de cocina — todos los tickets se imprimen en la impresora predeterminada.",
-    "notAvailableOnDevice": "No disponible en este dispositivo.",
+    "backupNeedsDesktopApp": "El PIN Maestro necesita el llavero del sistema, que sólo tiene la aplicación de escritorio. Aquí igual puede crear copias; restaurarlas, borrarlas o inicializar la base sí necesitan la aplicación de escritorio.",
     "notRegistered": "Sin registrar",
     "nothingPending": "Nada pendiente",
     "optional": "(opcional)",

@@ -1,5 +1,6 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import { BRAND } from '../shared/brand';
+import { redactRoutePath, reportDiagnosticError } from './services/diagnostics';
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import * as http from 'http';
@@ -160,6 +161,24 @@ export function startServer(): Promise<void> {
     });
     app.use(databaseMaintenanceMiddleware);
 
+    // Soporte ve los 500 de esta tienda. La mayoría de las rutas atrapan su
+    // propio error y responden a mano, así que no llegan al manejador de abajo:
+    // el único punto por el que pasan todas es la respuesta ya terminada.
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      res.on('finish', () => {
+        if (res.statusCode < 500) return;
+        // El manejador de errores ya lo reportó con su traza; no se duplica.
+        if ((res as unknown as { __diagnosticoReportado?: boolean }).__diagnosticoReportado) return;
+        reportDiagnosticError('api.server_error', new Error('HTTP ' + res.statusCode), {
+          http_status: res.statusCode,
+          method: req.method,
+          route: redactRoutePath(req.originalUrl || req.url),
+          reported_from: 'response',
+        });
+      });
+      next();
+    });
+
     // ── Global API rate limiting ───────────────────────────────────────
     // Protect all API routes with express-rate-limit and LAN bypass.
     app.use('/api', expressRateLimit({
@@ -245,7 +264,17 @@ export function startServer(): Promise<void> {
       const status = typeof err.status === 'number' && err.status >= 400 && err.status < 500
         ? err.status
         : 500;
-      if (status >= 500) console.error('[Server] Error:', err);
+      if (status >= 500) {
+        console.error('[Server] Error:', err);
+        // Con el error en la mano el diagnóstico lleva traza; el observador de
+        // arriba se salta este caso para no mandarlo dos veces.
+        (res as unknown as { __diagnosticoReportado?: boolean }).__diagnosticoReportado = true;
+        reportDiagnosticError('api.server_error', err, {
+          http_status: status,
+          method: _req.method,
+          route: redactRoutePath(_req.originalUrl || _req.url),
+        });
+      }
       res.status(status).json({ error: status >= 500 ? 'Internal server error' : (err.message || 'Client error') });
     });
 

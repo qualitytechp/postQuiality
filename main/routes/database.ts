@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import Database from 'better-sqlite3';
 import { captureKitchenStationSecurityState, captureKdsEnabledSetting, captureRestoreProtectedSettings, captureUserSecurityState, captureUserStationSecurityState, getDatabase, getDbPath, createBackup, createBackupUnlocked, getCurrentSchemaVersion, getForeignKeyViolationKeys, isSafeIdentifier, mergeKdsEnabledSetting, mergeRestoreProtectedSettings, mergeUserSecurityState, mergeUserStationSecurityState, throwIfDatabaseMaintenanceAborted, withTxn, withDatabaseMaintenanceLock } from '../db';
 import { clearInMemoryRevokedTokens, clearUserAuthCache, requireRole } from '../middleware/security';
-import { requireMasterPin } from '../middleware/master-pin';
+import { requireMasterPin, requireMasterPinWhenAvailable } from '../middleware/master-pin';
 import { clearJWTSecretCache } from './auth';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -433,7 +433,7 @@ function getTableColumns(db: Database.Database, tableName: string): string[] {
   }
 }
 
-router.post('/backup', requireRole(...ROLE_ACCESS.owner), requireMasterPin, asyncHandler(async (req: Request, res: Response) => {
+router.post('/backup', requireRole(...ROLE_ACCESS.owner), requireMasterPinWhenAvailable, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { path: backupPath, schemaVersion } = await createBackup(undefined, getHttpRequestSignal(req));
     res.json({ 
@@ -448,7 +448,7 @@ router.post('/backup', requireRole(...ROLE_ACCESS.owner), requireMasterPin, asyn
   }
 }));
 
-router.get('/download', requireRole(...ROLE_ACCESS.owner), requireMasterPin, asyncHandler(async (req: Request, res: Response) => {
+router.get('/download', requireRole(...ROLE_ACCESS.owner), requireMasterPinWhenAvailable, asyncHandler(async (req: Request, res: Response) => {
   let tempDir: string | null = null;
   try {
     const dbPath = getDbPath();
@@ -481,7 +481,9 @@ router.get('/download', requireRole(...ROLE_ACCESS.owner), requireMasterPin, asy
         return;
       }
       try {
-        res.download(snapshotPath, filename, (error) => settle(error));
+        // La carpeta temporal empieza con punto y el modulo `send` ignora por
+        // omision esos segmentos: sin `dotfiles` responde 404 y nunca envia nada.
+        res.download(snapshotPath, filename, { dotfiles: 'allow' }, (error) => settle(error));
       } catch (error) {
         settle(error as Error);
       }
