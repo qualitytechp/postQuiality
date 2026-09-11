@@ -123,6 +123,7 @@
     "test:loyalty-toggle": "node tests/run-electron-node-test.cjs tests/loyalty-toggle.test.ts",
     "test:modules-toggle": "node tests/run-electron-node-test.cjs tests/modules-toggle.test.ts",
     "test:stock-ledger": "node tests/run-electron-node-test.cjs tests/stock-ledger.test.ts",
+    "test:purchases": "node tests/run-electron-node-test.cjs tests/purchases.test.ts",
     "test:discount-system": "node tests/run-electron-node-test.cjs tests/discount-system.test.ts",
     "test:integration-discount-settings": "node tests/run-electron-node-test.cjs tests/integration-discount-settings.test.ts",
     "test:theme-mode-settings": "node tests/run-electron-node-test.cjs tests/theme-mode-settings.test.ts",

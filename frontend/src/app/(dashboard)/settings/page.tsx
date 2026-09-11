@@ -14,7 +14,7 @@ import {
   parseStoredReceiptLanguagePolicy,
 } from '@/lib/print-language-policies';
 import { usePrinterStore } from '@/hooks/usePrinter';
-import { Settings, Building2, CreditCard, Monitor, Users, Gift, Printer, Share2, FileText, Lock, Smartphone, RefreshCw, Copy, Check, Wifi, Usb, Trash2, Plus, Star, TestTube2, ChefHat, QrCode, CheckCircle2, Database, Cloud, CloudOff, Zap, Percent, KeyRound, AlertTriangle, Wrench, HardDrive, UploadCloud, Hash, ChevronDown, SunMoon } from 'lucide-react';
+import { Settings, Building2, CreditCard, Monitor, Users, Gift, Printer, Share2, FileText, Lock, Smartphone, RefreshCw, Copy, Check, Wifi, Usb, Trash2, Plus, Star, TestTube2, ChefHat, QrCode, CheckCircle2, Database, Cloud, CloudOff, Zap, Percent, KeyRound, AlertTriangle, Wrench, HardDrive, UploadCloud, Hash, ChevronDown, SunMoon, Blocks } from 'lucide-react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -41,6 +41,18 @@ import { useUpdateStatus } from '@/hooks/useUpdateStatus';
 import { TENANT_STATUS_LABEL_KEYS } from '@/lib/i18n-enums';
 import { isTemplateCardSelected, type BillTemplateSelectionSource } from '@/lib/bill-template-picker';
 import { ROLE_ACCESS, hasRole } from '@shared/role-permissions';
+import { OPTIONAL_MODULES, MODULE_SETTING_KEY, type OptionalModule } from '@shared/modules';
+
+/** Message keys for each optional module's row in the Modules tab. */
+const MODULE_LABEL_KEY = {
+  purchases: 'enablePurchases',
+  receivables: 'enableReceivables',
+} as const satisfies Record<OptionalModule, string>;
+
+const MODULE_HINT_KEY = {
+  purchases: 'enablePurchasesHint',
+  receivables: 'enableReceivablesHint',
+} as const satisfies Record<OptionalModule, string>;
 
 // Registry-derived selectable UI languages (from LANGUAGES where selectable: true).
 const SELECTABLE_LANGUAGES: Language[] = (Object.keys(LANGUAGES) as Language[]).filter(
@@ -290,6 +302,27 @@ export default function SettingsPage() {
   const isOwner = hasRole(currentTenant?.role, ROLE_ACCESS.owner);
   const canViewTaxConfiguration = isAdmin;
   const { confirm, ConfirmDialog } = useConfirm();
+
+  // Los módulos opcionales se guardan de inmediato al pulsar el interruptor,
+  // no con el botón de guardar de la pestaña: prender uno cambia qué ve el
+  // usuario en la navegación, y dejarlo a medias sería confuso.
+  const modules = posSettings.modules;
+  const setModules = posSettings.setModules;
+  const [savingModule, setSavingModule] = useState<OptionalModule | null>(null);
+
+  const toggleModule = async (moduleName: OptionalModule) => {
+    const next = !modules[moduleName];
+    setSavingModule(moduleName);
+    try {
+      await api.put(`/settings/${MODULE_SETTING_KEY[moduleName]}`, { value: String(next) });
+      setModules({ ...modules, [moduleName]: next });
+      toast.success(t('allSaved'));
+    } catch {
+      toast.error(tCommon('saveFailed'));
+    } finally {
+      setSavingModule(null);
+    }
+  };
 
   const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
   const [savedLoyaltyEnabled, setSavedLoyaltyEnabled] = useState(false);
@@ -2425,6 +2458,7 @@ export default function SettingsPage() {
             <div className="hidden md:block px-3 pt-4 pb-2 mt-3 mb-1 border-b border-border">
               <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">{t('navGroupOperations')}</p>
             </div>
+            <SettingsNavItem label={t('modulesTab')} value="modules" active={activeTab} onClick={handleSettingsTabChange} />
             <SettingsNavItem label={t('posWorkflow')} value="pos" active={activeTab} onClick={handleSettingsTabChange} />
             <SettingsNavItem label={t('tabKds')} value="kds" active={activeTab} onClick={handleSettingsTabChange} />
             <SettingsNavItem label={t('tablesideOrdering')} value="server-app" active={activeTab} onClick={handleSettingsTabChange} />
@@ -3562,6 +3596,43 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="modules">
+          <div className="pb-6 max-w-3xl space-y-6">
+            <div className="bg-card rounded-xl border border-border p-6">
+              <div className="flex items-center gap-2 mb-1">
+                <Blocks size={20} className="text-muted-foreground" />
+                <h2 className="font-semibold text-foreground">{t('modulesTab')}</h2>
+              </div>
+              <p className="text-sm text-muted-foreground mb-5">{t('modulesHint')}</p>
+              <div className="space-y-5">
+                {OPTIONAL_MODULES.map((moduleName) => (
+                  <div key={moduleName} className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-medium text-foreground">{t(MODULE_LABEL_KEY[moduleName])}</p>
+                      <p className="text-sm text-muted-foreground">{t(MODULE_HINT_KEY[moduleName])}</p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={!!modules[moduleName]}
+                      aria-label={t(MODULE_LABEL_KEY[moduleName])}
+                      onClick={() => toggleModule(moduleName)}
+                      disabled={savingModule === moduleName}
+                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                        modules[moduleName] ? 'bg-brand' : 'bg-gray-200 dark:bg-muted'
+                      }`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-card transition-transform ${
+                        modules[moduleName] ? 'translate-x-6 rtl:-translate-x-6' : 'translate-x-1 rtl:-translate-x-1'
+                      }`} />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

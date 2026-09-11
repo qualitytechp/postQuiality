@@ -4183,6 +4183,100 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       `);
     },
   },
+  {
+    version: 87,
+    name: 'add_purchases_module',
+    up: () => {
+      // Compras: lo que el negocio le compra al proveedor. Es el único de los
+      // módulos nuevos que se sostiene solo — el inventario ya existía y la
+      // cartera no genera nada, sólo refleja deudas que nacen aquí o en una
+      // venta a crédito.
+      //
+      // No hay tabla de cuentas por pagar: la compra es la deuda, igual que la
+      // factura es la cuenta por cobrar. El saldo sale de total menos abonos,
+      // así que no hay una segunda cifra que pueda contradecir a la primera.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS suppliers (
+          id         TEXT PRIMARY KEY,
+          name       TEXT NOT NULL,
+          document   TEXT,
+          phone      TEXT,
+          address    TEXT,
+          notes      TEXT,
+          is_active  INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS suppliers_active_name ON suppliers(is_active, name);
+
+        CREATE TABLE IF NOT EXISTS purchases (
+          id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          purchase_number TEXT UNIQUE NOT NULL,
+          supplier_id     TEXT NOT NULL REFERENCES suppliers(id),
+          invoice_ref     TEXT,
+          subtotal_cents  INTEGER NOT NULL CHECK (subtotal_cents >= 0),
+          tax_cents       INTEGER NOT NULL DEFAULT 0 CHECK (tax_cents >= 0),
+          total_cents     INTEGER NOT NULL CHECK (total_cents >= 0),
+          payment_terms   TEXT NOT NULL CHECK (payment_terms IN ('cash', 'credit')),
+          due_date        TEXT,
+          status          TEXT NOT NULL DEFAULT 'received' CHECK (status IN ('received', 'void')),
+          notes           TEXT,
+          received_at     TEXT NOT NULL,
+          business_date   TEXT NOT NULL CHECK (business_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          created_by      TEXT NOT NULL REFERENCES users(id),
+          voided_at       TEXT,
+          voided_by       TEXT REFERENCES users(id),
+          void_reason     TEXT,
+          created_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+          -- A crédito sin fecha de vencimiento no es una deuda, es un olvido.
+          CHECK (payment_terms = 'cash' OR due_date IS NOT NULL)
+        );
+        CREATE INDEX IF NOT EXISTS purchases_supplier ON purchases(supplier_id, id);
+        CREATE INDEX IF NOT EXISTS purchases_business_date ON purchases(business_date);
+        CREATE INDEX IF NOT EXISTS purchases_open_credit
+          ON purchases(due_date) WHERE payment_terms = 'credit' AND status = 'received';
+
+        CREATE TABLE IF NOT EXISTS purchase_items (
+          id                       INTEGER PRIMARY KEY AUTOINCREMENT,
+          purchase_id              INTEGER NOT NULL REFERENCES purchases(id) ON DELETE CASCADE,
+          product_id               TEXT REFERENCES products(id),
+          -- Copiada, no leída del producto: la compra tiene que poder leerse
+          -- aunque el producto se renombre o se borre. Con product_id nulo la
+          -- línea es un gasto sin existencias (flete, bolsas, un servicio).
+          description              TEXT NOT NULL,
+          quantity                 REAL NOT NULL CHECK (quantity > 0),
+          unit                     TEXT NOT NULL,
+          unit_cost_cents          INTEGER NOT NULL CHECK (unit_cost_cents >= 0),
+          line_total_cents         INTEGER NOT NULL CHECK (line_total_cents >= 0),
+          -- Espejo de order_items.inventory_deducted_quantity: cuánto entró de
+          -- verdad. Depende de track_inventory al recibir, así que la anulación
+          -- revierte esto y no la cantidad comprada.
+          inventory_added_quantity REAL NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS purchase_items_purchase ON purchase_items(purchase_id);
+        CREATE INDEX IF NOT EXISTS purchase_items_product ON purchase_items(product_id);
+
+        CREATE TABLE IF NOT EXISTS purchase_payments (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          purchase_id   INTEGER NOT NULL REFERENCES purchases(id),
+          amount_cents  INTEGER NOT NULL CHECK (amount_cents > 0),
+          method        TEXT NOT NULL,
+          paid_at       TEXT NOT NULL,
+          business_date TEXT NOT NULL CHECK (business_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          -- Pagar en efectivo saca plata del cajón, así que el pago se sella
+          -- con la caja abierta: sin esto aparecería como faltante al día
+          -- siguiente y nadie sabría por qué.
+          cash_session_id INTEGER REFERENCES cash_sessions(id),
+          created_by    TEXT NOT NULL REFERENCES users(id),
+          created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS purchase_payments_purchase ON purchase_payments(purchase_id);
+        CREATE INDEX IF NOT EXISTS purchase_payments_session
+          ON purchase_payments(cash_session_id) WHERE cash_session_id IS NOT NULL;
+      `);
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {
@@ -5113,6 +5207,18 @@ export function generateBillNumber(): string {
   const bucket = resetPeriod === 'never' ? 'ALL' : periodSegment;
   const next = getNextSequence('bills', bucket);
   return [prefix, includePeriod ? periodSegment : '', String(next).padStart(4, '0')].filter(Boolean).join('-');
+}
+
+/**
+ * `COM-YYYYMMDD-NNNN`, numbered per business-local day like orders and bills.
+ * Deliberately not configurable: a purchase is an internal record, not a
+ * document handed to a customer, so it needs no prefix or period settings.
+ */
+export function generatePurchaseNumber(): string {
+  const timezone = getSettingValue('timezone') || 'Asia/Kolkata';
+  const stamp = dateStampInTimezone(timezone);
+  const next = getNextSequence('purchases', stamp);
+  return `COM-${stamp}-${String(next).padStart(4, '0')}`;
 }
 
 export function now(): string {

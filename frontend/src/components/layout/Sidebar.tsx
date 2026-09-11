@@ -22,6 +22,7 @@ import {
   Moon,
   Monitor,
   BarChart3,
+  Truck,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslations, type AppConfig } from 'use-intl';
@@ -73,6 +74,9 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { href: '/orders', labelKey: 'orders', icon: ClipboardList, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/whatsapp', labelKey: 'whatsapp', icon: MessageCircle, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/products', labelKey: 'products', icon: Package, roles: ROLE_ACCESS.ownerManager, businessTypes: null },
+  // Sin businessTypes: comprarle al proveedor es igual en un restaurante que
+  // en un fruver, así que el módulo no depende del tipo de negocio.
+  { href: '/purchases', labelKey: 'purchases', icon: Truck, roles: ROLE_ACCESS.ownerManager, businessTypes: null },
   { href: '/tables', labelKey: 'tables', icon: Grid3X3, roles: ROLE_ACCESS.ownerManager, businessTypes: ['restaurant'] },
   { href: '/settings?tab=kds', labelKey: 'kds', icon: ChefHat, roles: ROLE_ACCESS.ownerManager, businessTypes: ['restaurant'] },
   { href: '/customers', labelKey: 'customers', icon: Users, roles: ROLE_ACCESS.ownerManager, businessTypes: null },
@@ -83,7 +87,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
 export default function AppSidebar() {
   const pathname = usePathname();
   const { user, currentTenant, logout } = useAuthStore();
-  const { tablesRequired, kdsEnabled, whatsappEnabled, setTablesRequired, setKdsEnabled, setWhatsappEnabled } = usePosSettingsStore();
+  const { tablesRequired, kdsEnabled, whatsappEnabled, setTablesRequired, setKdsEnabled, setWhatsappEnabled, modules, setModules } = usePosSettingsStore();
   const { isMobile, setOpenMobile } = useSidebar();
   const t = useTranslations('nav');
   const tCommon = useTranslations('common');
@@ -108,6 +112,8 @@ export default function AppSidebar() {
     if (item.href === '/settings?tab=kds' && !kdsEnabled) return false;
     // WhatsApp integration not enabled on this tenant → hide the nav entry.
     if (item.href === '/whatsapp' && !whatsappEnabled) return false;
+    // Módulo opcional apagado → la entrada no aparece.
+    if (item.href === '/purchases' && !modules.purchases) return false;
     return hasRole(role, item.roles)
       && (item.businessTypes === null || item.businessTypes.includes(businessType));
   });
@@ -128,7 +134,12 @@ export default function AppSidebar() {
     api.get('/whatsapp/status')
       .then((res) => setWhatsappEnabled(!!res.data?.enabled))
       .catch(() => { });
-  }, [currentTenant, setTablesRequired, setKdsEnabled, setWhatsappEnabled]);
+    // One request answers for every optional module, so adding a module does
+    // not add another per-flag fetch here.
+    api.get('/modules')
+      .then((res) => { if (res.data?.modules) setModules(res.data.modules); })
+      .catch(() => { });
+  }, [currentTenant, setTablesRequired, setKdsEnabled, setWhatsappEnabled, setModules]);
 
   useEffect(() => {
     if (!hasRole(role, ROLE_ACCESS.owner)) return;

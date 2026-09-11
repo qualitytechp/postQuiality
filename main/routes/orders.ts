@@ -601,7 +601,7 @@ router.post('/', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: R
             reason: 'sale',
             refType: 'order_item',
             refId: insertItemResult.lastInsertRowid,
-            userId: (req as any).user?.id ?? null,
+            userId: (req as any).user?.userId ?? null,
             allowNegative: true,
           });
         }
@@ -817,7 +817,7 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
             reason: 'sale',
             refType: 'order_item',
             refId: insertItemResult.lastInsertRowid,
-            userId: (req as any).user?.id ?? null,
+            userId: (req as any).user?.userId ?? null,
             allowNegative: true,
           });
         }
@@ -1066,7 +1066,7 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
                 reason: 'sale_cancel',
                 refType: 'order_item',
                 refId: item.id,
-                userId: (req as any).user?.id ?? null,
+                userId: (req as any).user?.userId ?? null,
                 allowNegative: true,
               });
             }

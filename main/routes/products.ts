@@ -1025,7 +1025,7 @@ router.post('/:id/stock', requireRole(...ROLE_ACCESS.ownerManager), (req: Reques
       delta,
       reason: 'adjustment',
       note: action,
-      userId: (req as any).user?.id ?? null,
+      userId: (req as any).user?.userId ?? null,
     });
     if (!applied.ok) {
       return res.status(400).json({ error: applied.reason === 'insufficient' ? 'Insufficient stock' : 'Product not found' });

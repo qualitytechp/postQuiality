@@ -428,6 +428,12 @@ function faFallbackErrors(faFlat: Record<string, string>, enFlat: Record<string,
  * untranslated so the French UI cannot silently regress to English.
  */
 const FR_INTENTIONAL_IDENTICAL: ReadonlySet<string> = new Set([
+  'purchases.notes', // same word in French
+  'purchases.lineDescription', // same word in French
+  'purchases.total', // same word in French
+  'purchases.columnDate', // same word in French
+  'purchases.columnTotal', // same word in French
+  'settings.modulesTab', // same word in French
   'reports.zNumber', // fiscal Z-report letter, same everywhere
   'reports.total', // same word in French
   'reports.dimensions.table', // same word in French
@@ -585,6 +591,7 @@ function trFallbackErrors(trFlat: Record<string, string>, enFlat: Record<string,
 }
 
 const FIL_INTENTIONAL_IDENTICAL = new Set<string>([
+  'purchases.subtotal', // same word in Filipino
   'reports.zNumber', // fiscal Z-report letter, same everywhere
   'reports.measures.subtotal', // same word in Filipino
   'reports.dimensions.online_platform', // same word in Filipino
@@ -841,6 +848,8 @@ function filFallbackErrors(filFlat: Record<string, string>, enFlat: Record<strin
  * tokens or identical words.
  */
 const DE_INTENTIONAL_IDENTICAL = new Set<string>([
+  'purchases.supplierName', // same word in German
+  'purchases.columnStatus', // same word in German
   'reports.zNumber', // fiscal Z-report letter, same everywhere
   'auth.countryThailand',
   'businessType.restaurant',

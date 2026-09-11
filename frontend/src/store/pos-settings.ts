@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Language } from '@/lib/i18n';
+// Ruta relativa y no el alias @shared: este archivo lo cargan por require
+// crudo las pruebas de impresión, cuyo resolutor sólo conoce @/ y @print/.
+import { allModulesOff, type ModuleStates } from '../../../shared/modules';
 import { defaultPrintLanguagePolicy } from '@print/policy';
 import type {
   KotLanguagePolicy,
@@ -56,6 +59,9 @@ export interface PosSettingsState {
   kotPrintingEnabled: boolean;
   // Whether WhatsApp messaging is enabled for this tenant.
   whatsappEnabled: boolean;
+  // Optional modules this business turned on, from GET /api/modules. Assumed
+  // off until the backend answers, so nothing flashes into view and back out.
+  modules: ModuleStates;
   // Print language policies synced from backend settings.
   billLanguagePolicy: ReceiptLanguagePolicy;
   kotLanguagePolicy: KotLanguagePolicy;
@@ -93,6 +99,7 @@ export interface PosSettingsState {
   setKdsEnabled: (v: boolean) => void;
   setKotPrintingEnabled: (v: boolean) => void;
   setWhatsappEnabled: (v: boolean) => void;
+  setModules: (v: ModuleStates) => void;
   setBillLanguagePolicy: (policy: ReceiptLanguagePolicy) => void;
   setKotLanguagePolicy: (policy: KotLanguagePolicy) => void;
 }
@@ -138,6 +145,7 @@ export const usePosSettingsStore = create<PosSettingsState>()(
       // Default false so sidebar hides WhatsApp nav until tenant enables it.
       // Synced from /api/whatsapp/status on auth load.
       whatsappEnabled: false,
+      modules: allModulesOff(),
       // Print language policies default to inherit/none until synced from
       // the backend settings API (#441).
       billLanguagePolicy: defaultPrintLanguagePolicy(),
@@ -176,6 +184,7 @@ export const usePosSettingsStore = create<PosSettingsState>()(
       setKdsEnabled: (v) => set({ kdsEnabled: v }),
       setKotPrintingEnabled: (v) => set({ kotPrintingEnabled: v }),
       setWhatsappEnabled: (v: boolean) => set({ whatsappEnabled: v }),
+      setModules: (v: ModuleStates) => set({ modules: v }),
       setBillLanguagePolicy: (billLanguagePolicy) => set({ billLanguagePolicy }),
       setKotLanguagePolicy: (kotLanguagePolicy) => set({ kotLanguagePolicy }),
     }),
@@ -183,7 +192,7 @@ export const usePosSettingsStore = create<PosSettingsState>()(
       name: 'pos-settings',
       // Exclude backend-synced fields (WhatsApp, print policies) from persistence.
       partialize: (s) => Object.fromEntries(
-        Object.entries(s).filter(([k]) => k !== 'whatsappEnabled' && k !== 'billLanguagePolicy' && k !== 'kotLanguagePolicy'),
+        Object.entries(s).filter(([k]) => k !== 'whatsappEnabled' && k !== 'modules' && k !== 'billLanguagePolicy' && k !== 'kotLanguagePolicy'),
       ) as PosSettingsState,
       // Migrates legacy store keys (GSTIN rename, removed A4/A5 paper sizes).
       version: 3,

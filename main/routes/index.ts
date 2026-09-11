@@ -26,6 +26,8 @@ import { posInfoRoutes } from './pos-info';
 import { serverAppInfoRoutes } from './server-app-info';
 import { moreAppsRoutes } from './more-apps';
 import { moduleRoutes } from './modules';
+import { supplierRoutes, purchaseRoutes } from './purchases';
+import { requireModule } from '../services/modules';
 import { notifyKdsUpdate } from '../services/kds';
 import { printerRoutes } from './printers';
 import { databaseRoutes } from './database';
@@ -104,6 +106,11 @@ export function registerRoutes(app: Express): void {
   app.use('/api/server-app-info', serverAppInfoRoutes);
   app.use('/api/more-apps', moreAppsRoutes);
   app.use('/api/modules', moduleRoutes);
+
+  // Rutas de módulos opcionales: siempre montadas, el guardia decide por
+  // petición para que prender el módulo no exija reiniciar.
+  app.use('/api/suppliers', requireModule('purchases'), supplierRoutes);
+  app.use('/api/purchases', requireModule('purchases'), purchaseRoutes);
   app.use('/api/printers', printerRoutes);
   app.use('/api/db', databaseRoutes);
   app.use('/api/db-tools', databaseToolsRoutes);
@@ -419,7 +426,7 @@ export function registerRoutes(app: Express): void {
               reason: 'sale_cancel',
               refType: 'order_item',
               refId: itemId,
-              userId: (req as any).user?.id ?? null,
+              userId: (req as any).user?.userId ?? null,
               allowNegative: true,
             });
           }
@@ -609,7 +616,7 @@ export function registerRoutes(app: Express): void {
             reason: 'sale_restore',
             refType: 'order_item',
             refId: itemId,
-            userId: (req as any).user?.id ?? null,
+            userId: (req as any).user?.userId ?? null,
             allowNegative: true,
           });
         }

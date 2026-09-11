@@ -343,7 +343,10 @@ async function main() {
       headers: authHeader,
       body: {},
     });
-    assertEqual(paidCancel.status, 400, 'partially paid item cancellation is rejected');
+    // 409, not 400: the request is well formed, it conflicts with the order's
+    // state. The route was hardened to say so in #289; this expectation was
+    // never updated because the suite had dropped out of the run list.
+    assertEqual(paidCancel.status, 409, 'partially paid item cancellation is rejected');
     assertEqual(db.prepare('SELECT status FROM order_items WHERE id = ?').get(paidCancelItemId).status, 'pending', 'partially paid rejection leaves item unchanged');
     assertEqual(db.prepare('SELECT stock_quantity FROM products WHERE id = ?').get('prod-track-1').stock_quantity, paidCancelStock, 'partially paid rejection leaves stock unchanged');
 
