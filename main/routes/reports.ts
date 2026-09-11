@@ -680,7 +680,10 @@ router.get('/x-report', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
           orderCount: row.orderCount,
         })),
         taxComponents: aggregates.taxComponents,
-        expectedCashCents: aggregates.cashSalesCents - aggregates.cashRefundsByCreatedAtCents,
+        // Same terms as the Z snapshot, minus the opening float the modal adds
+        // on top: what the drawer took in and paid out during the window.
+        expectedCashCents: aggregates.cashSalesCents - aggregates.cashRefundsByCreatedAtCents
+          + aggregates.carteraCashInCents - aggregates.carteraCashOutCents,
         // F3: server-resolved prior close; null fields when no prior close
         // exists. The frontend only shows the "no prior close" hint when
         // this is genuinely null (never on transport error).

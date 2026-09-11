@@ -428,6 +428,13 @@ function faFallbackErrors(faFlat: Record<string, string>, enFlat: Record<string,
  * untranslated so the French UI cannot silently regress to English.
  */
 const FR_INTENTIONAL_IDENTICAL: ReadonlySet<string> = new Set([
+  'receivables.accountKind', // same word in French
+  'receivables.projectionNet', // same word in French
+  'receivables.colDate', // same word in French
+  'receivables.colType', // same word in French
+  'receivables.colConcept', // same word in French
+  'receivables.concept', // same word in French
+  'receivables.notes', // same word in French
   'purchases.notes', // same word in French
   'purchases.lineDescription', // same word in French
   'purchases.total', // same word in French
@@ -541,6 +548,8 @@ function frFallbackErrors(frFlat: Record<string, string>, enFlat: Record<string,
 }
 
 const TR_INTENTIONAL_IDENTICAL = new Set<string>([
+  'receivables.projectionNet', // same word in Turkish
+  'receivables.colRef', // same word in Turkish
   'reports.zNumber', // fiscal Z-report letter, same everywhere
   'reports.dimensions.online_platform', // same word in Turkish
   'settings.paymentMethodUpi', // technical acronym (payment rail name)
@@ -591,6 +600,12 @@ function trFallbackErrors(trFlat: Record<string, string>, enFlat: Record<string,
 }
 
 const FIL_INTENTIONAL_IDENTICAL = new Set<string>([
+  'receivables.kindDigital', // same word in Filipino
+  'receivables.kindCash', // same word in Filipino
+  'receivables.projectionNet', // same word in Filipino
+  'receivables.colAccount', // same word in Filipino
+  'receivables.colRef', // same word in Filipino
+  'receivables.half', // same word in Filipino
   'purchases.subtotal', // same word in Filipino
   'reports.zNumber', // fiscal Z-report letter, same everywhere
   'reports.measures.subtotal', // same word in Filipino
@@ -848,6 +863,9 @@ function filFallbackErrors(filFlat: Record<string, string>, enFlat: Record<strin
  * tokens or identical words.
  */
 const DE_INTENTIONAL_IDENTICAL = new Set<string>([
+  'receivables.accountName', // same word in German
+  'receivables.kindBank', // same word in German
+  'receivables.kindDigital', // same word in German
   'purchases.supplierName', // same word in German
   'purchases.columnStatus', // same word in German
   'reports.zNumber', // fiscal Z-report letter, same everywhere

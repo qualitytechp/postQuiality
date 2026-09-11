@@ -23,6 +23,7 @@ import {
   Monitor,
   BarChart3,
   Truck,
+  HandCoins,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslations, type AppConfig } from 'use-intl';
@@ -77,6 +78,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   // Sin businessTypes: comprarle al proveedor es igual en un restaurante que
   // en un fruver, así que el módulo no depende del tipo de negocio.
   { href: '/purchases', labelKey: 'purchases', icon: Truck, roles: ROLE_ACCESS.ownerManager, businessTypes: null },
+  { href: '/receivables', labelKey: 'receivables', icon: HandCoins, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/tables', labelKey: 'tables', icon: Grid3X3, roles: ROLE_ACCESS.ownerManager, businessTypes: ['restaurant'] },
   { href: '/settings?tab=kds', labelKey: 'kds', icon: ChefHat, roles: ROLE_ACCESS.ownerManager, businessTypes: ['restaurant'] },
   { href: '/customers', labelKey: 'customers', icon: Users, roles: ROLE_ACCESS.ownerManager, businessTypes: null },
@@ -114,6 +116,7 @@ export default function AppSidebar() {
     if (item.href === '/whatsapp' && !whatsappEnabled) return false;
     // Módulo opcional apagado → la entrada no aparece.
     if (item.href === '/purchases' && !modules.purchases) return false;
+    if (item.href === '/receivables' && !modules.receivables) return false;
     return hasRole(role, item.roles)
       && (item.businessTypes === null || item.businessTypes.includes(businessType));
   });

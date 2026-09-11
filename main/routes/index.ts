@@ -27,6 +27,8 @@ import { serverAppInfoRoutes } from './server-app-info';
 import { moreAppsRoutes } from './more-apps';
 import { moduleRoutes } from './modules';
 import { supplierRoutes, purchaseRoutes } from './purchases';
+import { receivablesRoutes } from './receivables';
+import { carteraRoutes } from './cartera';
 import { requireModule } from '../services/modules';
 import { notifyKdsUpdate } from '../services/kds';
 import { printerRoutes } from './printers';
@@ -111,6 +113,8 @@ export function registerRoutes(app: Express): void {
   // petición para que prender el módulo no exija reiniciar.
   app.use('/api/suppliers', requireModule('purchases'), supplierRoutes);
   app.use('/api/purchases', requireModule('purchases'), purchaseRoutes);
+  app.use('/api/receivables', requireModule('receivables'), receivablesRoutes);
+  app.use('/api/cartera', requireModule('receivables'), carteraRoutes);
   app.use('/api/printers', printerRoutes);
   app.use('/api/db', databaseRoutes);
   app.use('/api/db-tools', databaseToolsRoutes);

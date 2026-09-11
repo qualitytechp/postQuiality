@@ -164,6 +164,14 @@ export interface DayAggregates {
   netCollectedCents: number;
   cashSalesCents: number;
   cashRefundsByCreatedAtCents: number;
+  /**
+   * Cash that moved through Cartera inside the same window: manual income and
+   * expenses, transfers to and from the drawer, and what was paid out to
+   * suppliers or on a bill. Zero by construction when the module has never
+   * been used, so a store that does not use it sees the same numbers as before.
+   */
+  carteraCashInCents: number;
+  carteraCashOutCents: number;
   paymentMethods: { method: string; count: number; total_cents: number }[];
   staffSales: { user_id: string; name: string; role: string; revenue_cents: number; orderCount: number }[];
   taxComponents: DisplayTaxComponent[];
@@ -319,6 +327,47 @@ export function computeDayAggregates(
       (SELECT refunds_cents FROM cash_refunds) AS refunds_cents
   `).get(minorFactor, start, end, start, end) as { sales_cents: number; refunds_cents: number };
 
+  // Cash that moved through Cartera in this same window. Sealed to the window
+  // by `occurred_at`/`paid_at` exactly like the sales above, so a shift never
+  // picks up the neighbouring one's movements. Both sums are zero on a store
+  // that has never opened the module, which is what lets the expected-cash
+  // formula grow without changing any existing store's numbers.
+  const carteraCashRow = db.prepare(`
+    SELECT
+      COALESCE((
+        SELECT SUM(CASE WHEN e.direction = 'in' THEN e.amount_cents ELSE 0 END)
+        FROM cartera_entries e JOIN cartera_accounts a ON a.id = e.account_id
+        WHERE a.kind = 'cash' AND e.voided_at IS NULL AND e.occurred_at >= ? AND e.occurred_at < ?
+      ), 0) AS in_cents,
+      COALESCE((
+        SELECT SUM(CASE WHEN e.direction = 'out' THEN e.amount_cents ELSE 0 END)
+        FROM cartera_entries e JOIN cartera_accounts a ON a.id = e.account_id
+        WHERE a.kind = 'cash' AND e.voided_at IS NULL AND e.occurred_at >= ? AND e.occurred_at < ?
+      ), 0) AS entries_out_cents,
+      COALESCE((
+        SELECT SUM(pp.amount_cents)
+        FROM purchase_payments pp
+        JOIN cartera_accounts a ON a.id = pp.account_id
+        JOIN purchases p ON p.id = pp.purchase_id
+        WHERE a.kind = 'cash' AND p.status != 'void' AND pp.paid_at >= ? AND pp.paid_at < ?
+      ), 0) AS purchases_out_cents,
+      COALESCE((
+        SELECT SUM(gpp.amount_cents)
+        FROM general_payable_payments gpp
+        JOIN cartera_accounts a ON a.id = gpp.account_id
+        JOIN general_payables gp ON gp.id = gpp.payable_id
+        WHERE a.kind = 'cash' AND gp.status != 'void' AND gpp.paid_at >= ? AND gpp.paid_at < ?
+      ), 0) AS payables_out_cents
+  `).get(start, end, start, end, start, end, start, end) as {
+    in_cents: number; entries_out_cents: number; purchases_out_cents: number; payables_out_cents: number;
+  };
+  const carteraCash = {
+    inCents: Number(carteraCashRow.in_cents || 0),
+    outCents: Number(carteraCashRow.entries_out_cents || 0)
+      + Number(carteraCashRow.purchases_out_cents || 0)
+      + Number(carteraCashRow.payables_out_cents || 0),
+  };
+
   // Display payment-method totals — reuse paymentMethodBreakdown so display
   // numbers reconcile with the live financial-summary endpoint for the same day.
   // Keyed by paid_at (not per-line timestamps) so installment payments
@@ -374,6 +423,8 @@ export function computeDayAggregates(
     netCollectedCents: grossCollectedCents - refundedCents,
     cashSalesCents: Math.round(Number(cashDrawerRow.sales_cents || 0)),
     cashRefundsByCreatedAtCents: Number(cashDrawerRow.refunds_cents || 0),
+    carteraCashInCents: carteraCash.inCents,
+    carteraCashOutCents: carteraCash.outCents,
     paymentMethods: paymentMethodsRows.map((row) => ({
       method: row.method,
       count: Number(row.count || 0),
@@ -436,12 +487,20 @@ router.post('/', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response
         ? Number(openSession.opening_float_cents)
         : openingFloatCents;
 
-      // Snapshot math (verbatim from spec):
+      // Snapshot math:
       // expected = opening_float + cashSales − cashRefunds(created_at)
+      //            + carteraCashIn − carteraCashOut
       // variance = counted − expected
+      //
+      // The two Cartera terms are zero by construction when nothing moved
+      // through the module, so this is the original formula for every store
+      // that does not use it. When it is used, the drawer and the report agree
+      // because both read the same rows.
       const expectedCashCents = effectiveFloatCents
         + aggregates.cashSalesCents
-        - aggregates.cashRefundsByCreatedAtCents;
+        - aggregates.cashRefundsByCreatedAtCents
+        + aggregates.carteraCashInCents
+        - aggregates.carteraCashOutCents;
       const varianceCents = countedCashCents - expectedCashCents;
 
       let zNumber: number;

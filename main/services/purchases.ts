@@ -18,6 +18,7 @@ import type Database from 'better-sqlite3';
 import { generatePurchaseNumber, getSettingValue, localDateInTimezone, now } from '../db';
 import { getCurrencyMinorUnitFactor } from '../countries';
 import { applyStockMovement } from './inventory';
+import { cashAccount, cashOnHandCents, getAccount, listAccounts, openCashSession, type CarteraAccount } from './cartera';
 
 export interface PurchaseLineInput {
   product_id?: string | null;
@@ -36,6 +37,8 @@ export interface CreatePurchaseInput {
   items: PurchaseLineInput[];
   /** Method name for the settling payment; only meaningful on a cash purchase. */
   payment_method?: string | null;
+  /** Treasury account the money leaves from; falls back to the drawer. */
+  account_id?: number | null;
   userId: string;
 }
 
@@ -60,6 +63,30 @@ function minorFactor(): number {
 
 function roundCents(value: number): number {
   return Math.round(value);
+}
+
+/**
+ * Which account the money leaves. An explicit account wins; otherwise the
+ * method name is matched against the accounts, and cash falls back to the
+ * drawer. Returns undefined when Cartera is not set up at all, which simply
+ * means the payment is recorded without a treasury account — the purchase
+ * itself still stands.
+ */
+function resolvePaymentAccount(
+  db: Database.Database,
+  accountId: number | null,
+  method: string | null,
+): CarteraAccount | undefined {
+  if (accountId) {
+    const account = getAccount(db, accountId);
+    if (!account) throw new PurchaseError('Account not found', 404);
+    if (!account.is_active) throw new PurchaseError('Account is inactive');
+    return account;
+  }
+  if (!method || method === 'cash') return cashAccount(db);
+  const accounts = listAccounts(db, true);
+  return accounts.find((a) => a.name.toLowerCase() === method.toLowerCase())
+    ?? accounts.find((a) => a.canonical_method === method);
 }
 
 /**
@@ -194,13 +221,27 @@ export function createPurchase(db: Database.Database, input: CreatePurchaseInput
   }
 
   if (input.payment_terms === 'cash' && totalCents > 0) {
+    // Which account the money left matters: it is what lets the treasury
+    // balance drop and, for the drawer, what ties the outflow to the open
+    // register so the Z report can account for it. Paying cash with the
+    // register closed is refused for exactly that reason.
+    const account = resolvePaymentAccount(db, input.account_id ?? null, input.payment_method ?? null);
+    let sessionId: number | null = null;
+    if (account?.kind === 'cash') {
+      const session = openCashSession(db);
+      if (!session) throw new PurchaseError('Open the register before paying with cash', 409);
+      if (totalCents > cashOnHandCents(db)) {
+        throw new PurchaseError('The register holds less than that', 409);
+      }
+      sessionId = session.id;
+    }
     db.prepare(`
       INSERT INTO purchase_payments
-        (purchase_id, amount_cents, method, paid_at, business_date, cash_session_id, created_by, created_at)
-      VALUES (?, ?, ?, ?, ?, NULL, ?, ?)
+        (purchase_id, amount_cents, method, paid_at, business_date, cash_session_id, account_id, created_by, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      purchaseId, totalCents, input.payment_method || 'cash',
-      timestamp, businessDate, input.userId, timestamp,
+      purchaseId, totalCents, account?.canonical_method || input.payment_method || 'cash',
+      timestamp, businessDate, sessionId, account?.id ?? null, input.userId, timestamp,
     );
   }
 

@@ -35,7 +35,7 @@ process.env.JWT_SECRET = 'test-secret-purchases';
 
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { initDatabase, getDatabase, closeDatabase, now } = require('../main/db');
+const { initDatabase, getDatabase, closeDatabase, now, localDateInTimezone } = require('../main/db');
 const { getJWTSecret } = require('../main/routes/auth');
 const { supplierRoutes, purchaseRoutes } = require('../main/routes/purchases');
 const { requireModule } = require('../main/services/modules');
@@ -116,6 +116,13 @@ async function main() {
   }
   db.prepare(`INSERT INTO categories (id, name, created_at, updated_at) VALUES ('cat-pu', 'Abarrotes', ?, ?)`)
     .run(stamp, stamp);
+
+  // Paying a supplier in cash takes money out of the drawer, so the register
+  // has to be open — otherwise the outflow would belong to no Z report — and
+  // it has to hold enough, since a drawer cannot hand out what it does not have.
+  db.prepare(`INSERT INTO cash_sessions (business_date, opening_float_cents, opened_by, opened_at)
+              VALUES (?, 5000000, 'owner-pu', ?)`)
+    .run(localDateInTimezone(new Date(), 'America/Bogota'), stamp);
 
   const seedProduct = (id: string, stock: number, cost: number, tracks: boolean, unit = 'each') =>
     db.prepare(`INSERT INTO products (id, category_id, name, price, cost, track_inventory, stock_quantity, sale_unit, allow_fractional_quantity, created_at, updated_at)

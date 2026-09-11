@@ -4277,6 +4277,154 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       `);
     },
   },
+  {
+    version: 88,
+    name: 'add_receivable_terms',
+    up: () => {
+      // El fiado ya vive en `bills`: balance, estado de pago, cliente. Esta
+      // tabla no guarda un saldo — solo la única cosa que la factura no tiene,
+      // la fecha de vencimiento. El cobro sigue pasando por la ruta de pago
+      // de facturas que ya existe (`POST /bills/:id/payment`), nunca por aquí.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS receivable_terms (
+          bill_id    INTEGER PRIMARY KEY REFERENCES bills(id) ON DELETE CASCADE,
+          due_date   TEXT NOT NULL CHECK (due_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          notes      TEXT,
+          created_by TEXT NOT NULL REFERENCES users(id),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS receivable_terms_due ON receivable_terms(due_date);
+      `);
+    },
+  },
+  {
+    version: 89,
+    name: 'add_cartera_treasury',
+    up: () => {
+      // Tesorería: dónde está la plata y cómo se mueve.
+      //
+      // Una cuenta se ata a un método de pago del POS (canónico o propio), y
+      // entonces la cuenta ES el saldo de ese método: los cobros entran solos.
+      // Sin esa atadura la cuenta existe pero solo la mueven los movimientos
+      // manuales.
+      //
+      // La cuenta de efectivo es distinta a propósito: su saldo no se suma
+      // aquí, lo manda el ciclo de caja (`cash_sessions` / `cash_closures`),
+      // para que el cajón tenga una sola verdad y no dos que se contradigan.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS cartera_accounts (
+          id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+          name                  TEXT NOT NULL COLLATE NOCASE UNIQUE,
+          kind                  TEXT NOT NULL CHECK (kind IN ('cash', 'bank', 'digital')),
+          canonical_method      TEXT CHECK (canonical_method IN ('cash', 'card', 'wallet')),
+          payment_method_id     INTEGER UNIQUE REFERENCES payment_methods(id),
+          opening_balance_cents INTEGER NOT NULL DEFAULT 0,
+          opening_as_of         TEXT NOT NULL CHECK (opening_as_of GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          is_active             INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+          sort_order            INTEGER NOT NULL DEFAULT 0,
+          created_at            TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at            TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+          -- Una cuenta se ata a un método canónico o a uno propio, nunca a los
+          -- dos: si no, el mismo cobro entraría dos veces.
+          CHECK (canonical_method IS NULL OR payment_method_id IS NULL),
+          -- El cajón físico es siempre efectivo.
+          CHECK (kind != 'cash' OR canonical_method = 'cash')
+        );
+        -- Un solo cajón: hay un solo mueble con plata adentro.
+        CREATE UNIQUE INDEX IF NOT EXISTS cartera_accounts_one_cash
+          ON cartera_accounts(kind) WHERE kind = 'cash';
+        CREATE UNIQUE INDEX IF NOT EXISTS cartera_accounts_one_canonical
+          ON cartera_accounts(canonical_method) WHERE canonical_method IS NOT NULL;
+
+        -- Movimientos que el POS no conoce: ingresos, gastos y traslados.
+        -- Los cobros de factura NO van aqui: se derivan de bills.payment_details
+        -- para no contarlos dos veces.
+        CREATE TABLE IF NOT EXISTS cartera_entries (
+          id                INTEGER PRIMARY KEY AUTOINCREMENT,
+          account_id        INTEGER NOT NULL REFERENCES cartera_accounts(id),
+          kind              TEXT NOT NULL CHECK (kind IN ('income', 'expense', 'transfer')),
+          direction         TEXT NOT NULL CHECK (direction IN ('in', 'out')),
+          amount_cents      INTEGER NOT NULL CHECK (amount_cents > 0),
+          concept           TEXT NOT NULL,
+          reference         TEXT,
+          transfer_group_id TEXT,
+          occurred_at       TEXT NOT NULL,
+          business_date     TEXT NOT NULL CHECK (business_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          cash_session_id   INTEGER REFERENCES cash_sessions(id),
+          created_by        TEXT NOT NULL REFERENCES users(id),
+          voided_at         TEXT,
+          voided_by         TEXT REFERENCES users(id),
+          void_reason       TEXT,
+          created_at        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+          -- El sentido lo dicta el tipo, salvo en traslados, donde cada pata
+          -- lleva el suyo. Que lo cuide la base y no cada ruta que inserte.
+          CHECK (kind = 'transfer' OR direction = CASE kind WHEN 'income' THEN 'in' ELSE 'out' END),
+          CHECK (kind != 'transfer' OR transfer_group_id IS NOT NULL)
+        );
+        CREATE INDEX IF NOT EXISTS cartera_entries_account ON cartera_entries(account_id, id);
+        CREATE INDEX IF NOT EXISTS cartera_entries_date ON cartera_entries(business_date);
+        CREATE INDEX IF NOT EXISTS cartera_entries_group ON cartera_entries(transfer_group_id)
+          WHERE transfer_group_id IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS cartera_entries_session ON cartera_entries(cash_session_id)
+          WHERE cash_session_id IS NOT NULL;
+
+        -- Gastos por pagar que no nacen de una compra: arriendo, nómina,
+        -- servicios. Sin proveedor obligatorio y sin nada que ver con el
+        -- inventario, que es justo lo que los separa de las compras.
+        CREATE TABLE IF NOT EXISTS general_payables (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          payable_number TEXT UNIQUE NOT NULL,
+          payee_name     TEXT NOT NULL,
+          reference      TEXT,
+          concept        TEXT NOT NULL,
+          total_cents    INTEGER NOT NULL CHECK (total_cents > 0),
+          due_date       TEXT NOT NULL CHECK (due_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          status         TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'void')),
+          notes          TEXT,
+          business_date  TEXT NOT NULL CHECK (business_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          created_by     TEXT NOT NULL REFERENCES users(id),
+          voided_at      TEXT,
+          voided_by      TEXT REFERENCES users(id),
+          void_reason    TEXT,
+          created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS general_payables_due ON general_payables(status, due_date);
+
+        -- Abonos: un gasto se puede pagar por partes, igual que una compra.
+        CREATE TABLE IF NOT EXISTS general_payable_payments (
+          id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          payable_id      INTEGER NOT NULL REFERENCES general_payables(id),
+          account_id      INTEGER NOT NULL REFERENCES cartera_accounts(id),
+          amount_cents    INTEGER NOT NULL CHECK (amount_cents > 0),
+          paid_at         TEXT NOT NULL,
+          business_date   TEXT NOT NULL CHECK (business_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          cash_session_id INTEGER REFERENCES cash_sessions(id),
+          created_by      TEXT NOT NULL REFERENCES users(id),
+          created_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS general_payable_payments_payable
+          ON general_payable_payments(payable_id);
+      `);
+
+      // Las compras ya guardaban el nombre del método; ahora también de qué
+      // cuenta salió la plata, para que el saldo de la cuenta la descuente.
+      if (!getColumns(db, 'purchase_payments').includes('account_id')) {
+        db.exec(`ALTER TABLE purchase_payments ADD COLUMN account_id INTEGER REFERENCES cartera_accounts(id)`);
+      }
+
+      // El cajón ya existe como hecho físico: se le da su cuenta de una vez
+      // para que la pantalla no arranque vacía pidiendo configurar lo obvio.
+      const today = localDateInTimezone(new Date(), getSettingValue('timezone') || 'Asia/Kolkata');
+      db.prepare(`
+        INSERT OR IGNORE INTO cartera_accounts
+          (name, kind, canonical_method, opening_balance_cents, opening_as_of, sort_order)
+        VALUES ('Caja', 'cash', 'cash', 0, ?, 0)
+      `).run(today);
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {
