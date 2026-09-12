@@ -43,10 +43,45 @@ Un servidor suyo, pequeño, que implemente tres cosas:
 
 1. Verificación de la firma (ver §3).
 2. `POST /api/pos/diagnostics` — recibe y guarda.
-3. `POST /api/pos/support-tickets` — recibe y guarda.
+3. `POST /api/pos/support-ticket` — recibe y guarda.
 
-Con eso ya tiene visibilidad de errores de todos sus clientes. Un cuarto
-endpoint opcional, `POST /api/pos/diagnostics-consent`, registra quién aceptó.
+Con eso ya tiene visibilidad de errores de todos sus clientes. Dos endpoints más
+lo redondean: `POST /api/pos/heartbeat` (para saber quién está vivo) y
+`POST /api/pos/diagnostics-consent` (quién aceptó).
+
+**El POS da un evento por entregado con cualquier respuesta 2xx.** Si responde
+otra cosa, el evento se reintenta solo con espera creciente. Eso significa que
+un receptor que solo guarde y devuelva `200` ya es suficiente para empezar: la
+fiabilidad la pone el POS, no su servidor.
+
+### El endpoint que hay que implementar sí o sí
+
+Además de recibir, el receptor necesita **dar de alta** a la tienda. El POS no
+enviará nada mientras `cloud_registration_status` no valga `registered`, y eso
+sólo lo consigue una respuesta correcta a:
+
+```
+POST /api/pos/register        (sin firmar: todavía no hay clave)
+Cabecera: X-Flo-POS-Hash: <identificador de la instalación>
+```
+
+El cuerpo lleva los datos del negocio (nombre, zona horaria, moneda, dirección).
+La respuesta debe traer, como mínimo:
+
+```json
+{ "api_key": "...", "store_id": "...", "pos_id": "..." }
+```
+
+Con eso el POS guarda la clave, se marca como registrado y empieza a enviar. De
+ahí en adelante **todo va firmado** con esa clave.
+
+> Ojo: `PUT /api/settings/cloud` deja fijar la URL, la clave y el identificador
+> de tienda a mano, pero **no** el estado de registro. Es decir: no se puede
+> saltar el alta poniendo los ajustes a mano. Ese endpoint hay que implementarlo.
+
+**En total, el receptor mínimo son cuatro endpoints:** `register`,
+`diagnostics`, `support-ticket` y `heartbeat`. Ninguno tiene lógica compleja:
+verificar la firma, guardar, responder 200.
 
 - **Esfuerzo:** bajo. Es un servicio HTTP con una tabla.
 - **Tiempo real:** no todavía (llega en lotes cada 15 s cuando hay eventos).
