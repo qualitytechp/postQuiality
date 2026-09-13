@@ -134,7 +134,7 @@ funcionando por el enlace.
 **En su receptor de Cloudflare, no en el POS.** Por tres razones:
 
 - El token es de su empresa; no debe estar en la máquina de cada cliente.
-- Meta cobra por conversación: hay que medirlo en un solo lugar.
+- Meta cobra por plantilla entregada: hay que medirlo en un solo lugar.
 - Si mañana cambia el proveedor, cambia un servidor y no cien instalaciones.
 
 El POS pide «mandá este recibo a este número»; el receptor decide cómo.
@@ -158,9 +158,30 @@ que ya está probada.
 
 ### Qué cuesta
 
-Meta cobra por conversación iniciada por el negocio, con precio por país. Las
-respuestas dentro de las 24 horas siguientes no se cobran aparte. Conviene
-estimarlo con el volumen real de facturas antes de prometerlo a los clientes.
+**Corregido el 12 de septiembre de 2026** contra la documentación de Meta. El
+cobro por conversación **ya no existe**: desde el 1 de julio de 2025 se cobra
+**por mensaje**, y sólo en un caso.
+
+| Qué se manda | Se cobra |
+|---|---|
+| Mensaje entrante del cliente | **no** |
+| Respuesta normal dentro de la ventana de 24 h | **no** |
+| Plantilla de utilidad **dentro** de la ventana | **no** |
+| Plantilla de utilidad **fuera** de la ventana | **sí** |
+| Plantilla de marketing | **siempre** |
+
+En palabras de la propia página: *«You are only charged when a template message
+is delivered»* y *«All non-template messages are free»*.
+
+**Para su caso esto es mejor de lo que parecía.** Mandar la factura es una
+plantilla de utilidad fuera de la ventana, así que **sí se cobra** — pero es un
+mensaje por venta, no una conversación entera.
+
+Colombia tiene tarifa propia (indicativo 57) y subió el 1 de octubre de 2025.
+Meta sólo cambia precios el 1 de enero, abril, julio u octubre, y hay **otra
+actualización marcada para el 1 de octubre de 2026** — que es, con seguridad, lo
+que menciona el video. Conviene mirar la tarifa de Colombia antes de fijar
+precio al cliente.
 
 ---
 
@@ -188,4 +209,4 @@ trámite.
 | Bandeja de entrada | sí | no | sí, por webhook |
 | Responder desde la app | **no** | no | sí |
 | Bot | no | no | **sí** |
-| Costo | gratis | gratis | por conversación |
+| Costo | gratis | gratis | por plantilla enviada |

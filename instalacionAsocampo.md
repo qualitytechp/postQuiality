@@ -92,11 +92,35 @@ La aplicación guarda sus datos en:
 Este es el paso que hace el trabajo. Todo está automatizado en
 [`deploy/asocampo/instalar-asocampo.bat`](deploy/asocampo/instalar-asocampo.bat).
 
-Abrir una consola en `Documents\demos\FloCafe\deploy\asocampo` y ejecutar:
+Abrir una consola en `Documents\demos\FloCafe\deploy\asocampo`.
+
+### Para estrenar — es lo de esta implementación
 
 ```bat
-instalar-asocampo.bat "C:\Users\Administrador\Documents\demos\Asocampo\flo.db"
+estrenar-asocampo.bat "C:\Users\Administrador\Documents\demos\Asocampo\flo.db"
 ```
+
+Deja **sólo los clientes y los productos**, que es lo único real que trae la
+base. Borra ventas, caja, compras, proveedores, cartera y cuentas por pagar —
+todo eso son datos de desarrollo.
+
+> **Por qué importa.** Se revisó una por una: las 9 compras son del 11 de
+> septiembre, del desarrollo, y uno de los proveedores se llama «Proveedor
+> Prueba mtwev8sk». Las cuentas por pagar («Arriendo local», «Energía agosto»,
+> «Nómina») y los movimientos de cartera también son inventados. Sin este paso,
+> Asocampo abriría el sistema y los vería como suyos.
+>
+> El corte quedó nítido: **todo lo del 9 de septiembre es real** (120 productos,
+> 10 categorías, 444 clientes) y **todo lo del 11 es de desarrollo**.
+
+### Para reiniciar un periodo más adelante
+
+```bat
+instalar-asocampo.bat "C:\ruta\flo.db"
+```
+
+Borra ventas, caja y cierres, pero **conserva** compras, proveedores y cartera.
+Es para una tienda que ya viene operando.
 
 El instalador pide escribir `SI` y entonces:
 
@@ -108,7 +132,7 @@ El instalador pide escribir `SI` y entonces:
 | 4 | Aplica el punto cero (borra ventas, caja y cierres) |
 | 5 | Verifica el resultado y lo muestra en pantalla |
 
-Al terminar debe verse:
+Al estrenar, al terminar debe verse exactamente esto:
 
 ```
   esquema: v91
@@ -120,14 +144,17 @@ Al terminar debe verse:
     mov. inventario   0
     consecutivos      0
   --- negocio (debe conservarse) ---
-    productos         146
+    productos         120
     categorías        10
     clientes          444
-    proveedores       2
+    proveedores       0
     usuarios          1
     ajustes           89
   integridad: ok · referencias rotas: 0
 ```
+
+**Los tres números que hay que mirar:** 120 productos, 444 clientes y
+proveedores en 0. Si productos no da 120, algo salió mal — no siga.
 
 Si algo falla, el instalador **se detiene y no continúa**, y dice dónde quedó
 el respaldo.
@@ -308,8 +335,10 @@ el cierre lo tiene en cuenta: es la misma plata, no dos cuentas separadas.
 
 | Archivo | Para qué |
 |---|---|
-| [`deploy/asocampo/instalar-asocampo.bat`](deploy/asocampo/instalar-asocampo.bat) | El instalador. Es el único que se ejecuta a mano |
-| [`deploy/asocampo/punto-cero.sql`](deploy/asocampo/punto-cero.sql) | El borrado, comentado paso a paso |
+| [`deploy/asocampo/estrenar-asocampo.bat`](deploy/asocampo/estrenar-asocampo.bat) | **Lo de esta implementación.** Deja sólo clientes y productos |
+| [`deploy/asocampo/arranque-limpio.sql`](deploy/asocampo/arranque-limpio.sql) | Qué borra al estrenar, comentado paso a paso |
+| [`deploy/asocampo/instalar-asocampo.bat`](deploy/asocampo/instalar-asocampo.bat) | Para reiniciar un periodo más adelante, conservando compras y cartera |
+| [`deploy/asocampo/punto-cero.sql`](deploy/asocampo/punto-cero.sql) | Qué borra ese modo |
 | [`deploy/asocampo/herramienta.js`](deploy/asocampo/herramienta.js) | Respaldar, promover, aplicar y verificar, con `node:sqlite` |
 
 Los tres deben quedar juntos en la misma carpeta: el `.bat` busca a los otros

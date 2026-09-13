@@ -90,6 +90,10 @@ function resumen(db) {
     try { return db.prepare(`SELECT COUNT(*) n FROM "${t}"`).get().n; }
     catch { return null; }
   };
+  const contarVivos = () => {
+    try { return db.prepare('SELECT COUNT(*) n FROM products WHERE deleted_at IS NULL').get().n; }
+    catch { return contar('products'); }
+  };
   return {
     esquema: db.prepare('PRAGMA user_version').get().user_version,
     movimiento: {
@@ -101,7 +105,9 @@ function resumen(db) {
       consecutivos: contar('sequences'),
     },
     negocio: {
-      productos: contar('products'),
+      // Vivos, no filas: un arranque limpio purga los borrados a proposito, y
+      // contar filas haria que la salvaguarda abortara por un cambio correcto.
+      productos: contarVivos(),
       categorías: contar('categories'),
       clientes: contar('customers'),
       proveedores: contar('suppliers'),
@@ -177,10 +183,19 @@ switch (orden) {
       if (pendientes.length) {
         salir('quedó movimiento sin borrar: ' + pendientes.map(([k, v]) => k + '=' + v).join(', '));
       }
+      // Un script de arranque limpio borra proveedores a propósito, y uno de
+      // punto cero no. En vez de mantener dos listas, se mira qué tablas toca
+      // el propio script: lo que él borra puede cambiar, lo demás no.
+      const tocadas = new Set(tablasQueUsa(sql));
+      const TABLA_DE = {
+        productos: 'products', categorías: 'categories', clientes: 'customers',
+        proveedores: 'suppliers', usuarios: 'users', ajustes: 'settings',
+      };
       for (const [k, v] of Object.entries(despues.negocio)) {
-        if (v !== null && v !== antes.negocio[k]) {
-          salir('el negocio cambió en ' + k + ': ' + antes.negocio[k] + ' → ' + v);
-        }
+        if (v === null || v === antes.negocio[k]) continue;
+        if (tocadas.has(TABLA_DE[k])) continue;
+        salir('el negocio cambió en ' + k + ' y el script no lo toca: ' +
+          antes.negocio[k] + ' → ' + v);
       }
       const integridad = db.prepare('PRAGMA integrity_check').get().integrity_check;
       if (integridad !== 'ok') salir('integridad: ' + integridad);

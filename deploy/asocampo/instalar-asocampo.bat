@@ -25,7 +25,12 @@ set "DATOS=%~2"
 if "%DATOS%"=="" set "DATOS=%APPDATA%\QualityTech POS"
 set "RESPALDOS=%DATOS%\respaldos-instalacion"
 set "HERRAMIENTA=%AQUI%herramienta.js"
-set "GUION=%AQUI%punto-cero.sql"
+set "GUION=%AQUI%%~3"
+if "%~3"=="" set "GUION=%AQUI%punto-cero.sql"
+
+rem Que se vea en pantalla que va a hacer, sin tener que abrir el .sql.
+set "QUEHACE=Borrar ventas, caja y cierres. Compras y cartera se conservan."
+if /I "%~3"=="arranque-limpio.sql" set "QUEHACE=ESTRENAR: dejar solo clientes y productos."
 
 echo.
 echo ============================================================
@@ -40,7 +45,9 @@ echo   Esto va a:
 echo     1. Cerrar la aplicacion si esta abierta
 echo     2. Respaldar la base actual
 if not "%ORIGEN%"=="" echo     3. Reemplazar la base de produccion por la indicada
-echo     4. Borrar ventas, caja y cierres (los productos y precios se quedan)
+echo     4. %QUEHACE%
+echo.
+echo   Script: %GUION%
 echo.
 
 rem --- Comprobaciones previas -------------------------------------------------
@@ -110,7 +117,7 @@ if not "%ORIGEN%"=="" (
 
 rem --- 4. Punto cero ----------------------------------------------------------
 echo.
-echo   [4/5] Dejando la base en punto cero...
+echo   [4/5] Aplicando: %QUEHACE%
 node "%HERRAMIENTA%" puntocero "%DATOS%" "%GUION%"
 if errorlevel 1 goto :fin_error
 
