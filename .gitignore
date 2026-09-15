@@ -2,6 +2,10 @@ node_modules/
 dist/
 release/
 release-produccion/
+
+# Scripts de despliegue de un cliente puntual: viven en la maquina que los
+# usa, no en el repositorio del producto.
+deploy/asocampo/
 mas-build-output/
 *.db
 *.db-shm
