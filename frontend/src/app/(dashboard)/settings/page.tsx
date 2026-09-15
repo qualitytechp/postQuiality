@@ -1671,12 +1671,6 @@ export default function SettingsPage() {
       .then((res) => setDetectedPrinters(res.data.printers || []))
       .catch(() => setDetectedPrinters([]))
       .finally(() => setDetectingPrinters(false));
-    // Inlined rather than calling fetchKdsInfo() (used by the manual "refresh" button too) —
-    // kdsInfoLoading already starts true for this initial fetch.
-    api.get('/kds-info')
-      .then((res) => setKdsInfo(res.data))
-      .catch(() => toast.error(t('kdsInfoFetchFailed')))
-      .finally(() => setKdsInfoLoading(false));
     fetchStations();
     fetchStationCategories();
     fetchStationStaff();
@@ -1727,7 +1721,17 @@ export default function SettingsPage() {
       const enabled = res.data.setting?.value !== 'false';
       setKdsEnabledSetting(enabled);
       posSettings.setKdsEnabled(enabled);
-    }).catch(() => {});
+      // /kds-info 403s whenever KDS is off — wait to know it's on before
+      // asking, instead of firing it unconditionally on every page load.
+      if (enabled) {
+        api.get('/kds-info')
+          .then((r) => setKdsInfo(r.data))
+          .catch(() => toast.error(t('kdsInfoFetchFailed')))
+          .finally(() => setKdsInfoLoading(false));
+      } else {
+        setKdsInfoLoading(false);
+      }
+    }).catch(() => setKdsInfoLoading(false));
 
     api.get('/settings/server_app_enabled').then((res) => {
       setServerAppEnabledSetting(res.data.setting?.value !== 'false');

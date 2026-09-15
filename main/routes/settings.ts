@@ -79,6 +79,10 @@ const OPTIONAL_SETTING_DEFAULTS: Record<string, string> = {
   bill_footer_message: '',
   printer_trim_decimals: 'false',
   split_checks_enabled: 'false',
+  // Plain default (post #640 revert) — off until a store explicitly turns
+  // it on; 'cash'/'card' is just the pre-checked set once they do.
+  cash_drawer_pulse_enabled: 'false',
+  cash_drawer_pulse_methods: '["cash","card"]',
   // Print language policies (#441) — inherit store language, no second
   // language. Defaults preserve pre-policy behavior for existing tenants.
   [BILL_LANGUAGE_POLICY_KEY]: defaultLanguagePolicySettingJson(),
