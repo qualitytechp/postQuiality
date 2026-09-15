@@ -5,7 +5,27 @@
 |---|---|
 | `npm run dev` | Inicia la app completa en Electron (limpia puertos, build frontend + backend, Electron) |
 | `node dev-server.js` | Backend solo: API Express (:3001), KDS (:3002), Server App (:3003) |
-| `npm run dev:frontend` | Servidor de desarrollo del frontend Next.js en browser |
+| `npm run dev:frontend` | Servidor de desarrollo del frontend Next.js en browser (:3000) |
+
+### Trabajar la interfaz sin reiniciar nada
+
+`npm run dev` recompila frontend y backend antes de abrir Electron, así que
+cada retoque de pantalla cuesta el ciclo entero. Para trabajar la interfaz
+conviene levantar las dos mitades por separado, en dos terminales que quedan
+prendidas:
+
+```sh
+node dev-server.js       # terminal 1 — backend en :3001, se deja corriendo
+npm run dev:frontend     # terminal 2 — frontend en :3000 con recarga en caliente
+```
+
+Abrí <http://localhost:3000>. Al guardar un archivo la pantalla se actualiza
+sola, sin perder el carrito ni la sesión. El frontend reenvía `/api` al backend
+(`rewrites` en `frontend/next.config.ts`); con `FLO_API_PORT` se apunta a otra
+instancia, por ejemplo `FLO_API_PORT=3101` para la de Asocampo.
+
+El navegador no tiene las APIs de Electron: impresión USB, cajón monedero,
+pantalla completa y actualizaciones sólo se prueban con `npm run dev`.
 
 ## Build & Verificación
 | Comando | Descripción |

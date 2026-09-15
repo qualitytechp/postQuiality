@@ -83,6 +83,12 @@ npm run build:frontend   # Export static Next.js frontend
 npm test                 # Run default test suite
 ```
 
+For UI work, run the two halves separately instead of restarting Electron on
+every edit: `node dev-server.js` in one terminal and `npm run dev:frontend` in
+another, then open <http://localhost:3000> for hot reload. The frontend proxies
+`/api` to the backend (`FLO_API_PORT` targets a different instance). Electron-only
+features — USB printing, cash drawer, fullscreen, updates — still need `npm run dev`.
+
 > **Port configuration:** QualityTech POS uses ports `3001` (Main API), `3002` (KDS), and `3003` (Server App). If these ports are in use (e.g. by Docker), QualityTech POS automatically falls back to subsequent available ports. You can also customize them via `PORT`, `KDS_PORT`, and `SERVER_APP_PORT` in `.env`.
 
 ---
