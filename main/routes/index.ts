@@ -231,20 +231,31 @@ export function registerRoutes(app: Express): void {
       // Un documento tecleado es sólo otra cadena de dígitos, así que entra por
       // la misma casilla que el teléfono. Los negocios que no lo usan lo tienen
       // vacío y la condición nunca acierta.
+      //
+      // El orden importa tanto como el filtro: el documento identifica a una
+      // persona, así que una coincidencia exacta encabeza la lista y el cajero
+      // pulsa Enter sin leerla entera.
       const query = isPhoneLikeSearch
         ? `
         SELECT * FROM customers
         WHERE is_active = 1 AND (${phoneDigitsSearch} LIKE ? OR document_digits LIKE ? OR name LIKE ? OR email LIKE ?)
-        ORDER BY name LIMIT 20
+        ORDER BY
+          CASE
+            WHEN document_digits = ? THEN 0
+            WHEN ${phoneDigitsSearch} LIKE ? THEN 1
+            ELSE 2
+          END,
+          name
+        LIMIT 20
       `
         : `
         SELECT * FROM customers
-        WHERE is_active = 1 AND (name LIKE ? OR email LIKE ?)
+        WHERE is_active = 1 AND (name LIKE ? OR email LIKE ? OR document LIKE ?)
         ORDER BY name LIMIT 20
       `;
       const params = isPhoneLikeSearch
-        ? [`%${digitsSearch}%`, `%${digitsSearch}%`, searchTerm, searchTerm]
-        : [searchTerm, searchTerm];
+        ? [`%${digitsSearch}%`, `%${digitsSearch}%`, searchTerm, searchTerm, digitsSearch, `%${digitsSearch}`]
+        : [searchTerm, searchTerm, searchTerm];
 
       const customers = db.prepare(query).all(...params) as any[];
 

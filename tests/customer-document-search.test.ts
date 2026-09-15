@@ -90,6 +90,39 @@ async function main() {
         'a document typed without dots finds one stored with them');
     }
 
+    console.log('\n─── El documento identifica, el teléfono ya no ───');
+    {
+      // Madre e hija con un solo celular en casa: la segunda alta tiene que
+      // entrar, porque quien las distingue es la cédula.
+      const madre = await create({ name: 'Madre Ospina', document: '31500001', phone: '+573009998877' });
+      assertEqual(madre.status, 201, 'the first customer on a shared phone is created');
+      const hija = await create({ name: 'Hija Ospina', document: '31500002', phone: '+573009998877' });
+      assertEqual(hija.status, 201, 'a second customer may share that phone');
+      assert(hija.data.customer.id !== madre.data.customer.id, 'and is a customer of their own');
+    }
+    {
+      const repeated = await create({ name: 'Otro Nombre', document: '31500001' });
+      assertEqual(repeated.status, 409, 'the same document twice is refused');
+      assertEqual(repeated.data.customer.name, 'Madre Ospina', 'and the refusal names who already holds it');
+    }
+    {
+      // Los puntos son cosa de quien teclea, no de la persona.
+      const punctuated = await create({ name: 'Otro Nombre', document: '315.000.01' });
+      assertEqual(punctuated.status, 409, 'punctuation does not create a second identity');
+    }
+    {
+      const moved = await create({ name: 'Tercero Ospina', document: '31500003' });
+      const clash = await api(baseUrl, `/api/customers/${moved.data.customer.id}`, {
+        method: 'PUT', body: { document: '31500001' }, headers: authHeader,
+      });
+      assertEqual(clash.status, 409, 'an edit cannot move a document onto someone else');
+
+      const ownDocument = await api(baseUrl, `/api/customers/${moved.data.customer.id}`, {
+        method: 'PUT', body: { name: 'Tercero Renombrado', document: '31500003' }, headers: authHeader,
+      });
+      assertEqual(ownDocument.status, 200, 'but resending its own document is not a clash');
+    }
+
     console.log('\n─── Editing ───');
     {
       const created = await create({ name: 'Editable Person', document: '111' });

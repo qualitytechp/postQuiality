@@ -90,6 +90,8 @@ export default function POSPage() {
   const [submitting, setSubmitting] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const productSearchRef = useRef<HTMLInputElement>(null);
+  const customerSearchRef = useRef<HTMLInputElement>(null);
 
   // Modal state
   const [showTablePicker, setShowTablePicker] = useState(false);
@@ -336,6 +338,37 @@ export default function POSPage() {
       toast.error(t('fullscreenUnavailable'));
     }
   }, [t]);
+
+  // Atajos del cajero: Ctrl+F busca producto, Ctrl+C busca cliente. Ctrl+C sólo
+  // se toma cuando no hay nada seleccionado, para no pisar el copiar de siempre.
+  useEffect(() => {
+    const focusInput = (input: HTMLInputElement | null, e: KeyboardEvent) => {
+      // Sin campo montado —el cliente ya está asignado— el atajo no se toca:
+      // Ctrl+C sigue copiando.
+      if (!input) return;
+      e.preventDefault();
+      input.focus();
+      input.select();
+    };
+
+    const handleShortcut = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      if (e.altKey || e.shiftKey) return;
+      const key = e.key.toLowerCase();
+
+      if (key === 'f') {
+        focusInput(productSearchRef.current, e);
+        return;
+      }
+      if (key === 'c') {
+        if (window.getSelection()?.toString()) return;
+        focusInput(customerSearchRef.current, e);
+      }
+    };
+
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
 
   const fetchLatestBill = async (billId: number): Promise<Bill> => {
     const { data } = await api.get(`/bills/${billId}`);
@@ -1070,6 +1103,7 @@ export default function POSPage() {
         onShowTablePicker={() => setShowTablePicker(true)}
         fullscreen={fullscreen}
         onToggleFullscreen={toggleFullscreen}
+        customerInputRef={customerSearchRef}
       />
 
       {/* Main content area */}
@@ -1086,6 +1120,7 @@ export default function POSPage() {
             currency={currency}
             onProductClick={handleProductClick}
             sidebarOpen={leftSidebarOpen}
+            searchInputRef={productSearchRef}
           />
         </div>
 

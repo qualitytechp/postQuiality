@@ -14,9 +14,10 @@ interface Props {
   onShowTablePicker: () => void;
   fullscreen: boolean;
   onToggleFullscreen: () => void;
+  customerInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
-export default function PosTopbar({ tables, onShowTablePicker, fullscreen, onToggleFullscreen }: Props) {
+export default function PosTopbar({ tables, onShowTablePicker, fullscreen, onToggleFullscreen, customerInputRef }: Props) {
   const cart = useCartStore();
   const { currentTenant } = useAuthStore();
   const tablesRequired = usePosSettingsStore((s) => s.tablesRequired);
@@ -27,7 +28,7 @@ export default function PosTopbar({ tables, onShowTablePicker, fullscreen, onTog
   return (
     <div className="flex items-center gap-3 border-b bg-card shrink-0 px-4 py-2.5">
       <div className="flex-1 min-w-0">
-        <CustomerSearch variant="topbar" />
+        <CustomerSearch inputRef={customerInputRef} />
       </div>
 
       {/* Select Table — between customer search and printer */}

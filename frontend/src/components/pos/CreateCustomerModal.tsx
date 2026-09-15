@@ -25,14 +25,20 @@ export default function CreateCustomerModal({ initialSearch = '', onClose, onCre
   const country = currentTenant?.country ?? 'IN';
   const dialCode = dialCodeFor(country);
 
-  // If initialSearch contains digits and no letters, treat as phone; otherwise treat as name
-  const isPhoneLike = Boolean(initialSearch && /\d/.test(initialSearch) && !/\p{L}/u.test(initialSearch));
-  const [name, setName] = useState(isPhoneLike ? '' : initialSearch.trim());
-  const [phone, setPhone] = useState(isPhoneLike ? initialSearch.trim() : '');
-  const [document, setDocument] = useState('');
+  // Lo tecleado en la búsqueda fue o el documento —sólo dígitos— o el nombre.
+  const isDocumentLike = Boolean(initialSearch && /\d/.test(initialSearch) && !/\p{L}/u.test(initialSearch));
+  const [name, setName] = useState(isDocumentLike ? '' : initialSearch.trim());
+  const [phone, setPhone] = useState('');
+  const [document, setDocument] = useState(isDocumentLike ? initialSearch.trim() : '');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
+    // El documento es quien identifica al cliente: sin él la ficha no distingue
+    // a dos personas, y el teléfono ya no sirve de clave.
+    if (!document.trim()) {
+      toast.error(t('documentRequired'));
+      return;
+    }
     if (!name.trim()) {
       toast.error(t('nameRequired'));
       return;
@@ -80,35 +86,35 @@ export default function CreateCustomerModal({ initialSearch = '', onClose, onCre
         </div>
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">{t('customerName')}</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:ring-2 focus:ring-brand focus:border-brand outline-none"
-              autoFocus={!isPhoneLike}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">{t('phone')}</label>
-            <input
-              type="tel"
-              inputMode="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder={dialCode}
-              className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:ring-2 focus:ring-brand focus:border-brand outline-none"
-              dir="ltr"
-              autoFocus={isPhoneLike}
-            />
-          </div>
-          <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">{t('customerDocument')}</label>
             <input
               type="text"
               inputMode="numeric"
               value={document}
               onChange={(e) => setDocument(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:ring-2 focus:ring-brand focus:border-brand outline-none"
+              dir="ltr"
+              autoFocus={isDocumentLike}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">{t('customerName')}</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:ring-2 focus:ring-brand focus:border-brand outline-none"
+              autoFocus={!isDocumentLike}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">{t('phoneOptional')}</label>
+            <input
+              type="tel"
+              inputMode="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder={dialCode}
               className="w-full px-3 py-2 text-sm border border-border rounded-lg focus:ring-2 focus:ring-brand focus:border-brand outline-none"
               dir="ltr"
             />

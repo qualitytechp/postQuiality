@@ -49,11 +49,13 @@ interface Props {
   currency: string;
   onProductClick: (product: Product) => void;
   sidebarOpen?: boolean;
+  /** Permite al POS enfocar la búsqueda con Ctrl+F. */
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export default function ProductGrid({
   categories, products, selectedCategory, setSelectedCategory,
-  search, setSearch, onProductClick, sidebarOpen = true,
+  search, setSearch, onProductClick, sidebarOpen = true, searchInputRef,
 }: Props) {
   const cart = useCartStore();
   const { showProductImages } = usePosSettingsStore();
@@ -83,6 +85,7 @@ export default function ProductGrid({
         <div className="relative mb-2">
           <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
+            ref={searchInputRef}
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -100,8 +103,13 @@ export default function ProductGrid({
               }
             }}
             placeholder={t('searchProducts')}
-            className="w-full ps-9 pe-4 py-2 bg-card border border-border rounded-xl focus:border-brand outline-none transition-colors text-sm"
+            className="w-full ps-9 pe-16 py-2 bg-card border border-border rounded-xl focus:border-brand outline-none transition-colors text-sm"
           />
+          {!search && (
+            <kbd className="absolute end-2.5 top-1/2 -translate-y-1/2 hidden md:block text-[10px] font-medium text-muted-foreground bg-muted border border-border rounded px-1.5 py-0.5 pointer-events-none">
+              Ctrl+F
+            </kbd>
+          )}
         </div>
         <div className="flex flex-wrap gap-2 pb-1">
           <button

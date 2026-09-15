@@ -23,6 +23,26 @@ function invalidPhonePredicate(alias = ''): string {
   return `${prefix}is_active = 1 AND ${prefix}phone IS NOT NULL AND ${prefix}phone != '' AND ${prefix}phone != '+' || ${prefix}phone_digits`;
 }
 
+/**
+ * Misma normalización que la columna generada `document_digits`, para que una
+ * cédula tecleada con puntos encuentre a quien quedó guardado sin ellos.
+ */
+function documentKey(value: string | null | undefined): string {
+  return String(value || '').replace(/[+\s\-().]/g, '');
+}
+
+function findCustomerByDocument(db: ReturnType<typeof getDatabase>, document: string): any {
+  const key = documentKey(document);
+  if (!key) return null;
+  return db.prepare(`
+    SELECT *
+    FROM customers
+    WHERE document_digits = ?
+    ORDER BY is_active DESC, created_at ASC, id ASC
+    LIMIT 1
+  `).get(key);
+}
+
 function findCustomerByCanonicalOrLegacyPhone(db: ReturnType<typeof getDatabase>, finalPhone: string, originalPhone: string): any {
   const canonicalDigits = stripPhoneDigits(finalPhone);
   const legacyDigits = stripPhoneDigits(originalPhone);
@@ -175,8 +195,8 @@ router.get('/', customerReadRateLimit, requireRole(...ROLE_ACCESS.sales), (req: 
         query += ` AND (c.name LIKE ? OR ${phoneDigitsSearch} LIKE ? OR c.document_digits LIKE ? OR c.email LIKE ?)`;
         params.push(search, `%${digitsSearch}%`, `%${digitsSearch}%`, search);
       } else {
-        query += ' AND (c.name LIKE ? OR c.email LIKE ?)';
-        params.push(search, search);
+        query += ' AND (c.name LIKE ? OR c.email LIKE ? OR c.document LIKE ?)';
+        params.push(search, search, search);
       }
     }
 
@@ -320,39 +340,49 @@ router.post('/', customerWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req
       }
       finalPhone = parsed.e164;
       finalCountryCode = parsed.countryCode;
+    }
 
-      const existing = findCustomerByCanonicalOrLegacyPhone(db, finalPhone, originalPhone);
-      if (existing) {
-        if (existing.is_active === 0) {
-          db.prepare(`
-            UPDATE customers SET
-              phone = ?,
-              name = ?,
-              email = ?,
-              country_code = ?,
-              address = ?,
-              notes = ?,
-              document = COALESCE(?, document),
-              is_active = 1,
-              updated_at = ?
-            WHERE id = ?
-          `).run(
-            finalPhone,
-            String(name).trim(),
-            email ? String(email).trim() : null,
-            finalCountryCode,
-            address ? String(address).trim() : null,
-            notes ? String(notes).trim() : null,
-            finalDocument,
-            now(),
-            existing.id
-          );
-          const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(existing.id);
-          return res.status(201).json({ customer });
-        } else {
-          return res.status(409).json({ message: 'Customer with this phone already exists' });
-        }
+    // A quién identifica esta alta: el documento manda. Sólo cuando no lo hay
+    // se cae al teléfono, que ya no es único — una familia comparte celular y
+    // eso no puede impedir registrar a la segunda persona.
+    const existing = finalDocument
+      ? findCustomerByDocument(db, finalDocument)
+      : (finalPhone ? findCustomerByCanonicalOrLegacyPhone(db, finalPhone, originalPhone) : null);
+
+    if (existing) {
+      if (existing.is_active === 0) {
+        db.prepare(`
+          UPDATE customers SET
+            phone = COALESCE(?, phone),
+            name = ?,
+            email = ?,
+            country_code = COALESCE(?, country_code),
+            address = ?,
+            notes = ?,
+            document = COALESCE(?, document),
+            is_active = 1,
+            updated_at = ?
+          WHERE id = ?
+        `).run(
+          finalPhone,
+          String(name).trim(),
+          email ? String(email).trim() : null,
+          finalCountryCode,
+          address ? String(address).trim() : null,
+          notes ? String(notes).trim() : null,
+          finalDocument,
+          now(),
+          existing.id
+        );
+        const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(existing.id);
+        return res.status(201).json({ customer });
       }
+      return res.status(409).json({
+        message: finalDocument
+          ? 'Customer with this ID document already exists'
+          : 'Customer with this phone already exists',
+        customer: parseCustomer(existing),
+      });
     }
 
     const id = `cust-${randomUUID()}`;
@@ -408,12 +438,6 @@ router.put('/:id', customerWriteRateLimit, requireRole(...ROLE_ACCESS.ownerManag
         }
         finalPhone = parsed.e164;
         finalCountryCode = parsed.countryCode;
-
-        const phoneDigits = stripPhoneDigits(finalPhone);
-        const existing = db.prepare('SELECT id FROM customers WHERE phone_digits = ? AND id != ?').get(phoneDigits, req.params.id) as any;
-        if (existing) {
-          return res.status(409).json({ error: 'Customer with this phone already exists' });
-        }
       }
     } else if (country_code !== undefined) {
       finalCountryCode = country_code ? String(country_code).trim() : null;
@@ -434,6 +458,16 @@ router.put('/:id', customerWriteRateLimit, requireRole(...ROLE_ACCESS.ownerManag
     const finalDocument = document !== undefined
       ? (document ? String(document).trim() || null : null)
       : customer.document;
+
+    // El documento sí identifica: dos fichas con la misma cédula son la misma
+    // persona partida en dos, y desde el POS ya no habría forma de distinguirlas.
+    if (finalDocument && documentKey(finalDocument) !== documentKey(customer.document)) {
+      const clash = db.prepare('SELECT id FROM customers WHERE document_digits = ? AND id != ?')
+        .get(documentKey(finalDocument), req.params.id) as any;
+      if (clash) {
+        return res.status(409).json({ error: 'Customer with this ID document already exists' });
+      }
+    }
 
     db.prepare(`
       UPDATE customers SET

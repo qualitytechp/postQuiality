@@ -4501,6 +4501,22 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       `);
     },
   },
+  {
+    version: 92,
+    name: 'customer_identity_is_document',
+    up: () => {
+      // El documento identifica al cliente; el teléfono vuelve a ser un dato de
+      // contacto. Dos personas de la misma casa comparten celular, así que el
+      // número deja de ser único: el índice se conserva —las búsquedas por
+      // teléfono siguen apoyándose en él— pero pierde el UNIQUE.
+      db.exec(`
+        DROP INDEX IF EXISTS idx_customers_phone_digits_unique;
+        CREATE INDEX IF NOT EXISTS idx_customers_phone_digits
+        ON customers(phone_digits)
+        WHERE phone_digits IS NOT NULL AND phone_digits != '';
+      `);
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {

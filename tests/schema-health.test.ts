@@ -179,18 +179,18 @@ function main() {
 
   // ── applySafeFixes is atomic: a failed fix rolls back the whole batch ──
   db.exec('DROP TABLE IF EXISTS held_orders');
-  db.exec('DROP INDEX IF EXISTS idx_customers_phone_digits_unique');
-  // phone_digits is a VIRTUAL generated column, so seed duplicate phones and
-  // let the generated digits collide to make the unique index rebuild fail.
-  db.prepare("INSERT INTO customers (id, name, phone) VALUES ('atomic-a', 'Atomic A', '+1 555 000 1111')").run();
-  db.prepare("INSERT INTO customers (id, name, phone) VALUES ('atomic-b', 'Atomic B', '+1 555 000 1111')").run();
+  db.exec('DROP INDEX IF EXISTS cartera_accounts_one_canonical');
+  // Two accounts claiming the same canonical method make the unique index
+  // rebuild fail, so the batch has something that cannot be applied.
+  db.prepare("INSERT INTO cartera_accounts (name, kind, canonical_method, opening_as_of) VALUES ('Atomic A', 'bank', 'card', '2026-01-01')").run();
+  db.prepare("INSERT INTO cartera_accounts (name, kind, canonical_method, opening_as_of) VALUES ('Atomic B', 'bank', 'card', '2026-01-01')").run();
 
   const atomicResult = applySafeFixes([
     'missing_table:held_orders',
-    'missing_index:customers.idx_customers_phone_digits_unique',
+    'missing_index:cartera_accounts.cartera_accounts_one_canonical',
   ]);
   assert.ok(
-    atomicResult.errors.some((e: any) => e.id === 'missing_index:customers.idx_customers_phone_digits_unique'),
+    atomicResult.errors.some((e: any) => e.id === 'missing_index:cartera_accounts.cartera_accounts_one_canonical'),
     'the duplicate-data unique index fix fails',
   );
   assert.equal(atomicResult.applied.length, 0, 'no fix is reported applied when the batch rolls back');
