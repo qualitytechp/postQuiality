@@ -407,9 +407,18 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
     onConfirm(splitLines, walletAmt, finalDiscount);
   };
 
+  const handleModalKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter') return;
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'BUTTON' || target.tagName === 'TEXTAREA') return;
+    e.preventDefault();
+    if (processing || taxLoading || (!preview && !hasInvalidFixedDiscount) || totalPaymentMinor < remainingMinor) return;
+    handleConfirm();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bg-card flex max-h-[95vh] w-full flex-col overflow-hidden rounded-t-3xl shadow-2xl sm:max-w-md sm:rounded-2xl">
+      <div className="bg-card flex max-h-[95vh] w-full flex-col overflow-hidden rounded-t-3xl shadow-2xl sm:max-w-md sm:rounded-2xl" onKeyDown={handleModalKeyDown}>
 
         {/* Compact header and bill summary share one block to preserve vertical space. */}
         <div className="shrink-0 border-b border-border px-5 pb-3 pt-4">
@@ -483,7 +492,7 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
 
           {/* Cart-level discount editor. */}
           {discountOpen && (
-            <div className="overflow-hidden rounded-xl border border-purple-200 bg-purple-50 p-3 space-y-2">
+            <div className="overflow-hidden rounded-xl border border-purple-200 bg-purple-50 p-3 space-y-2" onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}>
                 <div className="flex rounded-lg overflow-hidden border border-purple-200">
                   {isDiscountTypeAllowed(discountMode, 'percentage') && (
                     <button
