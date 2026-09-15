@@ -181,38 +181,20 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
           <div className="space-y-2">
             {cart.items.map((item) => (
               <div key={item.id} className="border-b border-border/60 pb-2 last:border-b-0 last:pb-0">
-                <div className="flex items-start gap-2">
-                  <p className="min-w-0 flex-1 break-words text-sm font-medium leading-snug text-foreground">
-                    {item.product.name}
-                  </p>
-                  <button
-                    onClick={() => cart.removeItem(item.id)}
-                    className="touch-target -me-2 -mt-2 shrink-0 rounded-full text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500 active:bg-red-50"
-                    aria-label={t('remove')}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-                <div className="min-w-0">
-                  {item.addons.length > 0 && (
-                    <div className="mt-0.5">
-                      {item.addons.map((a) => (
-                        <p key={a.id} className="break-words text-xs text-gray-400">
-                          + {a.name}{(a.quantity || 1) > 1 ? ` ×${a.quantity}` : ''} {Number(a.price) > 0 && `(${fmt(Number(a.price) * (a.quantity || 1))})`}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                  {item.special_instructions && (
-                    <p className="text-xs text-gray-400 italic mt-0.5 break-words">{item.special_instructions}</p>
-                  )}
-                </div>
-                <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm text-muted-foreground">
-                    {fmt(Number(item.product.price))}
-                    {isWeighedProduct(item.product) && `/${unitLabel(item.product.sale_unit)}`}
-                  </p>
-                  <div className="flex items-center gap-1.5">
+                {/* Nombre, precio y controles en un solo renglón: apilarlos
+                    gastaba el doble de alto para la misma información. Si el
+                    carrito se angosta, el renglón se parte solo en dos. */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <div className="flex min-w-36 flex-1 items-baseline gap-2">
+                    <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground" title={item.product.name}>
+                      {item.product.name}
+                    </p>
+                    <p className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                      {fmt(Number(item.product.price))}
+                      {isWeighedProduct(item.product) && `/${unitLabel(item.product.sale_unit)}`}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
                     {onEditItem && !isWeighedProduct(item.product) && (
                       <button
                         onClick={() => onEditItem(item)}
@@ -253,8 +235,27 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
                         </button>
                       </>
                     )}
+                    <button
+                      onClick={() => cart.removeItem(item.id)}
+                      className="touch-target -me-2 shrink-0 rounded-full text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500 active:bg-red-50"
+                      aria-label={t('remove')}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
+                {(item.addons.length > 0 || item.special_instructions) && (
+                  <div className="min-w-0">
+                    {item.addons.map((a) => (
+                      <p key={a.id} className="break-words text-xs text-gray-400">
+                        + {a.name}{(a.quantity || 1) > 1 ? ` ×${a.quantity}` : ''} {Number(a.price) > 0 && `(${fmt(Number(a.price) * (a.quantity || 1))})`}
+                      </p>
+                    ))}
+                    {item.special_instructions && (
+                      <p className="break-words text-xs italic text-gray-400">{item.special_instructions}</p>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
