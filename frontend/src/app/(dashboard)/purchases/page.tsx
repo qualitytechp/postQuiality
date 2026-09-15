@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, useId } from 'react';
 import Link from 'next/link';
 import {
   Plus, X, Trash2, Ban, Truck, Settings as SettingsIcon, Search,
@@ -11,6 +11,9 @@ import { useTranslations } from 'use-intl';
 
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { useAuthStore } from '@/store/auth';
 import { usePosSettingsStore } from '@/store/pos-settings';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
@@ -18,7 +21,7 @@ import { useFormatDate } from '@/hooks/useFormatDate';
 import { getCurrencyMinorUnitFactor } from '@/lib/countries';
 
 interface Supplier { id: string; name: string; document: string | null; phone: string | null; is_active: number }
-interface ProductOption { id: string; name: string; sale_unit: string; track_inventory: number }
+interface ProductOption { id: string; name: string; sale_unit: string; track_inventory: number; cost: number | null }
 
 interface PurchaseItem {
   id: number; product_id: string | null; description: string;
@@ -60,6 +63,155 @@ const SETTLEMENT_ICON_STYLE: Record<PurchaseRow['settlement'], string> = {
   paid: 'bg-green-50 text-green-600',
   void: 'bg-red-50 text-red-600',
 };
+
+interface ProductComboboxProps {
+  products: ProductOption[];
+  selected: ProductOption | undefined;
+  onSelect: (product: ProductOption | null) => void;
+  onAdvance: () => void;
+  fmt: (amount: number) => string;
+  inputRef: (el: HTMLInputElement | null) => void;
+  noProductLabel: string;
+  searchPlaceholder: string;
+  noResultsLabel: string;
+  changeLabel: string;
+}
+
+/**
+ * Per-line product picker: a search box that filters the already-loaded
+ * catalog client-side (same instant-filter approach as the POS product
+ * grid — no need to round-trip to the server for a list this small) with
+ * keyboard navigation, plus an explicit "no product" row for freight/bags/
+ * service lines that never had a `<select>` equivalent to search.
+ */
+function ProductCombobox({
+  products, selected, onSelect, onAdvance, fmt, inputRef,
+  noProductLabel, searchPlaceholder, noResultsLabel, changeLabel,
+}: ProductComboboxProps) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const listboxId = useId();
+
+  const results = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const pool = needle ? products.filter((p) => p.name.toLowerCase().includes(needle)) : products;
+    return pool.slice(0, 8);
+  }, [products, query]);
+  const rowCount = results.length + 1; // +1 for the "no product" row
+
+  const commit = (product: ProductOption | null) => {
+    onSelect(product);
+    setQuery('');
+    setOpen(false);
+    setActiveIndex(0);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setOpen(true);
+      setActiveIndex((i) => (i + 1) % rowCount);
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setOpen(true);
+      setActiveIndex((i) => (i - 1 + rowCount) % rowCount);
+      return;
+    }
+    if (e.key === 'Escape') {
+      if (!open) return;
+      e.stopPropagation();
+      setOpen(false);
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (open) commit(activeIndex === 0 ? null : results[activeIndex - 1]);
+      else onAdvance();
+    }
+  };
+
+  // Closing on blur is scoped to the whole widget, not the bare input, so a
+  // click on a dropdown row doesn't get read as "focus left" before its own
+  // onClick has a chance to fire.
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setOpen(false);
+  };
+
+  if (selected) {
+    return (
+      <div className="flex h-9 items-center gap-1.5 rounded-md border border-input bg-muted/40 px-2.5 text-sm">
+        <span className="min-w-0 flex-1 truncate font-medium">{selected.name}</span>
+        <button
+          type="button"
+          onClick={() => onSelect(null)}
+          className="shrink-0 rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={changeLabel}
+          title={changeLabel}
+        >
+          <X size={13} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative" onBlur={handleBlur}>
+      <Search size={14} className="pointer-events-none absolute start-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+      <input
+        ref={inputRef}
+        type="text"
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
+        aria-controls={listboxId}
+        aria-activedescendant={open ? `${listboxId}-${activeIndex}` : undefined}
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); setActiveIndex(0); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={handleKeyDown}
+        placeholder={searchPlaceholder}
+        className="h-9 w-full rounded-md border border-input bg-transparent ps-8 pe-2 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      />
+      {open && (
+        <div id={listboxId} role="listbox" className="absolute start-0 end-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-md border border-border bg-card shadow-lg">
+          <button
+            id={`${listboxId}-0`}
+            role="option"
+            aria-selected={activeIndex === 0}
+            type="button"
+            onClick={() => commit(null)}
+            className={`block w-full px-3 py-2 text-start text-sm transition-colors ${activeIndex === 0 ? 'bg-brand-light text-brand' : 'hover:bg-muted'}`}
+          >
+            {noProductLabel}
+          </button>
+          {results.map((p, i) => (
+            <button
+              key={p.id}
+              id={`${listboxId}-${i + 1}`}
+              role="option"
+              aria-selected={activeIndex === i + 1}
+              type="button"
+              onClick={() => commit(p)}
+              className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-start text-sm transition-colors ${activeIndex === i + 1 ? 'bg-brand-light text-brand' : 'hover:bg-muted'}`}
+            >
+              <span className="truncate">{p.name}</span>
+              {p.cost != null && p.cost > 0 && (
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{fmt(p.cost)}</span>
+              )}
+            </button>
+          ))}
+          {results.length === 0 && (
+            <p className="px-3 py-2 text-sm text-muted-foreground">{noResultsLabel}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function PurchasesPage() {
   const t = useTranslations('purchases');
@@ -195,6 +347,63 @@ export default function PurchasesPage() {
 
   const updateLine = (key: number, patch: Partial<DraftLine>) => {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
+  };
+
+  // Keyboard flow for the lines table: Enter on the last line adds a new one
+  // and hands it focus; Enter on an earlier line just moves to the next —
+  // same idea as tabbing through a spreadsheet row by row.
+  const purchaseFormRef = useRef<HTMLFormElement>(null);
+  const lineInputRefs = useRef(new Map<number, HTMLInputElement>());
+  const pendingFocusKeyRef = useRef<number | null>(null);
+
+  const registerLineInputRef = (key: number, el: HTMLInputElement | null) => {
+    if (el) lineInputRefs.current.set(key, el);
+    else lineInputRefs.current.delete(key);
+  };
+  const focusLine = (key: number) => lineInputRefs.current.get(key)?.focus();
+
+  useEffect(() => {
+    if (pendingFocusKeyRef.current == null) return;
+    const key = pendingFocusKeyRef.current;
+    pendingFocusKeyRef.current = null;
+    const frame = requestAnimationFrame(() => focusLine(key));
+    return () => cancelAnimationFrame(frame);
+  }, [lines]);
+
+  const handleLineAdvance = (key: number) => {
+    const idx = lines.findIndex((l) => l.key === key);
+    if (idx < 0) return;
+    if (idx < lines.length - 1) {
+      focusLine(lines[idx + 1].key);
+      return;
+    }
+    const newKey = nextLineKey;
+    setLines((current) => [...current, emptyLine(newKey)]);
+    setNextLineKey((k) => k + 1);
+    pendingFocusKeyRef.current = newKey;
+  };
+
+  const focusLastLineProductSearch = () => {
+    const last = lines[lines.length - 1];
+    if (last) focusLine(last.key);
+  };
+
+  const handlePurchaseFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const key = e.key.toLowerCase();
+    if (key === 'f') {
+      e.preventDefault();
+      focusLastLineProductSearch();
+    } else if (key === 's') {
+      e.preventDefault();
+      purchaseFormRef.current?.requestSubmit();
+    }
+  };
+
+  const handleLineEnterKeyDown = (key: number) => (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    handleLineAdvance(key);
   };
 
   const withSaving = async (action: () => Promise<void>) => {
@@ -598,134 +807,180 @@ export default function PurchasesPage() {
         </div>
       )}
 
-      {showPurchaseForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-6 pb-4 border-b border-border sticky top-0 bg-card z-10">
-              <h2 className="text-lg font-bold">{editing ? t('editTitle') : t('newPurchase')}</h2>
-              <button onClick={() => { setShowPurchaseForm(false); setEditing(null); }}>
-                <X size={20} className="text-muted-foreground" />
-              </button>
-            </div>
-            <form onSubmit={editing ? saveEdit : savePurchase} className="p-6 space-y-4">
+      <Dialog open={showPurchaseForm} onOpenChange={(open) => { if (!open) { setShowPurchaseForm(false); setEditing(null); } }}>
+        <DialogContent
+          className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-0 overflow-hidden p-0"
+          onOpenAutoFocus={(e) => {
+            // First line's product search over Radix's default (the dialog
+            // shell itself) — that's where a new purchase actually starts.
+            const first = lines[0];
+            if (!first) return;
+            e.preventDefault();
+            requestAnimationFrame(() => focusLine(first.key));
+          }}
+        >
+          <DialogHeader className="shrink-0 border-b border-border px-6 py-4">
+            <DialogTitle>{editing ? t('editTitle') : t('newPurchase')}</DialogTitle>
+          </DialogHeader>
+          <form
+            ref={purchaseFormRef}
+            onKeyDown={handlePurchaseFormKeyDown}
+            onSubmit={editing ? saveEdit : savePurchase}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
               {editing && (
-                <p className="text-sm text-muted-foreground bg-muted rounded-lg px-3 py-2">{t('editHint')}</p>
+                <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{t('editHint')}</p>
               )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
-                  <span className="text-xs font-medium text-muted-foreground uppercase">{t('supplier')}</span>
+                  <span className="text-xs font-medium uppercase text-muted-foreground">{t('supplier')}</span>
                   {/* Con abonos hechos el proveedor ya no se cambia: esa plata
                       se le entregó a alguien concreto. */}
                   <select value={form.supplier_id} required={!editing}
                     disabled={!!editing && editing.paid_cents > 0}
                     onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand disabled:opacity-60">
+                    className="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60">
                     <option value="">{editing ? editing.supplier_name : '—'}</option>
                     {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </label>
                 <label className="block">
-                  <span className="text-xs font-medium text-muted-foreground uppercase">{t('invoiceRef')}</span>
-                  <input type="text" value={form.invoice_ref}
+                  <span className="text-xs font-medium uppercase text-muted-foreground">{t('invoiceRef')}</span>
+                  <Input type="text" value={form.invoice_ref}
                     onChange={(e) => setForm({ ...form, invoice_ref: e.target.value })}
-                    className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand" />
+                    className="mt-1" />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-medium text-muted-foreground uppercase">{t('paymentTerms')}</span>
+                  <span className="text-xs font-medium uppercase text-muted-foreground">{t('paymentTerms')}</span>
                   <select value={form.payment_terms}
                     onChange={(e) => setForm({ ...form, payment_terms: e.target.value as 'cash' | 'credit' })}
-                    className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand">
+                    className="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
                     <option value="credit">{t('termsCredit')}</option>
                     <option value="cash">{t('termsCash')}</option>
                   </select>
                 </label>
                 {form.payment_terms === 'credit' && (
                   <label className="block">
-                    <span className="text-xs font-medium text-muted-foreground uppercase">{t('dueDate')}</span>
-                    <input type="date" value={form.due_date} required
+                    <span className="text-xs font-medium uppercase text-muted-foreground">{t('dueDate')}</span>
+                    <Input type="date" value={form.due_date} required
                       onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                      className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand" />
+                      className="mt-1" />
                   </label>
                 )}
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-muted-foreground uppercase">{t('lines')}</span>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-medium uppercase text-muted-foreground">{t('lines')}</span>
                   <Button type="button" variant="outline" size="sm" onClick={addLine}>
                     <Plus size={14} className="me-1" /> {t('addLine')}
                   </Button>
                 </div>
-                <div className="space-y-2">
-                  {lines.map((line) => {
-                    const product = productById.get(line.product_id);
-                    return (
-                      <div key={line.key} className="grid gap-2 sm:grid-cols-[minmax(0,2fr)_90px_110px_minmax(0,1fr)_36px] items-end border border-border rounded-lg p-3">
-                        <label className="block min-w-0">
-                          <span className="text-xs text-muted-foreground">{t('product')}</span>
-                          <select value={line.product_id}
-                            onChange={(e) => updateLine(line.key, { product_id: e.target.value })}
-                            className="mt-1 w-full px-2 py-1.5 border border-border rounded bg-card text-sm outline-none focus:ring-2 focus:ring-brand">
-                            <option value="">{t('noProduct')}</option>
-                            {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                          </select>
-                          {!line.product_id && (
-                            <input type="text" placeholder={t('lineDescription')} value={line.description}
-                              onChange={(e) => updateLine(line.key, { description: e.target.value })}
-                              className="mt-2 w-full px-2 py-1.5 border border-border rounded bg-card text-sm outline-none focus:ring-2 focus:ring-brand" />
-                          )}
-                        </label>
-                        <label className="block">
-                          <span className="text-xs text-muted-foreground">
-                            {t('quantity')}{product ? ` (${product.sale_unit})` : ''}
-                          </span>
-                          <input type="number" min="0" step="any" value={line.quantity} inputMode="decimal"
-                            onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
-                            className="mt-1 w-full px-2 py-1.5 border border-border rounded bg-card text-sm text-end tabular-nums outline-none focus:ring-2 focus:ring-brand" />
-                        </label>
-                        <label className="block">
-                          <span className="text-xs text-muted-foreground">{t('unitCost')}</span>
-                          <input type="number" min="0" step="any" value={line.unit_cost} inputMode="decimal"
-                            onChange={(e) => updateLine(line.key, { unit_cost: e.target.value })}
-                            className="mt-1 w-full px-2 py-1.5 border border-border rounded bg-card text-sm text-end tabular-nums outline-none focus:ring-2 focus:ring-brand" />
-                        </label>
-                        <div className="text-end">
-                          <span className="text-xs text-muted-foreground block">{t('lineTotal')}</span>
-                          <span className="text-sm font-medium tabular-nums">{fmt(lineTotalCents(line) / factor)}</span>
-                          {product && !product.track_inventory && (
-                            <span className="text-xs text-muted-foreground block">{t('stockNotTracked')}</span>
-                          )}
-                        </div>
-                        <button type="button" aria-label={t('removeLine')}
-                          onClick={() => setLines((current) => (current.length > 1 ? current.filter((l) => l.key !== line.key) : current))}
-                          className="p-2 text-muted-foreground hover:text-red-600 disabled:opacity-30"
-                          disabled={lines.length === 1}>
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    );
-                  })}
+                <div className="overflow-hidden rounded-lg border border-border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead>{t('product')}</TableHead>
+                        <TableHead className="w-28 text-end">{t('quantity')}</TableHead>
+                        <TableHead className="w-32 text-end">{t('unitCost')}</TableHead>
+                        <TableHead className="w-32 text-end">{t('lineTotal')}</TableHead>
+                        <TableHead className="w-9" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {lines.map((line) => {
+                        const product = productById.get(line.product_id);
+                        return (
+                          <TableRow key={line.key} className="align-top hover:bg-transparent">
+                            <TableCell className="whitespace-normal py-2.5">
+                              <ProductCombobox
+                                products={products}
+                                selected={product}
+                                fmt={fmt}
+                                onSelect={(p) => updateLine(line.key, p
+                                  ? { product_id: p.id, unit_cost: p.cost != null ? String(p.cost) : line.unit_cost }
+                                  : { product_id: '' })}
+                                onAdvance={() => handleLineAdvance(line.key)}
+                                inputRef={(el) => registerLineInputRef(line.key, el)}
+                                noProductLabel={t('noProduct')}
+                                searchPlaceholder={t('productSearchPlaceholder')}
+                                noResultsLabel={t('noProductsFound')}
+                                changeLabel={t('changeProduct')}
+                              />
+                              {!line.product_id && (
+                                <Input type="text" placeholder={t('lineDescription')} value={line.description}
+                                  onChange={(e) => updateLine(line.key, { description: e.target.value })}
+                                  onKeyDown={handleLineEnterKeyDown(line.key)}
+                                  className="mt-1.5 h-8 text-sm" />
+                              )}
+                              {product && !product.track_inventory && (
+                                <p className="mt-1 text-xs text-muted-foreground">{t('stockNotTracked')}</p>
+                              )}
+                            </TableCell>
+                            <TableCell className="py-2.5">
+                              <Input type="number" min="0" step="any" inputMode="decimal" value={line.quantity}
+                                onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
+                                onKeyDown={handleLineEnterKeyDown(line.key)}
+                                className="text-end tabular-nums" />
+                            </TableCell>
+                            <TableCell className="py-2.5">
+                              <Input type="number" min="0" step="any" inputMode="decimal" value={line.unit_cost}
+                                onChange={(e) => updateLine(line.key, { unit_cost: e.target.value })}
+                                onKeyDown={handleLineEnterKeyDown(line.key)}
+                                className="text-end tabular-nums" />
+                            </TableCell>
+                            <TableCell className="py-2.5 text-end font-medium tabular-nums">
+                              {fmt(lineTotalCents(line) / factor)}
+                            </TableCell>
+                            <TableCell className="py-2.5">
+                              <button type="button" aria-label={t('removeLine')}
+                                onClick={() => setLines((current) => (current.length > 1 ? current.filter((l) => l.key !== line.key) : current))}
+                                className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-30 disabled:hover:bg-transparent"
+                                disabled={lines.length === 1}>
+                                <Trash2 size={15} />
+                              </button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
 
               {editing && (
                 <label className="block">
-                  <span className="text-xs font-medium text-muted-foreground uppercase">{t('editReason')}</span>
-                  <input type="text" value={editReason} onChange={(e) => setEditReason(e.target.value)}
-                    className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand" />
+                  <span className="text-xs font-medium uppercase text-muted-foreground">{t('editReason')}</span>
+                  <Input type="text" value={editReason} onChange={(e) => setEditReason(e.target.value)}
+                    className="mt-1" />
                 </label>
               )}
+            </div>
 
-              <div className="flex items-center justify-between border-t border-border pt-4">
-                <span className="text-sm font-medium text-muted-foreground uppercase">{t('total')}</span>
-                <span className="text-xl font-bold tabular-nums">{fmt(draftTotalCents / factor)}</span>
+            <div className="shrink-0 space-y-3 border-t border-border px-6 py-4">
+              <div className="flex items-center justify-between rounded-lg bg-muted/60 px-4 py-2.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('total')}</span>
+                <span className="text-2xl font-bold tabular-nums">{fmt(draftTotalCents / factor)}</span>
               </div>
-
-              <Button type="submit" className="w-full" disabled={saving}>{tCommon('save')}</Button>
-            </form>
-          </div>
-        </div>
-      )}
+              <div className="flex items-center justify-between gap-3">
+                <p className="hidden items-center gap-3 text-xs text-muted-foreground sm:flex">
+                  <span className="flex items-center gap-1">
+                    <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Ctrl+F</kbd> {t('shortcutSearchProduct')}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Enter</kbd> {t('shortcutAddLine')}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Ctrl+S</kbd> {t('shortcutSave')}
+                  </span>
+                </p>
+                <Button type="submit" disabled={saving} className="ms-auto min-w-32">{tCommon('save')}</Button>
+              </div>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {voidTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

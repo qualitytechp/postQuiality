@@ -18,6 +18,30 @@ const router = Router();
 const customerReadRateLimit = expressRateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: true, legacyHeaders: false });
 const customerWriteRateLimit = expressRateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false });
 
+/**
+ * Every table that can hold a `customers(id)` value. A permanent delete is
+ * only as safe as this list is complete — the same pattern as staff
+ * hard-delete (main/routes/staff.ts), audited against the schema the same
+ * way: `whatsapp_messages.customer_id` is FK-enforced (kept as a backstop
+ * below), the rest are logical references with no FK constraint.
+ */
+export const CUSTOMER_REF_COLUMNS: ReadonlyArray<readonly [string, string]> = [
+  ['orders', 'customer_id'],
+  ['bills', 'customer_id'],
+  ['held_orders', 'customer_id'],
+  ['loyalty_ledger', 'customer_id'],
+  ['whatsapp_messages', 'customer_id'],
+];
+
+function checkCustomerReferences(db: ReturnType<typeof getDatabase>, customerId: string): string[] {
+  return CUSTOMER_REF_COLUMNS
+    .filter(([table, column]) => {
+      const row = db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${column} = ?`).get(customerId) as { n: number };
+      return row.n > 0;
+    })
+    .map(([table, column]) => `${table}.${column}`);
+}
+
 function invalidPhonePredicate(alias = ''): string {
   const prefix = alias ? `${alias}.` : '';
   return `${prefix}is_active = 1 AND ${prefix}phone IS NOT NULL AND ${prefix}phone != '' AND ${prefix}phone != '+' || ${prefix}phone_digits`;
@@ -492,5 +516,36 @@ router.put('/:id', customerWriteRateLimit, requireRole(...ROLE_ACCESS.ownerManag
   }
 });
 
-// Customers are never deleted to preserve historical order, bill, and loyalty references.
+// ── Hard-delete ──────────────────────────────────────────────────────────────
+//
+// A customer with any history — an order, a bill, a held order, a loyalty
+// transaction, a WhatsApp message — is never deleted; that history has to
+// keep resolving to someone. This is the narrow case: a record created by
+// mistake (wrong document typed twice, a test entry) that never actually
+// sold anything, so there is nothing downstream to protect.
+router.delete('/:id', customerWriteRateLimit, requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response) => {
+  try {
+    const customerId = req.params.id as string;
+    const db = getDatabase();
+    const customer = db.prepare('SELECT id, name FROM customers WHERE id = ?').get(customerId) as any;
+    if (!customer) return res.status(404).json({ error: 'Customer not found' });
+
+    const referencingTables = checkCustomerReferences(db, customerId);
+    if (referencingTables.length > 0) {
+      return res.status(409).json({
+        error: 'This customer has orders, bills, or other activity on record and cannot be permanently deleted.',
+        referencingTables,
+      });
+    }
+
+    // FK stays ON: if the reference sweep above missed something, the
+    // constraint rejects the delete instead of silently orphaning a row.
+    db.prepare('DELETE FROM customers WHERE id = ?').run(customerId);
+    res.json({ deletedId: customerId });
+  } catch (error: any) {
+    console.error('[API] Internal error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export const customerRoutes = router;

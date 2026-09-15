@@ -75,6 +75,7 @@
     "test:first-run": "node tests/run-electron-node-test.cjs tests/first-run-setup.test.ts && node tests/run-electron-node-test.cjs tests/setup-failure-recovery.test.ts",
     "test:security": "node tests/run-electron-node-test.cjs tests/security-hardening.test.ts",
     "test:staff-authz": "node tests/run-electron-node-test.cjs tests/staff-authz.test.ts",
+    "test:staff-merge": "node tests/run-electron-node-test.cjs tests/staff-merge.test.ts",
     "test:orders-authz": "node tests/run-electron-node-test.cjs tests/orders-authz.test.ts",
     "test:authz-phase3": "node tests/run-electron-node-test.cjs tests/authz-matrix-phase3.test.ts",
     "test:customer-auth": "node tests/run-electron-node-test.cjs tests/customer-auth.test.ts",
@@ -223,6 +224,7 @@
     "test:menu-csv-weighted": "node tests/run-electron-node-test.cjs tests/menu-csv-weighted-products.test.ts",
     "test:weight-input": "ts-node --transpile-only -P tests/tsconfig.json tests/weight-input.test.ts",
     "test:customer-document-search": "node tests/run-electron-node-test.cjs tests/customer-document-search.test.ts",
+    "test:customer-hard-delete": "node tests/run-electron-node-test.cjs tests/customer-hard-delete.test.ts",
     "test:pos-prepaid-print-respects-setting": "ts-node --transpile-only -P tests/tsconfig.json tests/pos-prepaid-print-respects-setting.test.ts",
     "test:bill-items-weight-unit": "node tests/run-electron-node-test.cjs tests/bill-items-weight-unit.test.ts",
     "test:x-report-bill-detail": "node tests/run-electron-node-test.cjs tests/x-report-bill-detail.test.ts"

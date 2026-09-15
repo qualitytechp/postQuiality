@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 
 
 import toast from 'react-hot-toast';
-import { Plus, Search, X, Edit, Wallet, History, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import { Plus, Search, X, Edit, Wallet, History, TrendingUp, TrendingDown, AlertCircle, Trash2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 import type { Customer } from '@/lib/types';
@@ -18,6 +18,8 @@ import { Ltr } from '@/components/layout/Ltr';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { useFormatDate } from '@/hooks/useFormatDate';
 import { useFormatNumber } from '@/hooks/useFormatNumber';
+import { useConfirm } from '@/hooks/use-confirm';
+import { ROLE_ACCESS, hasRole } from '@shared/role-permissions';
 
 function SortIcon({ field, sortField, sortOrder }: { field: string; sortField: string; sortOrder: 'asc' | 'desc' }) {
   if (sortField !== field) return <span className="text-gray-300 w-3 inline-block ms-1 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>;
@@ -39,7 +41,11 @@ export default function CustomersPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const filter = searchParams.get('filter');
-  
+  // Permanent delete is destructive and irreversible — narrower than the
+  // day-to-day create/edit access cashiers and managers already have.
+  const isOwner = hasRole(currentTenant?.role, ROLE_ACCESS.owner);
+  const { confirm, ConfirmDialog } = useConfirm();
+
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -71,6 +77,23 @@ export default function CustomersPage() {
       toast.error(tCustomer('ledgerLoadFailed'));
     } finally {
       setLedgerLoading(false);
+    }
+  };
+
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async (c: Customer) => {
+    if (!await confirm(tCustomer('deleteConfirm', { name: c.name }), { destructive: true, confirmLabel: tCommon('delete') })) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`/customers/${c.id}`);
+      toast.success(tCustomer('deletedToast', { name: c.name }));
+      setRefreshKey((k) => k + 1);
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(message || tCustomer('deleteFailed'));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -235,9 +258,23 @@ export default function CustomersPage() {
                   )}
                 </td>
                 <td className="p-4 text-center">
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(c)}>
-                    <Edit size={14} />
-                  </Button>
+                  <div className="flex items-center justify-center gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => openEdit(c)}>
+                      <Edit size={14} />
+                    </Button>
+                    {isOwner && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(c)}
+                        disabled={isDeleting}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        title={tCustomer('deleteTooltip')}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    )}
+                  </div>
                 </td>
                 <td className="p-4 text-center">
                   <Button variant="ghost" size="sm" onClick={() => openLedger(c)} title={tCustomer('viewLedgerTitle')}>
@@ -395,6 +432,8 @@ export default function CustomersPage() {
           </div>
         </div>
       )}
+
+      {ConfirmDialog}
     </div>
   );
 }

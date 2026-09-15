@@ -77,6 +77,7 @@ async function main() {
     ['GET',    `/api/customers/${custId}/wallet`],
     ['POST',   '/api/customers/', { name: 'Attacker', phone: '5559999999' }],
     ['PUT',    `/api/customers/${custId}`, { name: 'Modified' }],
+    ['DELETE', `/api/customers/${custId}`],
     ['DELETE', '/api/customers/admin/cleanup'],
   ];
 
@@ -120,18 +121,28 @@ async function main() {
     assertEqual(putRes.status, 200, `${label} can PUT /api/customers/:id`);
   }
 
-  console.log('\n── 4b. Customers are never deletable — DELETE /:id does not exist ──');
+  console.log('\n── 4b. Permanent delete: narrower than PUT — owner only ──────');
 
-  // Product decision: a customer record must never be removed (soft or hard)
-  // — orders/bills/loyalty_ledger reference it with no FK, and every
-  // customer's history/loyalty standing outweighs the cost of a stale row.
-  // Assert this for the highest-privilege role too, so the route can't
-  // quietly come back gated behind "owner only".
-  const ownerDeleteRes = await request(app).delete(`/api/customers/${custId}`).set(ownerAuth);
-  assertEqual(ownerDeleteRes.status, 404, 'DELETE /api/customers/:id does not exist, even for owner');
-
+  // Superseded product decision: customers used to be permanently
+  // undeletable. They can be now, but only by an owner (PUT above allows
+  // cashier and manager too) and only with zero orders/bills/loyalty
+  // history — the business-logic side of that (movements, 409s, the
+  // reference audit) is covered in tests/customer-hard-delete.test.ts. This
+  // file only owns the auth/role boundary.
+  for (const [label, auth] of [['cashier', cashierAuth], ['manager', managerAuth], ['server', waiterAuth]]) {
+    const forbidden = await request(app).delete(`/api/customers/${custId}`).set(auth as any);
+    assertEqual(forbidden.status, 403, `${label} cannot DELETE /api/customers/:id`);
+  }
   const stillActive = db.prepare('SELECT is_active FROM customers WHERE id = ?').get(custId) as any;
-  assertEqual(stillActive.is_active, 1, 'customer row is untouched — not soft-deleted');
+  assertEqual(stillActive.is_active, 1, 'customer row survives every forbidden delete attempt');
+
+  const ownerDeleteRes = await request(app).delete(`/api/customers/${custId}`).set(ownerAuth);
+  assertEqual(ownerDeleteRes.status, 200, 'owner can DELETE /api/customers/:id (no orders/bills/loyalty history on this seeded row)');
+  assertEqual(
+    db.prepare('SELECT 1 FROM customers WHERE id = ?').get(custId),
+    undefined,
+    'the row is actually gone',
+  );
 
   console.log('\n── 5. Admin cleanup: owner only ─────────────────────────────');
 

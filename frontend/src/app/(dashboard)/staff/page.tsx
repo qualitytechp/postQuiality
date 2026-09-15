@@ -5,11 +5,12 @@ import axios from 'axios';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
-import { Plus, X, Edit, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { Plus, X, Edit, RotateCcw, Eye, EyeOff, Trash2, Merge } from 'lucide-react';
 import type { Staff } from '@/lib/types';
 import { useTranslations, type AppConfig } from 'use-intl';
 import { useAuthStore } from '@/store/auth';
 import { PermissionMatrix } from '@/components/settings/PermissionMatrix';
+import { useConfirm } from '@/hooks/use-confirm';
 import { ROLE_ACCESS, ROLE_KEYS, hasRole } from '@shared/role-permissions';
 import { ROLE_LABEL_KEYS } from '@/lib/i18n-enums';
 
@@ -43,8 +44,13 @@ export default function StaffPage() {
   const tCommon = useTranslations('common');
   const tAuth = useTranslations('auth');
   const tSetup = useTranslations('setup');
-  const { currentTenant } = useAuthStore();
+  const { currentTenant, user } = useAuthStore();
   const canViewPermissionMatrix = hasRole(currentTenant?.role, ROLE_ACCESS.ownerManager);
+  // Permanent delete/merge is destructive and touches every table with a
+  // history of who did what — narrower than the manager-level day-to-day
+  // staff management above.
+  const isOwner = hasRole(currentTenant?.role, ROLE_ACCESS.owner);
+  const { confirm, ConfirmDialog } = useConfirm();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -176,6 +182,51 @@ export default function StaffPage() {
     }
   };
 
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [mergeSource, setMergeSource] = useState<Staff | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState('');
+  const [isMerging, setIsMerging] = useState(false);
+
+  const handleDelete = async (s: Staff) => {
+    if (!await confirm(t('deleteConfirm', { name: s.name }), { destructive: true, confirmLabel: tCommon('delete') })) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`/staff/${s.id}`);
+      toast.success(t('deletedToast', { name: s.name }));
+      fetchStaff();
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, t('deleteFailed')));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const openMerge = (s: Staff) => {
+    setMergeSource(s);
+    setMergeTargetId('');
+  };
+
+  const closeMerge = () => {
+    setMergeSource(null);
+    setMergeTargetId('');
+  };
+
+  const confirmMerge = async () => {
+    if (!mergeSource || !mergeTargetId) return;
+    setIsMerging(true);
+    try {
+      const { data } = await api.post(`/staff/${mergeSource.id}/merge`, { merge_into: mergeTargetId });
+      const target = staff.find((candidate) => candidate.id === data.targetId);
+      toast.success(t('mergedToast', { name: mergeSource.name, into: target?.name || data.targetId }));
+      closeMerge();
+      fetchStaff();
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, t('mergeFailed')));
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
   const editingLastActiveOwner = Boolean(editingStaff?.is_active)
     && editingStaff?.role === 'owner'
     && staff.filter((s) => s.role === 'owner' && Boolean(s.is_active)).length === 1;
@@ -188,7 +239,9 @@ export default function StaffPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {staff.map((s) => (
+        {staff.map((s) => {
+          const isSelf = String(user?.id ?? '') === s.id;
+          return (
           <div key={s.id} className={`bg-card rounded-xl p-5 border ${s.is_active ? 'border-border' : 'border-border opacity-60'}`}>
             <div className="flex justify-between items-start mb-3">
               <div>
@@ -217,9 +270,27 @@ export default function StaffPage() {
               >
                 {s.is_active ? t('deactivate') : t('reactivate')}
               </Button>
+              {isOwner && !isSelf && (
+                <>
+                  <Button variant="ghost" size="sm" onClick={() => openMerge(s)} title={t('mergeTooltip')}>
+                    <Merge size={14} className="me-1" /> {t('merge')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(s)}
+                    disabled={isDeleting}
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    title={t('deleteTooltip')}
+                  >
+                    <Trash2 size={14} className="me-1" /> {tCommon('delete')}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {staff.length === 0 && <p className="text-center text-muted-foreground py-12">{t('empty')}</p>}
@@ -331,6 +402,39 @@ export default function StaffPage() {
           </div>
         </div>
       )}
+
+      {mergeSource && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-2xl p-6 w-full max-w-sm">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">{t('mergeTitle', { name: mergeSource.name })}</h2>
+              <button type="button" onClick={closeMerge}><X size={20} className="text-gray-400" /></button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">{t('mergeBody')}</p>
+            <div className="space-y-4">
+              <select
+                value={mergeTargetId}
+                onChange={(e) => setMergeTargetId(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-brand"
+              >
+                <option value="">{t('mergeSelectTarget')}</option>
+                {staff
+                  .filter((candidate) => candidate.id !== mergeSource.id && Boolean(candidate.is_active))
+                  .map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.name} — {roleLabel(candidate.role, t)}
+                    </option>
+                  ))}
+              </select>
+              <Button onClick={confirmMerge} disabled={!mergeTargetId || isMerging} className="w-full">
+                {isMerging ? t('merging') : t('mergeConfirm')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {ConfirmDialog}
     </div>
   );
 }

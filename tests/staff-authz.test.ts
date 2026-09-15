@@ -194,6 +194,108 @@ async function main() {
   result = await request(app).post('/api/staff/cashier-target-145/reactivate').set(ownerAuth);
   assertEqual(result.status, 200, 'owner can reactivate operational staff');
 
+  console.log('\n── Hard-delete ──────────────────────────────────────────────────');
+
+  seedUser(db, 'noref-delete-145', 'cashier', '');
+  result = await request(app).delete('/api/staff/noref-delete-145').set(ownerAuth);
+  assertEqual(result.status, 200, 'owner can permanently delete staff with zero references');
+  assertEqual(result.body.deletedId, 'noref-delete-145', 'delete response echoes the deleted id');
+  assert(
+    !db.prepare('SELECT 1 FROM users WHERE id = ?').get('noref-delete-145'),
+    'the row is actually gone from the users table',
+  );
+
+  seedUser(db, 'hasref-delete-145', 'cashier', '');
+  db.prepare(`
+    INSERT INTO order_idempotency (idempotency_key, user_id, request_hash, response_json, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run('idem-key-145', 'hasref-delete-145', 'hash', '{}', now());
+  result = await request(app).delete('/api/staff/hasref-delete-145').set(ownerAuth);
+  assertEqual(result.status, 409, 'cannot permanently delete staff with a movement on record');
+  assert(
+    result.body.referencingTables?.includes('order_idempotency.user_id'),
+    'the 409 body names the referencing table so the caller knows to merge instead',
+  );
+  assert(
+    !!db.prepare('SELECT 1 FROM users WHERE id = ?').get('hasref-delete-145'),
+    'the row survives a refused delete',
+  );
+
+  seedUser(db, 'manager-forbidden-delete-145', 'cashier', '');
+  result = await request(app).delete('/api/staff/manager-forbidden-delete-145').set(managerAuth);
+  assertEqual(result.status, 403, 'manager cannot permanently delete staff');
+
+  // owner-145 was demoted to cashier earlier in this file, so the last-owner
+  // guard is out of play here — only the self-delete guard can catch it.
+  result = await request(app).delete('/api/staff/owner-145').set(ownerAuth);
+  assertEqual(result.status, 400, 'cannot permanently delete your own signed-in account');
+
+  // owner-145-second is the only active owner left at this point in the file.
+  result = await request(app).delete('/api/staff/owner-145-second').set(ownerAuth);
+  assertEqual(result.status, 400, 'cannot permanently delete the last active owner');
+
+  // Clear the table reference so a settings-only reference is what's left to test.
+  db.prepare("DELETE FROM order_idempotency WHERE user_id = 'hasref-delete-145'").run();
+  db.prepare("INSERT INTO settings (key, value, updated_at) VALUES ('whatsapp_activated_by_user_id', 'hasref-delete-145', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at").run(now());
+  result = await request(app).delete('/api/staff/hasref-delete-145').set(ownerAuth);
+  assertEqual(result.status, 409, 'a settings reference alone still blocks the delete');
+  assert(
+    result.body.referencingSettings?.includes('whatsapp_activated_by_user_id'),
+    'the 409 body names the referencing setting',
+  );
+
+  console.log('\n── Merge ─────────────────────────────────────────────────────────');
+
+  seedUser(db, 'merge-source-145', 'cashier', '');
+  seedUser(db, 'merge-dest-145', 'cashier', '');
+  db.prepare(`
+    INSERT INTO order_idempotency (idempotency_key, user_id, request_hash, response_json, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run('idem-key-merge-145', 'merge-source-145', 'hash', '{}', now());
+  result = await request(app).post('/api/staff/merge-source-145/merge').set(ownerAuth).send({ merge_into: 'merge-dest-145' });
+  assertEqual(result.status, 200, 'owner can merge a staff member with movements into another');
+  assertEqual(result.body.mergedId, 'merge-source-145', 'merge response echoes the merged-away id');
+  assertEqual(result.body.targetId, 'merge-dest-145', 'merge response echoes the target id');
+  assert(
+    result.body.movedTables?.some((entry: string) => entry.startsWith('order_idempotency.user_id')),
+    'merge response lists the table it moved rows in',
+  );
+  assert(
+    !db.prepare('SELECT 1 FROM users WHERE id = ?').get('merge-source-145'),
+    'the merged-away user row is gone',
+  );
+  const movedRow = db.prepare('SELECT user_id FROM order_idempotency WHERE idempotency_key = ?').get('idem-key-merge-145') as any;
+  assertEqual(movedRow.user_id, 'merge-dest-145', 'the movement itself now points at the target user');
+
+  seedUser(db, 'merge-source-2-145', 'cashier', '');
+  seedUser(db, 'merge-dest-2-145', 'cashier', '');
+  result = await request(app).post('/api/staff/merge-source-2-145/merge').set(managerAuth).send({ merge_into: 'merge-dest-2-145' });
+  assertEqual(result.status, 403, 'manager cannot merge staff');
+
+  result = await request(app).post('/api/staff/merge-source-2-145/merge').set(ownerAuth).send({});
+  assertEqual(result.status, 400, 'merge requires merge_into');
+
+  result = await request(app).post('/api/staff/merge-source-2-145/merge').set(ownerAuth).send({ merge_into: 'merge-source-2-145' });
+  assertEqual(result.status, 400, 'cannot merge a staff member into themselves');
+
+  result = await request(app).post('/api/staff/does-not-exist-145/merge').set(ownerAuth).send({ merge_into: 'merge-dest-2-145' });
+  assertEqual(result.status, 404, 'merging a nonexistent source staff member 404s');
+
+  result = await request(app).post('/api/staff/merge-source-2-145/merge').set(ownerAuth).send({ merge_into: 'does-not-exist-145' });
+  assertEqual(result.status, 404, 'merging into a nonexistent target staff member 404s');
+
+  db.prepare('UPDATE users SET is_active = 0 WHERE id = ?').run('merge-dest-2-145');
+  result = await request(app).post('/api/staff/merge-source-2-145/merge').set(ownerAuth).send({ merge_into: 'merge-dest-2-145' });
+  assertEqual(result.status, 400, 'cannot merge into a deactivated staff member');
+  db.prepare('UPDATE users SET is_active = 1 WHERE id = ?').run('merge-dest-2-145');
+
+  // owner-145-second is still the only active owner.
+  result = await request(app).post('/api/staff/owner-145-second/merge').set(ownerAuth).send({ merge_into: 'merge-dest-2-145' });
+  assertEqual(result.status, 400, 'cannot merge away the last active owner');
+
+  result = await request(app).post('/api/staff/owner-145/merge').set(ownerAuth).send({ merge_into: 'owner-145-second' });
+  assertEqual(result.status, 400, 'cannot merge your own signed-in account away');
+
   const results = getResults();
   console.log(`\nResults: ${results.passed}/${results.total} passed`);
   if (results.failed > 0) {
