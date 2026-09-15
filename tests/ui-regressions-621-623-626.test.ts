@@ -35,10 +35,16 @@ assert.match(customers, /text-muted-foreground whitespace-nowrap.*formatDate/, '
 assert.match(customers, /text-end text-foreground whitespace-nowrap.*fmt\(b\.total\)/, 'ledger totals use semantic text color');
 
 const payment = source('frontend/src/components/pos/PaymentModal.tsx');
-assert.match(payment, /sm:max-w-4xl/, 'desktop payment modal stays wide');
-assert.match(payment, /lg:grid lg:grid-cols-2/, 'desktop payment content stays side by side');
-assert.match(payment, /max-h-\[75vh\] overflow-y-auto.*lg:grid lg:grid-cols-2/, 'desktop payment stays two-column with bounded overflow fallback');
+assert.match(payment, /max-h-\[95vh\] w-full flex-col overflow-hidden/, 'payment modal bounds its height with the same shell as the checkout');
+assert.match(payment, /min-h-0 space-y-3 overflow-y-auto/, 'payment controls scroll inside the bounded body instead of being clipped');
 assert.doesNotMatch(payment, /lg:overflow-visible/, 'desktop payment does not clip controls outside its bounded container');
+assert.doesNotMatch(payment, /bg-gradient-to-br from-slate-800 to-slate-900/, 'payment modal drops the oversized total card, matching the checkout');
+const paymentPadIndex = payment.indexOf('<CurrencyTouchNumberPad');
+const paymentChangeIndex = payment.indexOf("t('changeReturned')");
+assert.ok(
+  paymentPadIndex >= 0 && paymentChangeIndex > paymentPadIndex,
+  'payment change returned stays below the payment controls',
+);
 
 const dashboard = source('frontend/src/app/(dashboard)/dashboard/page.tsx');
 assert.match(dashboard, /dayInputRef.*monthInputRef/s, 'dashboard retains explicit date and month picker controls');

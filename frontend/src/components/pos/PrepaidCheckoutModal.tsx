@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Sparkles, ArrowLeftRight, CheckCircle2, Percent, Wallet, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
@@ -110,6 +110,15 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
   const [discountRequiresApproval, setDiscountRequiresApproval] = useState(false);
   const [discountPin, setDiscountPin] = useState('');
   const [amountTarget, setAmountTarget] = useState<AmountTarget>(null);
+  // El campo que se activa queda seleccionado: la primera tecla reemplaza su
+  // monto en vez de sumarle dígitos (36000 y luego 5 no debe dar 360005).
+  const [replacePending, setReplacePending] = useState(true);
+  const cashInputRef = useRef<HTMLInputElement>(null);
+  const autoFocusedCashRef = useRef(false);
+  const selectAmountTarget = (target: Exclude<AmountTarget, null>) => {
+    setAmountTarget(target);
+    setReplacePending(true);
+  };
 
   const previewDiscount = useMemo(() => {
     const rawValue = Number.parseFloat(discountValue);
@@ -247,6 +256,7 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
 
   const updatePaymentAmount = (idx: number, value: string) => {
     setPaymentsTouched(true);
+    setReplacePending(false);
     setPayments((current) => current.map((payment, index) => index === idx ? { ...payment, amount: value } : payment));
   };
 
@@ -263,21 +273,34 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
     ? (totalPaymentMinor - remainingMinor) / minorFactor
     : 0;
 
-  const activeAmountValue = amountTarget?.kind === 'payment'
-    ? payments[amountTarget.index]?.amount || ''
-    : amountTarget?.kind === 'wallet'
+  // Sin campo elegido, el teclado apunta al efectivo: es lo que se cobra casi siempre.
+  const cashIndex = payments.findIndex((payment) => payment.method === 'cash' && payment.payment_method_id === undefined);
+  const activeTarget: AmountTarget = amountTarget ?? (cashIndex >= 0 ? { kind: 'payment', index: cashIndex } : null);
+  const cashPrefilled = cashIndex >= 0 && payments[cashIndex].amount !== '';
+
+  useEffect(() => {
+    if (!cashPrefilled || autoFocusedCashRef.current) return;
+    autoFocusedCashRef.current = true;
+    cashInputRef.current?.focus();
+    cashInputRef.current?.select();
+  }, [cashPrefilled]);
+
+  const activeAmountValue = activeTarget?.kind === 'payment'
+    ? payments[activeTarget.index]?.amount || ''
+    : activeTarget?.kind === 'wallet'
       ? walletAmount
-      : amountTarget?.kind === 'discount'
+      : activeTarget?.kind === 'discount'
         ? discountValue
         : '';
 
   const updateActiveAmount = (value: string) => {
-    if (!amountTarget) return;
-    if (amountTarget.kind === 'payment') {
-      updatePaymentAmount(amountTarget.index, value);
+    if (!activeTarget) return;
+    setReplacePending(false);
+    if (activeTarget.kind === 'payment') {
+      updatePaymentAmount(activeTarget.index, value);
       return;
     }
-    if (amountTarget.kind === 'wallet') {
+    if (activeTarget.kind === 'wallet') {
       const maxWalletCurrencyStored = Math.floor((walletBalance || 0) / LOYALTY_REDEMPTION_RATE);
       const maxDisplay = toDisplayUnit(Math.min(maxWalletCurrencyStored, remaining));
       const clamped = parseFloat(value) > maxDisplay ? String(maxDisplay) : value;
@@ -288,21 +311,21 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
     setDiscountValue(value);
   };
 
-  const activeAmountMax = amountTarget?.kind === 'discount'
+  const activeAmountMax = activeTarget?.kind === 'discount'
     ? discountType === 'percentage' ? 100 : preview ? toDisplayUnit(preview.subtotal) : undefined
-    : amountTarget?.kind === 'wallet'
+    : activeTarget?.kind === 'wallet'
       ? toDisplayUnit(Math.min(Math.floor((walletBalance || 0) / LOYALTY_REDEMPTION_RATE), remaining))
       : undefined;
 
   const activeAmountQuickValues = (() => {
-    if (amountTarget?.kind === 'payment') {
+    if (activeTarget?.kind === 'payment') {
       const allocatedElsewhere = payments.reduce((sum, payment, index) => (
-        index === amountTarget.index ? sum : sum + toStoredUnit(parseFloat(payment.amount) || 0)
+        index === activeTarget.index ? sum : sum + toStoredUnit(parseFloat(payment.amount) || 0)
       ), walletAmt);
       const dueDisplay = toDisplayUnit(Math.max(0, remaining - allocatedElsewhere));
       return dueDisplay > 0 ? [{ label: t('exactAmount'), value: String(dueDisplay) }] : [];
     }
-    if (amountTarget?.kind === 'wallet') {
+    if (activeTarget?.kind === 'wallet') {
       const allocatedElsewhere = payments.reduce((sum, payment) => sum + toStoredUnit(parseFloat(payment.amount) || 0), 0);
       const maxWalletStored = Math.floor((walletBalance || 0) / LOYALTY_REDEMPTION_RATE);
       const dueDisplay = toDisplayUnit(Math.min(maxWalletStored, Math.max(0, remaining - allocatedElsewhere)));
@@ -487,8 +510,8 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
                   <input
                     type="number"
                     value={discountValue}
-                    onFocus={() => setAmountTarget({ kind: 'discount' })}
-                    onChange={(e) => setDiscountValue(e.target.value)}
+                    onFocus={(e) => { selectAmountTarget({ kind: 'discount' }); e.currentTarget.select(); }}
+                    onChange={(e) => { setReplacePending(false); setDiscountValue(e.target.value); }}
                     placeholder={discountType === 'percentage' ? '0' : '0.00'}
                     min="0"
                     max={discountType === 'percentage' ? 100 : (preview ? toDisplayUnit(preview.subtotal) : undefined)}
@@ -536,16 +559,17 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
               const Icon = builtIn?.icon;
               const active = (parseFloat(payment.amount) || 0) > 0;
               return <div key={payment.payment_method_id === undefined ? payment.method : `custom:${payment.payment_method_id}`} className="flex min-h-12">
-                <button type="button" title={label} onClick={() => { setAmountTarget({ kind: 'payment', index: idx }); allocateRemainingTo(idx); }} className={`touch-target w-36 shrink-0 justify-start rounded-s-xl border px-3 gap-2 text-sm font-semibold transition-colors ${active ? 'bg-brand text-white border-brand' : 'bg-muted text-foreground border-border hover:border-brand hover:text-brand'}`}>
+                <button type="button" title={label} onClick={() => { selectAmountTarget({ kind: 'payment', index: idx }); allocateRemainingTo(idx); }} className={`touch-target w-36 shrink-0 justify-start rounded-s-xl border px-3 gap-2 text-sm font-semibold transition-colors ${active ? 'bg-brand text-white border-brand' : 'bg-muted text-foreground border-border hover:border-brand hover:text-brand'}`}>
                   {Icon && <Icon size={15} />}
                   <span className="truncate">{label}</span>
                 </button>
                 <div className="flex flex-1 items-center border border-s-0 border-border rounded-e-xl bg-card focus-within:ring-2 focus-within:ring-brand focus-within:border-transparent">
                   <span className="ps-3 text-gray-400 text-xs">{inputCurrencyLabel}</span>
                   <input
+                    ref={idx === cashIndex ? cashInputRef : undefined}
                     type="number"
                     value={payment.amount}
-                    onFocus={() => setAmountTarget({ kind: 'payment', index: idx })}
+                    onFocus={(e) => { selectAmountTarget({ kind: 'payment', index: idx }); e.currentTarget.select(); }}
                     onChange={(e) => updatePaymentAmount(idx, e.target.value)}
                     placeholder="0.00"
                     inputMode="decimal"
@@ -568,7 +592,7 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
                   const dueStored = Math.min(maxWalletStored, Math.max(0, remaining - allocatedElsewhere));
                   const dueDisplay = toDisplayUnit(dueStored);
                   setWalletAmount(dueDisplay > 0 ? String(dueDisplay) : '');
-                  setAmountTarget({ kind: 'wallet' });
+                  selectAmountTarget({ kind: 'wallet' });
                 }} className={`touch-target w-36 shrink-0 justify-start rounded-s-xl border px-3 gap-2 text-sm font-semibold ${walletAmt > 0 ? 'bg-purple-600 text-white border-purple-600' : 'bg-purple-50 text-purple-800 border-purple-200 disabled:bg-muted disabled:text-gray-400 disabled:border-border'}`}>
                   <Wallet size={15} /><span className="truncate">{t('loyaltyWallet')}</span>
                 </button>
@@ -577,8 +601,9 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
                   <input
                     type="number"
                     value={walletAmount}
-                    onFocus={() => setAmountTarget({ kind: 'wallet' })}
+                    onFocus={(e) => { selectAmountTarget({ kind: 'wallet' }); e.currentTarget.select(); }}
                     onChange={(e) => {
+                      setReplacePending(false);
                       const v = e.target.value;
                       const maxWalletCurrencyStored = Math.floor(walletBalance / (LOYALTY_REDEMPTION_RATE));
                       const maxDisplay = toDisplayUnit(Math.min(maxWalletCurrencyStored, remaining));
@@ -613,16 +638,17 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
               </div>
             </div>
           )}
-          {amountTarget && (
+          {activeTarget && (
             <CurrencyTouchNumberPad
               value={activeAmountValue}
               onChange={updateActiveAmount}
+              replaceOnNextKey={replacePending}
               ariaLabel={t('numericKeypad')}
               clearLabel={t('clearAmount')}
               backspaceLabel={t('backspaceAmount')}
               // Percentage discounts are dimensionless rates, so they retain decimal input for zero-decimal currencies.
               currencyMaxDecimals={unitAdapter.maxDecimals}
-              amountTarget={amountTarget.kind}
+              amountTarget={activeTarget.kind}
               discountType={discountType}
               max={activeAmountMax}
               quickValues={activeAmountQuickValues}

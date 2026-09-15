@@ -19,6 +19,8 @@ interface Props {
   max?: number;
   quickValues?: QuickValue[];
   className?: string;
+  /** El valor actual está seleccionado: la próxima tecla lo reemplaza en vez de sumarle dígitos. */
+  replaceOnNextKey?: boolean;
 }
 
 function clampValue(value: string, max?: number) {
@@ -47,6 +49,7 @@ export default function TouchNumberPad({
   max,
   quickValues = [],
   className,
+  replaceOnNextKey = false,
 }: Props) {
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', allowDecimal ? '.' : '', '0'];
 
@@ -71,7 +74,7 @@ export default function TouchNumberPad({
           <button
             key={key}
             type="button"
-            onClick={() => onChange(appendDigit(value, key, allowDecimal, max))}
+            onClick={() => onChange(appendDigit(replaceOnNextKey ? '' : value, key, allowDecimal, max))}
             className="touch-target rounded-lg border border-border bg-card text-lg font-bold tabular-nums text-foreground transition-colors active:bg-muted"
           >
             {key}
@@ -81,7 +84,7 @@ export default function TouchNumberPad({
         ))}
         <button
           type="button"
-          onClick={() => onChange(value.slice(0, -1))}
+          onClick={() => onChange(replaceOnNextKey ? '' : value.slice(0, -1))}
           className="touch-target rounded-lg border border-border bg-card text-muted-foreground transition-colors active:bg-muted"
           aria-label={backspaceLabel}
           title={backspaceLabel}
