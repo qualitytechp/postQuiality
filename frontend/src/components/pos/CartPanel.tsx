@@ -81,7 +81,7 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
         : 'w-full h-full bg-card rounded-xl border border-border dark:border-border flex flex-col shadow-sm'
     }>
       {/* Order Type */}
-      <div className="p-4 border-b border-border dark:border-border space-y-2">
+      <div className="p-3 border-b border-border dark:border-border space-y-2">
         <div className="flex gap-1 bg-muted rounded-lg p-1">
           {(['dine_in', 'takeaway', 'delivery', 'online'] as const)
             .filter((type) => isRestaurant || type !== 'dine_in')
@@ -154,8 +154,9 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
         )}
       </div>
 
-      {/* Cart Items */}
-      <div className={isDrawer ? 'overflow-y-auto p-4 max-h-[40vh]' : 'flex-1 overflow-y-auto p-4'}>
+      {/* Cart Items — cabecera y pie ceden relleno para que la comanda, lo
+          único que crece con el pedido, se lleve el alto libre. */}
+      <div className={isDrawer ? 'overflow-y-auto p-3 max-h-[40vh]' : 'flex-1 overflow-y-auto p-3'}>
         {/* Previously ordered items (add-items mode) */}
         {existingOrder && existingOrder.items && existingOrder.items.filter((i: OrderItem) => i.status !== 'cancelled').length > 0 && (
           <div className="mb-3 pb-3 border-b border-dashed border-border">
@@ -177,9 +178,9 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
             <p className="mt-2 text-sm">{existingOrder ? t('addNewItemsAbove') : t('cartEmpty')}</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {cart.items.map((item) => (
-              <div key={item.id} className="border-b border-border/60 pb-3 last:border-b-0 last:pb-0">
+              <div key={item.id} className="border-b border-border/60 pb-2 last:border-b-0 last:pb-0">
                 <div className="flex items-start gap-2">
                   <p className="min-w-0 flex-1 break-words text-sm font-medium leading-snug text-foreground">
                     {item.product.name}
@@ -261,17 +262,17 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
       </div>
 
       {/* Cart Footer */}
-      <div className="p-4 border-t border-border dark:border-border">
+      <div className="p-3 border-t border-border dark:border-border">
         {/* Order Notes */}
         {cart.items.length > 0 && (
-          <div className="mb-3">
+          <div className="mb-2">
             <textarea
               value={cart.orderNotes}
               onChange={(e) => cart.setOrderNotes(e.target.value.slice(0, 200))}
               placeholder={t('orderNotesPlaceholder')}
               rows={2}
               maxLength={200}
-              className="w-full min-h-20 px-3 py-2 text-sm border border-border bg-card rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+              className="w-full min-h-14 px-3 py-2 text-sm border border-border bg-card rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
             />
             <p className="text-xs text-gray-400 text-end mt-0.5">{cart.orderNotes.length}/200</p>
           </div>
@@ -280,7 +281,7 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
           <span className="text-muted-foreground">{t('items')}</span>
           <span className="font-medium">{cart.itemCount()}</span>
         </div>
-        <div className="flex justify-between mb-4 text-lg">
+        <div className="flex justify-between mb-3 text-lg">
           <span className="font-semibold text-foreground">{t('subtotal')}</span>
           <span className="font-bold text-brand">
             {fmt(cart.subtotal())}

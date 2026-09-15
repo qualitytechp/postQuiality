@@ -1124,8 +1124,9 @@ export default function POSPage() {
           />
         </div>
 
-        {/* Desktop Cart — always open, hidden on mobile */}
-        <div className="hidden md:flex md:w-80 md:shrink-0 h-full">
+        {/* Desktop Cart — always open, hidden on mobile. Un tercio de la
+            pantalla, no un ancho fijo: la comanda crece con el monitor. */}
+        <div className="hidden md:flex md:w-[33.333vw] md:shrink-0 h-full">
           <CartPanel {...cartPanelProps} />
         </div>
       </div>

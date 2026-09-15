@@ -145,10 +145,12 @@ export default function ProductGrid({
       </div>
 
       <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
-        <div className={`grid gap-3 ${
-          sidebarOpen 
-            ? 'grid-cols-4' 
-            : 'grid-cols-5'
+        {/* Una columna más desde `md`: en el escritorio caben, en el teléfono
+            una quinta columna dejaría el nombre del producto ilegible. */}
+        <div className={`grid gap-2.5 ${
+          sidebarOpen
+            ? 'grid-cols-4 md:grid-cols-5'
+            : 'grid-cols-5 md:grid-cols-6'
         }`}>
           {filtered.map((product) => {
             const inCartQty = cartQuantities.get(product.id) || 0;
@@ -160,7 +162,7 @@ export default function ProductGrid({
                 data-testid="pos-product-card"
                 type="button"
                 onClick={() => onProductClick(product)}
-                className="min-h-36 bg-card rounded-xl p-2.5 border border-border hover:border-brand/40 active:border-brand active:bg-muted/40 hover:shadow-md transition-all text-start relative cursor-pointer overflow-hidden touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                className="min-h-30 bg-card rounded-xl p-2 border border-border hover:border-brand/40 active:border-brand active:bg-muted/40 hover:shadow-md transition-all text-start relative cursor-pointer overflow-hidden touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               >
                 {/* Un combo no tiene existencias propias: lo que se muestra es
                     para cuántos alcanzan sus componentes. */}
@@ -199,7 +201,7 @@ export default function ProductGrid({
                 )}
 
                 {showProductImages && (
-                  <div className="w-full aspect-square rounded-lg mb-3 relative overflow-hidden">
+                  <div className="w-full aspect-square rounded-lg mb-2 relative overflow-hidden">
                     {/* Always-visible background tile — no flash when image loads */}
                     <div
                       className="absolute inset-0 flex items-center justify-center"
