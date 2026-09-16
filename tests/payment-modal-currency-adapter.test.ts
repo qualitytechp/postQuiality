@@ -429,6 +429,7 @@ async function runCatalogSaveBoundaryTests() {
       getCurrencySymbol: () => 'JPY',
       getCountryByCode: () => ({ locale: 'ja-JP' }),
       getCurrencyUnitAdapter: () => getCurrencyUnitAdapter('JPY', 'JP'),
+      getCurrencyMinorUnitFactor: () => 1,
     },
     '@/lib/currency-input': { roundCurrencyValue },
     '@/lib/image-utils': { nameToColor: () => '#000000' },
@@ -436,10 +437,11 @@ async function runCatalogSaveBoundaryTests() {
     '@/store/auth': { useAuthStore: () => ({ currentTenant }) },
     '@/hooks/use-confirm': { useConfirm: () => ({ confirm: async () => true, ConfirmDialog: null }) },
     '@/hooks/useFormatCurrency': { useFormatCurrency: () => (amount: number) => String(amount) },
+    '@/hooks/useFormatDate': { useFormatDate: () => ({ formatDate: (value: unknown) => String(value) }) },
     'react-hot-toast': { __esModule: true, default: { success: () => undefined, error: () => undefined } },
-    'use-intl': { useTranslations: (namespace: string) => translate(namespace) },
+    'use-intl': { useTranslations: (namespace: string) => translate(namespace), useLocale: () => 'en-US' },
     '@shared/role-permissions': { ROLE_ACCESS: { ownerManager: ['owner', 'manager'] }, hasRole: () => true },
-    'lucide-react': { Plus: Icon, Pencil: Icon, Trash2: Icon, X: Icon, Package: Icon, Folder: Icon, Puzzle: Icon, FileSpreadsheet: Icon, Download: Icon, Upload: Icon, CheckCircle: Icon, AlertCircle: Icon, AlertTriangle: Icon, ChevronDown: Icon, ChevronRight: Icon },
+    'lucide-react': { Plus: Icon, Pencil: Icon, Trash2: Icon, X: Icon, Package: Icon, Folder: Icon, Puzzle: Icon, FileSpreadsheet: Icon, Download: Icon, Upload: Icon, CheckCircle: Icon, AlertCircle: Icon, AlertTriangle: Icon, ChevronDown: Icon, ChevronRight: Icon, PackageMinus: Icon, History: Icon },
   };
   const originalLoad = moduleApi._load;
   const originalUseState = React.useState;

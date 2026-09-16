@@ -5,14 +5,15 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
-import { Plus, Pencil, Trash2, X, Package, Folder, Puzzle, FileSpreadsheet, Download, Upload, CheckCircle, AlertCircle, AlertTriangle, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Package, Folder, Puzzle, FileSpreadsheet, Download, Upload, CheckCircle, AlertCircle, AlertTriangle, Search, PackageMinus, History } from 'lucide-react';
 import type { Product, Category, AddonGroup } from '@/lib/types';
 import TagBadge, { tagLabel } from '@/components/pos/DietaryBadge';
 import { parseDbTimestamp } from '@/lib/utils';
 import ImageUploader from '@/components/products/ImageUploader';
-import { getCurrencySymbol, getCountryByCode, getCurrencyUnitAdapter } from '@/lib/countries';
+import { getCurrencySymbol, getCountryByCode, getCurrencyUnitAdapter, getCurrencyMinorUnitFactor } from '@/lib/countries';
 import { roundCurrencyValue } from '@/lib/currency-input';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
+import { useFormatDate } from '@/hooks/useFormatDate';
 import { useConfirm } from '@/hooks/use-confirm';
 import { nameToColor } from '@/lib/image-utils';
 import { useTranslations, type AppConfig } from 'use-intl';
@@ -20,6 +21,42 @@ import { ROLE_ACCESS, hasRole } from '@shared/role-permissions';
 
 type PosKey = keyof AppConfig['Messages']['pos'];
 type ProductsKey = keyof AppConfig['Messages']['products'];
+
+type WriteOffCause = 'expired' | 'damaged' | 'shrinkage' | 'other';
+
+interface WriteOffItem {
+  id: number;
+  product_id: string;
+  product_name: string;
+  sale_unit: string;
+  delta: number;
+  write_off_cause: WriteOffCause;
+  cost_impact_cents: number | null;
+  note: string | null;
+  occurred_at: string;
+  business_date: string;
+  created_by_name: string | null;
+}
+
+interface WriteOffHistory {
+  items: WriteOffItem[];
+  summary: {
+    count: number;
+    total_quantity: number;
+    total_cost_impact_cents: number;
+    by_cause: Record<string, { count: number; quantity: number; cost_impact_cents: number }>;
+  };
+  from: string;
+  to: string;
+}
+
+const WRITE_OFF_CAUSES: readonly WriteOffCause[] = ['expired', 'damaged', 'shrinkage', 'other'];
+const WRITE_OFF_CAUSE_LABEL_KEYS: Record<WriteOffCause, ProductsKey> = {
+  expired: 'writeOffCauseExpired',
+  damaged: 'writeOffCauseDamaged',
+  shrinkage: 'writeOffCauseShrinkage',
+  other: 'writeOffCauseOther',
+};
 
 const PRESET_TAGS: { key: string; labelKey: PosKey }[] = [
   { key: 'veg', labelKey: 'tagVeg' },
@@ -140,6 +177,7 @@ export default function ProductsPage() {
   const currency = getCurrencySymbol(currentTenant?.currency || 'INR', getCountryByCode(currentTenant?.country ?? 'IN')?.locale);
   const unitAdapter = getCurrencyUnitAdapter(currentTenant?.currency || 'INR', currentTenant?.country);
   const fmt = useFormatCurrency();
+  const { formatDate } = useFormatDate();
 
   // Qué columnas se pueden esconder. El producto y las acciones no: sin ellas
   // la fila no se sabe de quién es ni se puede hacer nada con ella.
@@ -182,6 +220,63 @@ export default function ProductsPage() {
     new Intl.NumberFormat(percentLocale, { maximumFractionDigits: 1 }).format(value) + ' %';
   const isRestaurant = (currentTenant?.business_type ?? 'restaurant') === 'restaurant';
   const isOwnerOrManager = hasRole(currentTenant?.role, ROLE_ACCESS.ownerManager);
+  const minorFactor = getCurrencyMinorUnitFactor(currentTenant?.currency || 'INR');
+
+  // ── Inventory write-off (expired / damaged / shrinkage) ──────────────────
+  const [writeOffProduct, setWriteOffProduct] = useState<Product | null>(null);
+  const [writeOffForm, setWriteOffForm] = useState({ cause: 'expired' as WriteOffCause, quantity: '', note: '' });
+  const [savingWriteOff, setSavingWriteOff] = useState(false);
+  const [showWriteOffHistory, setShowWriteOffHistory] = useState(false);
+  const [writeOffHistory, setWriteOffHistory] = useState<WriteOffHistory | null>(null);
+  const [writeOffHistoryLoading, setWriteOffHistoryLoading] = useState(false);
+
+  const openWriteOff = (product: Product) => {
+    setWriteOffProduct(product);
+    setWriteOffForm({ cause: 'expired', quantity: '', note: '' });
+  };
+
+  const writeOffQuantity = Number(writeOffForm.quantity);
+  const writeOffCostImpact = writeOffProduct && Number.isFinite(writeOffQuantity) && writeOffQuantity > 0
+    ? writeOffQuantity * (Number(writeOffProduct.cost) || 0)
+    : 0;
+
+  const submitWriteOff = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!writeOffProduct) return;
+    if (!Number.isFinite(writeOffQuantity) || writeOffQuantity <= 0) {
+      toast.error(t('writeOffQuantityRequired'));
+      return;
+    }
+    setSavingWriteOff(true);
+    try {
+      await api.post(`/products/${writeOffProduct.id}/write-off`, {
+        quantity: writeOffQuantity,
+        cause: writeOffForm.cause,
+        note: writeOffForm.note.trim() || undefined,
+      });
+      toast.success(t('writeOffSaved'));
+      setWriteOffProduct(null);
+      fetchData();
+    } catch (error: unknown) {
+      const message = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(message || t('writeOffFailed'));
+    } finally {
+      setSavingWriteOff(false);
+    }
+  };
+
+  const openWriteOffHistory = async () => {
+    setShowWriteOffHistory(true);
+    setWriteOffHistoryLoading(true);
+    try {
+      const { data } = await api.get('/products/write-offs');
+      setWriteOffHistory(data);
+    } catch {
+      toast.error(t('writeOffHistoryFailed'));
+    } finally {
+      setWriteOffHistoryLoading(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -707,6 +802,11 @@ export default function ProductsPage() {
                 {t('assignTaxCategory')}
               </Button>
             )}
+            {isOwnerOrManager && (
+              <Button variant="outline" onClick={openWriteOffHistory}>
+                <History size={16} className="me-1" /> {t('writeOffHistory')}
+              </Button>
+            )}
             <Button variant="outline" onClick={() => openCsvModal('products')}>
               <FileSpreadsheet size={16} className="me-1" /> CSV
             </Button>
@@ -873,6 +973,11 @@ export default function ProductsPage() {
                   <div className="flex gap-2 justify-end">
                     {isOwnerOrManager && (
                       <>
+                        {!!product.track_inventory && (
+                          <button onClick={() => openWriteOff(product)} className="p-1.5 text-gray-400 hover:text-amber-600" title={t('writeOff')}>
+                            <PackageMinus size={16} />
+                          </button>
+                        )}
                         <button onClick={() => openEdit(product)} className="p-1.5 text-gray-400 hover:text-brand">
                           <Pencil size={16} />
                         </button>
@@ -1653,6 +1758,123 @@ export default function ProductsPage() {
           </div>
         </div>
       )}
+      {writeOffProduct && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-2xl p-6 w-full max-w-sm">
+            <div className="flex justify-between items-center mb-1">
+              <h2 className="text-lg font-bold">{t('writeOffTitle')}</h2>
+              <button onClick={() => setWriteOffProduct(null)} disabled={savingWriteOff}>
+                <X size={20} className="text-gray-400" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4 truncate">{writeOffProduct.name}</p>
+            <form onSubmit={submitWriteOff} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">{t('writeOffCause')}</label>
+                <select
+                  value={writeOffForm.cause}
+                  onChange={(e) => setWriteOffForm({ ...writeOffForm, cause: e.target.value as WriteOffCause })}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand text-sm"
+                >
+                  {WRITE_OFF_CAUSES.map((cause) => (
+                    <option key={cause} value={cause}>{t(WRITE_OFF_CAUSE_LABEL_KEYS[cause])}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
+                  {t('writeOffQuantity')} ({writeOffProduct.sale_unit}) · {t('writeOffOnHand', { quantity: writeOffProduct.stock_quantity })}
+                </label>
+                <input
+                  type="number" min="0" step="any" inputMode="decimal" required autoFocus
+                  value={writeOffForm.quantity}
+                  onChange={(e) => setWriteOffForm({ ...writeOffForm, quantity: e.target.value })}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand text-sm text-end tabular-nums"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">{t('writeOffNote')} ({tCommon('optional')})</label>
+                <textarea
+                  value={writeOffForm.note}
+                  onChange={(e) => setWriteOffForm({ ...writeOffForm, note: e.target.value })}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand text-sm resize-none"
+                />
+              </div>
+              {writeOffCostImpact > 0 && (
+                <div className="flex items-center justify-between rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                  <span className="text-xs font-medium text-amber-800">{t('writeOffCostImpact')}</span>
+                  <span className="text-sm font-bold text-amber-800 tabular-nums">{fmt(writeOffCostImpact)}</span>
+                </div>
+              )}
+              <Button type="submit" disabled={savingWriteOff} className="w-full">
+                {savingWriteOff ? t('writeOffSaving') : t('writeOffConfirm')}
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showWriteOffHistory && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-xl">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-border shrink-0">
+              <div>
+                <h2 className="text-lg font-bold">{t('writeOffHistory')}</h2>
+                {writeOffHistory && (
+                  <p className="text-xs text-muted-foreground tabular-nums">{writeOffHistory.from} – {writeOffHistory.to}</p>
+                )}
+              </div>
+              <button onClick={() => setShowWriteOffHistory(false)}><X size={20} className="text-gray-400" /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {writeOffHistoryLoading && <p className="text-sm text-muted-foreground text-center py-8">{tCommon('loading')}</p>}
+              {!writeOffHistoryLoading && writeOffHistory && (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-xs text-red-700 uppercase">{t('writeOffTotalCost')}</p>
+                      <p className="text-lg font-bold tabular-nums text-red-700">
+                        {fmt(writeOffHistory.summary.total_cost_impact_cents / minorFactor)}
+                      </p>
+                    </div>
+                    {WRITE_OFF_CAUSES.map((cause) => (
+                      <div key={cause} className="bg-muted rounded-lg p-3">
+                        <p className="text-xs text-muted-foreground uppercase">{t(WRITE_OFF_CAUSE_LABEL_KEYS[cause])}</p>
+                        <p className="text-lg font-bold tabular-nums">
+                          {fmt((writeOffHistory.summary.by_cause[cause]?.cost_impact_cents || 0) / minorFactor)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  {writeOffHistory.items.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">{t('writeOffHistoryEmpty')}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {writeOffHistory.items.map((item) => (
+                        <div key={item.id} className="flex items-start justify-between gap-3 border-b border-border/60 pb-2 last:border-b-0 last:pb-0">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{item.product_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {t(WRITE_OFF_CAUSE_LABEL_KEYS[item.write_off_cause])} · {Math.abs(item.delta)} {item.sale_unit} · {formatDate(item.occurred_at)}
+                              {item.created_by_name ? ` · ${item.created_by_name}` : ''}
+                            </p>
+                            {item.note && <p className="text-xs text-muted-foreground italic mt-0.5 break-words">{item.note}</p>}
+                          </div>
+                          <span className="text-sm font-medium text-red-600 tabular-nums shrink-0">
+                            −{fmt((item.cost_impact_cents || 0) / minorFactor)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {ConfirmDialog}
     </div>
   );

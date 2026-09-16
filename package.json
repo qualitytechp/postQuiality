@@ -124,6 +124,7 @@
     "test:loyalty-toggle": "node tests/run-electron-node-test.cjs tests/loyalty-toggle.test.ts",
     "test:modules-toggle": "node tests/run-electron-node-test.cjs tests/modules-toggle.test.ts",
     "test:stock-ledger": "node tests/run-electron-node-test.cjs tests/stock-ledger.test.ts",
+    "test:product-write-off": "node tests/run-electron-node-test.cjs tests/product-write-off.test.ts",
     "test:purchases": "node tests/run-electron-node-test.cjs tests/purchases.test.ts",
     "test:purchases-hardening": "node tests/run-electron-node-test.cjs tests/purchases-hardening.test.ts",
     "test:purchases-edit": "node tests/run-electron-node-test.cjs tests/purchases-edit.test.ts",

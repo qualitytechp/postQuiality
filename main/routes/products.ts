@@ -10,8 +10,10 @@ import * as dns from 'dns';
 import * as https from 'https';
 import * as net from 'net';
 import { asyncHandler } from '../middleware/async-handler';
-import { applyStockMovement } from '../services/inventory';
+import { applyStockMovement, type WriteOffCause } from '../services/inventory';
 import { availableUnits, comboCost, componentsOf, setComponents, ComboError } from '../services/combos';
+import { businessToday } from '../services/cartera';
+import { getCurrencyMinorUnitFactor } from '../countries';
 
 const MAX_FETCH_BYTES = 10 * 1024 * 1024;
 
@@ -564,6 +566,60 @@ router.get('/:id/image', asyncHandler(async (req: Request, res: Response) => {
     res.status(500).json({ error: "Internal server error" });
   }
 }));
+
+const WRITE_OFF_CAUSES: readonly WriteOffCause[] = ['expired', 'damaged', 'shrinkage', 'other'];
+
+function isWriteOffCause(value: unknown): value is WriteOffCause {
+  return typeof value === 'string' && (WRITE_OFF_CAUSES as readonly string[]).includes(value);
+}
+
+// Baja de inventario: historial y su impacto en costo. Registrada antes de
+// /:id — un segmento igual de corto la haría pasar por un id de producto.
+router.get('/write-offs', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const month = businessToday().slice(0, 7);
+    const from = typeof req.query.from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.from) ? req.query.from : `${month}-01`;
+    const to = typeof req.query.to === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.to) ? req.query.to : businessToday();
+    const cause = isWriteOffCause(req.query.cause) ? req.query.cause : null;
+
+    const rows = db.prepare(`
+      SELECT m.id, m.product_id, p.name AS product_name, p.sale_unit,
+             m.delta, m.write_off_cause, m.cost_impact_cents, m.note,
+             m.occurred_at, m.business_date, u.name AS created_by_name
+      FROM stock_movements m
+      JOIN products p ON p.id = m.product_id
+      LEFT JOIN users u ON u.id = m.created_by
+      WHERE m.reason = 'adjustment' AND m.write_off_cause IS NOT NULL
+        AND m.business_date BETWEEN ? AND ?
+        AND (? IS NULL OR m.write_off_cause = ?)
+      ORDER BY m.id DESC
+    `).all(from, to, cause, cause) as any[];
+
+    const summary = {
+      count: rows.length,
+      total_quantity: 0,
+      total_cost_impact_cents: 0,
+      by_cause: {} as Record<string, { count: number; quantity: number; cost_impact_cents: number }>,
+    };
+    for (const row of rows) {
+      const quantity = Math.abs(Number(row.delta) || 0);
+      const costImpactCents = Number(row.cost_impact_cents) || 0;
+      summary.total_quantity += quantity;
+      summary.total_cost_impact_cents += costImpactCents;
+      const bucket = summary.by_cause[row.write_off_cause] ?? { count: 0, quantity: 0, cost_impact_cents: 0 };
+      bucket.count += 1;
+      bucket.quantity += quantity;
+      bucket.cost_impact_cents += costImpactCents;
+      summary.by_cause[row.write_off_cause] = bucket;
+    }
+
+    res.json({ items: rows, summary, from, to });
+  } catch (error: any) {
+    console.error("[API] Internal error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 router.get('/:id', (req: Request, res: Response) => {
   try {
@@ -1133,6 +1189,56 @@ router.post('/:id/stock', requireRole(...ROLE_ACCESS.ownerManager), (req: Reques
     }
     const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
     res.json({ product: serializeProduct(updated) });
+  } catch (error: any) {
+    console.error("[API] Internal error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/**
+ * Baja de inventario: el producto se retira sin haberse vendido — venció,
+ * se dañó, o se perdió como merma. A diferencia de /:id/stock (una
+ * corrección numérica cualquiera), siempre resta, siempre pide un motivo,
+ * y valoriza lo perdido al costo del producto — no al precio de venta,
+ * porque nunca hubo una venta.
+ */
+router.post('/:id/write-off', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const { quantity, cause, note } = req.body;
+
+    if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity <= 0) {
+      return res.status(400).json({ error: 'quantity must be a positive number' });
+    }
+    if (!isWriteOffCause(cause)) {
+      return res.status(400).json({ error: `cause must be one of: ${WRITE_OFF_CAUSES.join(', ')}` });
+    }
+
+    const db = getDatabase();
+    const product = db.prepare('SELECT * FROM products WHERE id = ? AND deleted_at IS NULL').get(req.params.id) as any;
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const factor = getCurrencyMinorUnitFactor(getSettingValue('currency') || 'INR');
+    const costImpactCents = Math.round(quantity * (Number(product.cost) || 0) * factor);
+
+    const applied = applyStockMovement(db, {
+      productId: String(req.params.id),
+      delta: -quantity,
+      reason: 'adjustment',
+      writeOffCause: cause,
+      costImpactCents,
+      note: typeof note === 'string' && note.trim() ? note.trim().slice(0, 500) : null,
+      userId: (req as any).user?.userId ?? null,
+    });
+    if (!applied.ok) {
+      return res.status(400).json({
+        error: applied.reason === 'insufficient' ? 'Not enough stock on hand to write off that much' : 'Product not found',
+      });
+    }
+
+    const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
+    res.json({ product: serializeProduct(updated), cost_impact_cents: costImpactCents });
   } catch (error: any) {
     console.error("[API] Internal error:", error);
     res.status(500).json({ error: "Internal server error" });

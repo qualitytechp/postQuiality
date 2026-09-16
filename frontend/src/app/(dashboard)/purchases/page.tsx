@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, useId } from 'react'
 import Link from 'next/link';
 import {
   Plus, X, Trash2, Ban, Truck, Settings as SettingsIcon, Search,
-  ChevronDown, ChevronUp, Receipt, Wallet, Clock, MoreVertical, Pencil,
+  ChevronDown, ChevronUp, Receipt, Wallet, Clock, MoreVertical, Pencil, ArrowLeft,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslations } from 'use-intl';
@@ -12,7 +12,6 @@ import { useTranslations } from 'use-intl';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { useAuthStore } from '@/store/auth';
 import { usePosSettingsStore } from '@/store/pos-settings';
@@ -71,6 +70,7 @@ interface ProductComboboxProps {
   onAdvance: () => void;
   fmt: (amount: number) => string;
   inputRef: (el: HTMLInputElement | null) => void;
+  autoFocus?: boolean;
   noProductLabel: string;
   searchPlaceholder: string;
   noResultsLabel: string;
@@ -85,7 +85,7 @@ interface ProductComboboxProps {
  * service lines that never had a `<select>` equivalent to search.
  */
 function ProductCombobox({
-  products, selected, onSelect, onAdvance, fmt, inputRef,
+  products, selected, onSelect, onAdvance, fmt, inputRef, autoFocus,
   noProductLabel, searchPlaceholder, noResultsLabel, changeLabel,
 }: ProductComboboxProps) {
   const [query, setQuery] = useState('');
@@ -164,6 +164,7 @@ function ProductCombobox({
       <input
         ref={inputRef}
         type="text"
+        autoFocus={autoFocus}
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
@@ -508,6 +509,191 @@ export default function PurchasesPage() {
     );
   }
 
+  // A line-item document (supplier + N products) needs real width to breathe —
+  // a centered dialog just squeezed the same table into a fraction of the
+  // screen. This replaces the list with a full view instead, the same way
+  // the module-off state above does.
+  if (showPurchaseForm) {
+    return (
+      <form
+        ref={purchaseFormRef}
+        onKeyDown={handlePurchaseFormKeyDown}
+        onSubmit={editing ? saveEdit : savePurchase}
+        className="p-6"
+      >
+        <div className="mb-5 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => { setShowPurchaseForm(false); setEditing(null); }}
+            className="touch-target -ms-2 shrink-0 rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label={tCommon('back')}
+            title={tCommon('back')}
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">{editing ? t('editTitle') : t('newPurchase')}</h1>
+            {editing && <p className="text-sm text-muted-foreground">{t('editHint')}</p>}
+          </div>
+        </div>
+
+        <div className="mx-auto max-w-5xl space-y-6">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="block">
+                <span className="text-xs font-medium uppercase text-muted-foreground">{t('supplier')}</span>
+                {/* Con abonos hechos el proveedor ya no se cambia: esa plata
+                    se le entregó a alguien concreto. */}
+                <select value={form.supplier_id} required={!editing}
+                  disabled={!!editing && editing.paid_cents > 0}
+                  onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
+                  className="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60">
+                  <option value="">{editing ? editing.supplier_name : '—'}</option>
+                  {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium uppercase text-muted-foreground">{t('invoiceRef')}</span>
+                <Input type="text" value={form.invoice_ref}
+                  onChange={(e) => setForm({ ...form, invoice_ref: e.target.value })}
+                  className="mt-1" />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium uppercase text-muted-foreground">{t('paymentTerms')}</span>
+                <select value={form.payment_terms}
+                  onChange={(e) => setForm({ ...form, payment_terms: e.target.value as 'cash' | 'credit' })}
+                  className="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
+                  <option value="credit">{t('termsCredit')}</option>
+                  <option value="cash">{t('termsCash')}</option>
+                </select>
+              </label>
+              {form.payment_terms === 'credit' && (
+                <label className="block">
+                  <span className="text-xs font-medium uppercase text-muted-foreground">{t('dueDate')}</span>
+                  <Input type="date" value={form.due_date} required
+                    onChange={(e) => setForm({ ...form, due_date: e.target.value })}
+                    className="mt-1" />
+                </label>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-medium uppercase text-muted-foreground">{t('lines')}</span>
+              <Button type="button" variant="outline" size="sm" onClick={addLine}>
+                <Plus size={14} className="me-1" /> {t('addLine')}
+              </Button>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>{t('product')}</TableHead>
+                    <TableHead className="w-32 text-end">{t('quantity')}</TableHead>
+                    <TableHead className="w-36 text-end">{t('unitCost')}</TableHead>
+                    <TableHead className="w-36 text-end">{t('lineTotal')}</TableHead>
+                    <TableHead className="w-9" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {lines.map((line, index) => {
+                    const product = productById.get(line.product_id);
+                    return (
+                      <TableRow key={line.key} className="align-top hover:bg-transparent">
+                        <TableCell className="whitespace-normal py-3">
+                          <ProductCombobox
+                            products={products}
+                            selected={product}
+                            fmt={fmt}
+                            onSelect={(p) => updateLine(line.key, p
+                              ? { product_id: p.id, unit_cost: p.cost != null ? String(p.cost) : line.unit_cost }
+                              : { product_id: '' })}
+                            onAdvance={() => handleLineAdvance(line.key)}
+                            inputRef={(el) => registerLineInputRef(line.key, el)}
+                            autoFocus={index === 0}
+                            noProductLabel={t('noProduct')}
+                            searchPlaceholder={t('productSearchPlaceholder')}
+                            noResultsLabel={t('noProductsFound')}
+                            changeLabel={t('changeProduct')}
+                          />
+                          {!line.product_id && (
+                            <Input type="text" placeholder={t('lineDescription')} value={line.description}
+                              onChange={(e) => updateLine(line.key, { description: e.target.value })}
+                              onKeyDown={handleLineEnterKeyDown(line.key)}
+                              className="mt-1.5 h-8 text-sm" />
+                          )}
+                          {product && !product.track_inventory && (
+                            <p className="mt-1 text-xs text-muted-foreground">{t('stockNotTracked')}</p>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-3">
+                          <Input type="number" min="0" step="any" inputMode="decimal" value={line.quantity}
+                            onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
+                            onKeyDown={handleLineEnterKeyDown(line.key)}
+                            className="text-end tabular-nums" />
+                          {product && <p className="mt-1 text-end text-xs text-muted-foreground">{product.sale_unit}</p>}
+                        </TableCell>
+                        <TableCell className="py-3">
+                          <Input type="number" min="0" step="any" inputMode="decimal" value={line.unit_cost}
+                            onChange={(e) => updateLine(line.key, { unit_cost: e.target.value })}
+                            onKeyDown={handleLineEnterKeyDown(line.key)}
+                            className="text-end tabular-nums" />
+                        </TableCell>
+                        <TableCell className="py-3 text-end font-medium tabular-nums">
+                          {fmt(lineTotalCents(line) / factor)}
+                        </TableCell>
+                        <TableCell className="py-3">
+                          <button type="button" aria-label={t('removeLine')}
+                            onClick={() => setLines((current) => (current.length > 1 ? current.filter((l) => l.key !== line.key) : current))}
+                            className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-30 disabled:hover:bg-transparent"
+                            disabled={lines.length === 1}>
+                            <Trash2 size={15} />
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          {editing && (
+            <label className="block max-w-md">
+              <span className="text-xs font-medium uppercase text-muted-foreground">{t('editReason')}</span>
+              <Input type="text" value={editReason} onChange={(e) => setEditReason(e.target.value)}
+                className="mt-1" />
+            </label>
+          )}
+
+          {/* Same sticky-footer idea as the POS cart/payment screens — Total
+              and Guardar stay on screen through a long line-item list. */}
+          <div className="sticky bottom-0 space-y-3 border-t border-border bg-background py-4">
+            <div className="flex items-center justify-between rounded-lg bg-muted/60 px-4 py-2.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('total')}</span>
+              <span className="text-2xl font-bold tabular-nums">{fmt(draftTotalCents / factor)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <p className="hidden items-center gap-3 text-xs text-muted-foreground sm:flex">
+                <span className="flex items-center gap-1">
+                  <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Ctrl+F</kbd> {t('shortcutSearchProduct')}
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Enter</kbd> {t('shortcutAddLine')}
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Ctrl+S</kbd> {t('shortcutSave')}
+                </span>
+              </p>
+              <Button type="submit" disabled={saving} className="ms-auto min-w-32">{tCommon('save')}</Button>
+            </div>
+          </div>
+        </div>
+      </form>
+    );
+  }
+
   const statusLabel = (row: PurchaseRow) => (
     row.settlement === 'void' ? t('statusVoid')
       : row.settlement === 'paid' ? t('statusPaid')
@@ -806,181 +992,6 @@ export default function PurchasesPage() {
           </div>
         </div>
       )}
-
-      <Dialog open={showPurchaseForm} onOpenChange={(open) => { if (!open) { setShowPurchaseForm(false); setEditing(null); } }}>
-        <DialogContent
-          className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-0 overflow-hidden p-0"
-          onOpenAutoFocus={(e) => {
-            // First line's product search over Radix's default (the dialog
-            // shell itself) — that's where a new purchase actually starts.
-            const first = lines[0];
-            if (!first) return;
-            e.preventDefault();
-            requestAnimationFrame(() => focusLine(first.key));
-          }}
-        >
-          <DialogHeader className="shrink-0 border-b border-border px-6 py-4">
-            <DialogTitle>{editing ? t('editTitle') : t('newPurchase')}</DialogTitle>
-          </DialogHeader>
-          <form
-            ref={purchaseFormRef}
-            onKeyDown={handlePurchaseFormKeyDown}
-            onSubmit={editing ? saveEdit : savePurchase}
-            className="flex min-h-0 flex-1 flex-col"
-          >
-            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
-              {editing && (
-                <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{t('editHint')}</p>
-              )}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block">
-                  <span className="text-xs font-medium uppercase text-muted-foreground">{t('supplier')}</span>
-                  {/* Con abonos hechos el proveedor ya no se cambia: esa plata
-                      se le entregó a alguien concreto. */}
-                  <select value={form.supplier_id} required={!editing}
-                    disabled={!!editing && editing.paid_cents > 0}
-                    onChange={(e) => setForm({ ...form, supplier_id: e.target.value })}
-                    className="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60">
-                    <option value="">{editing ? editing.supplier_name : '—'}</option>
-                    {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-xs font-medium uppercase text-muted-foreground">{t('invoiceRef')}</span>
-                  <Input type="text" value={form.invoice_ref}
-                    onChange={(e) => setForm({ ...form, invoice_ref: e.target.value })}
-                    className="mt-1" />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-medium uppercase text-muted-foreground">{t('paymentTerms')}</span>
-                  <select value={form.payment_terms}
-                    onChange={(e) => setForm({ ...form, payment_terms: e.target.value as 'cash' | 'credit' })}
-                    className="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
-                    <option value="credit">{t('termsCredit')}</option>
-                    <option value="cash">{t('termsCash')}</option>
-                  </select>
-                </label>
-                {form.payment_terms === 'credit' && (
-                  <label className="block">
-                    <span className="text-xs font-medium uppercase text-muted-foreground">{t('dueDate')}</span>
-                    <Input type="date" value={form.due_date} required
-                      onChange={(e) => setForm({ ...form, due_date: e.target.value })}
-                      className="mt-1" />
-                  </label>
-                )}
-              </div>
-
-              <div>
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-medium uppercase text-muted-foreground">{t('lines')}</span>
-                  <Button type="button" variant="outline" size="sm" onClick={addLine}>
-                    <Plus size={14} className="me-1" /> {t('addLine')}
-                  </Button>
-                </div>
-                <div className="overflow-hidden rounded-lg border border-border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead>{t('product')}</TableHead>
-                        <TableHead className="w-28 text-end">{t('quantity')}</TableHead>
-                        <TableHead className="w-32 text-end">{t('unitCost')}</TableHead>
-                        <TableHead className="w-32 text-end">{t('lineTotal')}</TableHead>
-                        <TableHead className="w-9" />
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {lines.map((line) => {
-                        const product = productById.get(line.product_id);
-                        return (
-                          <TableRow key={line.key} className="align-top hover:bg-transparent">
-                            <TableCell className="whitespace-normal py-2.5">
-                              <ProductCombobox
-                                products={products}
-                                selected={product}
-                                fmt={fmt}
-                                onSelect={(p) => updateLine(line.key, p
-                                  ? { product_id: p.id, unit_cost: p.cost != null ? String(p.cost) : line.unit_cost }
-                                  : { product_id: '' })}
-                                onAdvance={() => handleLineAdvance(line.key)}
-                                inputRef={(el) => registerLineInputRef(line.key, el)}
-                                noProductLabel={t('noProduct')}
-                                searchPlaceholder={t('productSearchPlaceholder')}
-                                noResultsLabel={t('noProductsFound')}
-                                changeLabel={t('changeProduct')}
-                              />
-                              {!line.product_id && (
-                                <Input type="text" placeholder={t('lineDescription')} value={line.description}
-                                  onChange={(e) => updateLine(line.key, { description: e.target.value })}
-                                  onKeyDown={handleLineEnterKeyDown(line.key)}
-                                  className="mt-1.5 h-8 text-sm" />
-                              )}
-                              {product && !product.track_inventory && (
-                                <p className="mt-1 text-xs text-muted-foreground">{t('stockNotTracked')}</p>
-                              )}
-                            </TableCell>
-                            <TableCell className="py-2.5">
-                              <Input type="number" min="0" step="any" inputMode="decimal" value={line.quantity}
-                                onChange={(e) => updateLine(line.key, { quantity: e.target.value })}
-                                onKeyDown={handleLineEnterKeyDown(line.key)}
-                                className="text-end tabular-nums" />
-                            </TableCell>
-                            <TableCell className="py-2.5">
-                              <Input type="number" min="0" step="any" inputMode="decimal" value={line.unit_cost}
-                                onChange={(e) => updateLine(line.key, { unit_cost: e.target.value })}
-                                onKeyDown={handleLineEnterKeyDown(line.key)}
-                                className="text-end tabular-nums" />
-                            </TableCell>
-                            <TableCell className="py-2.5 text-end font-medium tabular-nums">
-                              {fmt(lineTotalCents(line) / factor)}
-                            </TableCell>
-                            <TableCell className="py-2.5">
-                              <button type="button" aria-label={t('removeLine')}
-                                onClick={() => setLines((current) => (current.length > 1 ? current.filter((l) => l.key !== line.key) : current))}
-                                className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-30 disabled:hover:bg-transparent"
-                                disabled={lines.length === 1}>
-                                <Trash2 size={15} />
-                              </button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-
-              {editing && (
-                <label className="block">
-                  <span className="text-xs font-medium uppercase text-muted-foreground">{t('editReason')}</span>
-                  <Input type="text" value={editReason} onChange={(e) => setEditReason(e.target.value)}
-                    className="mt-1" />
-                </label>
-              )}
-            </div>
-
-            <div className="shrink-0 space-y-3 border-t border-border px-6 py-4">
-              <div className="flex items-center justify-between rounded-lg bg-muted/60 px-4 py-2.5">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('total')}</span>
-                <span className="text-2xl font-bold tabular-nums">{fmt(draftTotalCents / factor)}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <p className="hidden items-center gap-3 text-xs text-muted-foreground sm:flex">
-                  <span className="flex items-center gap-1">
-                    <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Ctrl+F</kbd> {t('shortcutSearchProduct')}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Enter</kbd> {t('shortcutAddLine')}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-sans">Ctrl+S</kbd> {t('shortcutSave')}
-                  </span>
-                </p>
-                <Button type="submit" disabled={saving} className="ms-auto min-w-32">{tCommon('save')}</Button>
-              </div>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {voidTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

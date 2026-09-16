@@ -21,6 +21,9 @@ export type StockReason =
   | 'purchase_void'
   | 'adjustment';
 
+/** Why stock left without being sold — expired, broken, or shrinkage on a perishable. */
+export type WriteOffCause = 'expired' | 'damaged' | 'shrinkage' | 'other';
+
 export interface StockMovementInput {
   productId: string;
   /** Positive adds, negative removes. Zero touches the product and logs nothing. */
@@ -38,6 +41,15 @@ export interface StockMovementInput {
    * refusing would leave the ledger disagreeing with what actually happened.
    */
   allowNegative?: boolean;
+  /** Present only for a write-off — what became of the stock that's leaving. */
+  writeOffCause?: WriteOffCause | null;
+  /**
+   * What the removed stock was worth, in minor units. Snapshotted at write
+   * time rather than recomputed from `products.cost` on read, because that
+   * column keeps moving with every later purchase — a report from last
+   * month has to show what was actually lost then, not today's cost.
+   */
+  costImpactCents?: number | null;
 }
 
 export type StockApplyResult =
@@ -68,8 +80,8 @@ export function applyStockMovement(db: Database.Database, input: StockMovementIn
   if (input.delta !== 0) {
     db.prepare(`
       INSERT INTO stock_movements
-        (product_id, delta, balance_after, reason, ref_type, ref_id, note, occurred_at, business_date, created_by, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (product_id, delta, balance_after, reason, ref_type, ref_id, note, occurred_at, business_date, created_by, created_at, write_off_cause, cost_impact_cents)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       input.productId,
       input.delta,
@@ -82,6 +94,8 @@ export function applyStockMovement(db: Database.Database, input: StockMovementIn
       businessDate(),
       input.userId ?? null,
       timestamp,
+      input.writeOffCause ?? null,
+      input.costImpactCents ?? null,
     );
   }
 

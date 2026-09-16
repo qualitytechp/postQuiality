@@ -4517,6 +4517,32 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       `);
     },
   },
+  {
+    version: 93,
+    name: 'add_stock_write_off_tracking',
+    up: () => {
+      // Baja de inventario: vencido, dañado o merma — nunca se vendió, así
+      // que no puede entrar como 'sale'. Sigue siendo el mismo 'adjustment'
+      // de siempre (reason ya lo permite y reconstruir la tabla sólo para
+      // sumar un valor al CHECK no vale la pena); write_off_cause es lo que
+      // distingue una baja real de una corrección manual cualquiera —
+      // reason='adjustment' AND write_off_cause IS NULL sigue significando
+      // lo mismo que significaba antes de esta migración.
+      if (!getColumns(db, 'stock_movements').includes('write_off_cause')) {
+        db.exec(`
+          ALTER TABLE stock_movements ADD COLUMN write_off_cause TEXT
+            CHECK (write_off_cause IS NULL OR write_off_cause IN ('expired', 'damaged', 'shrinkage', 'other'));
+        `);
+      }
+      // Costo valorizado al momento de la baja (costo promedio del producto
+      // × cantidad). Se guarda aparte porque products.cost sigue cambiando
+      // con cada compra nueva — sin esto, un reporte de hace un mes
+      // mostraría el costo de hoy, no el que realmente se perdió entonces.
+      if (!getColumns(db, 'stock_movements').includes('cost_impact_cents')) {
+        db.exec(`ALTER TABLE stock_movements ADD COLUMN cost_impact_cents INTEGER`);
+      }
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {

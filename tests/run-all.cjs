@@ -134,6 +134,7 @@ const SUITES = [
   'test:issue-250-catalog-perf',
   'test:issue-252',
   'test:stock-ledger',
+  'test:product-write-off',
   'test:purchases',
   'test:purchases-hardening',
   'test:purchases-edit',
