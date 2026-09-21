@@ -190,6 +190,11 @@ export function buildParityFixtures() {
 }
 
 type Warnings = import('../frontend/src/lib/printer/warnings').PrintWarning[];
+// The backend ESC/POS path (main/printers/thermal) never produces a 'locale'
+// warning — that kind exists only for the frontend's WebUSB/browser-print
+// path — so its own PrintWarning type is narrower. Calls into formatReceipt()
+// need that narrower type, not the frontend one `Warnings` aliases above.
+type BackendWarnings = import('../main/printers/thermal').PrintWarning[];
 
 /** Digit-normalizing content probe: immune to grouping/locale separator styles. */
 function digitsOf(text: string): string {
@@ -343,7 +348,7 @@ function run(): void {
   // 1. Backend ESC/POS — classic + compact at 32/42/48 columns
   // ------------------------------------------------------------------
   {
-    const refusalWarnings: Warnings = [];
+    const refusalWarnings: BackendWarnings = [];
     const refusal = formatReceipt(fullOrder, fullBill, business, 'compact', 48, false, false, undefined, refusalWarnings);
     warn(refusal.length === 0, 'backend refuses unsupported paid Persian rows before transport');
     warn(refusalWarnings.some((warning) => warning.kind === 'financial'), 'backend refusal identifies the unsupported paid row as financial');
@@ -708,7 +713,7 @@ function run(): void {
   for (const language of ['fa', 'es', 'fr'] as const) {
     for (const template of ['classic', 'compact'] as const) {
       const label = `${template}/${language}`;
-      const warnings: Warnings = [];
+      const warnings: BackendWarnings = [];
       // Shaping-capable profile: localized label text may actually print.
       const text = escPosToText(
         formatReceipt(order, bill, business, template, 42, false, false, 'full', warnings, true, language),
@@ -755,7 +760,10 @@ function run(): void {
   {
     const fixturePath = path.join(__dirname, 'fixtures/merchant-templates/golden-receipt-v1.json');
     const validation = validateMerchantTemplate(JSON.parse(fs.readFileSync(fixturePath, 'utf8')));
-    if (!validation.ok) {
+    // 'errors' in validation, not !validation.ok: this file's tsconfig runs
+    // with strict: false, and without strictNullChecks a boolean-literal
+    // discriminant doesn't reliably narrow the union — the 'in' check does.
+    if ('errors' in validation) {
       warn(false, `golden merchant fixture validates: ${validation.errors.join('; ')}`);
     } else {
       for (const cols of [32, 42, 48]) {
@@ -772,6 +780,7 @@ function run(): void {
           language: printContext.languages[0],
           locale: printContext.locale,
           ...(printContext.timezone !== undefined ? { timezone: printContext.timezone } : {}),
+          currency: printContext.currency,
           currencySymbol: printContext.currencySymbol,
           trimDecimals: printContext.trimDecimals,
           useUnicode: false,
