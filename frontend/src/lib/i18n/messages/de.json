@@ -680,6 +680,7 @@
     "proceedAnyway": "Trotzdem fortfahren",
     "processOrderFailed": "Bestellung konnte nicht verarbeitet werden",
     "processingPayment": "Zahlung wird verarbeitet…",
+    "quantity": "Menge",
     "receiptPrintFailed": "Kassenbon konnte nicht gedruckt werden – prüfen Sie die Druckerverbindung",
     "remainingCount": "{count} verbleibend",
     "remove": "Entfernen",

@@ -70,6 +70,10 @@ export default function WeightPad({ unit, precision, unitPrice, value, onChange,
               onKeyDown={(e) => {
                 if (e.key !== 'Enter') return;
                 e.preventDefault();
+                // Already handled here — without this, the modal's own
+                // Enter-to-confirm listener sees the same keydown as it
+                // bubbles up and fires onSubmit a second time.
+                e.stopPropagation();
                 onSubmit?.();
               }}
               placeholder="0"

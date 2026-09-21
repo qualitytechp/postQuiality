@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Plus, Minus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,8 @@ interface Props {
   initialInstructions?: string;
   mode?: 'add' | 'edit';
   submitLabel?: (total: string) => string;
+  /** Lets the caller return focus to its own product search after adding — e.g. to keep moving through products by keyboard. */
+  onAdded?: () => void;
 }
 
 function groupInitialAddons(addons: Addon[]): Record<string | number, Addon[]> {
@@ -35,7 +37,7 @@ function groupInitialAddons(addons: Addon[]): Record<string | number, Addon[]> {
 export default function AddonModal({
   product, onAdd, onClose,
   initialQuantity = 1, initialAddons = [], initialInstructions = '', mode = 'add',
-  submitLabel,
+  submitLabel, onAdded,
 }: Props) {
   const t = useTranslations('pos');
   const tProducts = useTranslations('products');
@@ -43,6 +45,16 @@ export default function AddonModal({
   const [selected, setSelected] = useState<Record<string | number, Addon[]>>(() => groupInitialAddons(initialAddons));
   const [quantity, setQuantity] = useState(initialQuantity);
   const [instructions, setInstructions] = useState(initialInstructions);
+  const quantityInputRef = useRef<HTMLInputElement>(null);
+
+  // Ready to type the moment the modal opens — no click needed to start a
+  // new quantity, matching how the search box hands off to this modal.
+  useEffect(() => {
+    if (isWeighedProduct(product)) return;
+    quantityInputRef.current?.focus();
+    quantityInputRef.current?.select();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Productos por peso: la cantidad se teclea como peso en vez de contarse.
   const weighed = isWeighedProduct(product);
@@ -125,11 +137,22 @@ export default function AddonModal({
     if (!isValid) return;
     onAdd(product, effectiveQuantity, allAddons, instructions);
     onClose();
+    onAdded?.();
+  };
+
+  // Same convention as the payment modals: Enter anywhere confirms, except
+  // inside a button (would double-fire) or a textarea (Enter means newline).
+  const handleModalKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Enter') return;
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'BUTTON' || target.tagName === 'TEXTAREA') return;
+    e.preventDefault();
+    handleAdd();
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-2xl w-full max-w-lg max-h-[92vh] flex flex-col">
+      <div className="bg-card rounded-2xl w-full max-w-lg max-h-[92vh] flex flex-col" onKeyDown={handleModalKeyDown}>
         <div className="flex justify-between items-center p-5 border-b border-border">
           <div>
             <h2 className="text-lg font-bold text-foreground">{product.name}</h2>
@@ -323,21 +346,18 @@ export default function AddonModal({
             >
               <Minus size={18} />
             </button>
-            <div className="grid grid-cols-3 gap-2">
-              {[1, 2, 3].map((quickQty) => (
-                <button
-                  key={quickQty}
-                  type="button"
-                  onClick={() => setQuantity(quickQty)}
-                  className={`touch-target rounded-lg border px-3 text-sm font-bold tabular-nums ${
-                    quantity === quickQty ? 'border-brand bg-brand text-white' : 'border-border bg-card text-foreground'
-                  }`}
-                >
-                  {quickQty}
-                </button>
-              ))}
-            </div>
-            <span className="text-lg font-bold w-10 text-center tabular-nums">{quantity}</span>
+            <input
+              ref={quantityInputRef}
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={quantity}
+              onChange={(e) => setQuantity(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+              onFocus={(e) => e.currentTarget.select()}
+              aria-label={t('quantity')}
+              className="w-20 min-h-11 text-lg font-bold text-center tabular-nums border border-border rounded-lg outline-none focus:ring-2 focus:ring-brand"
+            />
             <button
               onClick={() => setQuantity(quantity + 1)}
               className="touch-target rounded-full bg-muted flex items-center justify-center hover:bg-muted active:bg-muted"

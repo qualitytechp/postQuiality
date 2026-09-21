@@ -680,6 +680,7 @@
     "proceedAnyway": "Continuer quand même",
     "processOrderFailed": "Impossible de traiter la commande",
     "processingPayment": "Traitement...",
+    "quantity": "Quantité",
     "receiptPrintFailed": "Échec de l’impression du reçu - vérifiez la connexion de l’imprimante",
     "remainingCount": "{count} restant(s)",
     "remove": "Retirer",

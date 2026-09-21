@@ -680,6 +680,7 @@
     "proceedAnyway": "Yine de devam et",
     "processOrderFailed": "Sipariş işlenemedi",
     "processingPayment": "İşleniyor...",
+    "quantity": "Miktar",
     "receiptPrintFailed": "Fiş yazdırılamadı — yazıcı bağlantısını kontrol edin",
     "remainingCount": "{count} kaldı",
     "remove": "Kaldır",

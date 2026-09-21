@@ -680,6 +680,7 @@
     "proceedAnyway": "به هر حال ادامه بده",
     "processOrderFailed": "پردازش سفارش انجام نشد",
     "processingPayment": "در حال پردازش",
+    "quantity": "مقدار",
     "receiptPrintFailed": "چاپ رسید انجام نشد — پیوند چاپگر را بررسی کنید",
     "remainingCount": "{count} باقی مانده",
     "remove": "برداشتن",

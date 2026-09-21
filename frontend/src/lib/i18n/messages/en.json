@@ -680,6 +680,7 @@
     "proceedAnyway": "Proceed anyway",
     "processOrderFailed": "Failed to process order",
     "processingPayment": "Processing...",
+    "quantity": "Quantity",
     "receiptPrintFailed": "Receipt print failed — check printer connection",
     "remainingCount": "{count} remaining",
     "remove": "Remove",

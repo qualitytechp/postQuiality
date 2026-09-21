@@ -502,6 +502,9 @@ export default function POSPage() {
 
   const handleAddonAdd = (product: Product, quantity: number, addons: Addon[], instructions: string) => {
     cart.addItem(product, quantity, addons, instructions);
+    // The search that found this product has done its job; clearing it
+    // brings the full grid back for whatever gets added next.
+    setSearch('');
   };
 
   const handleEditItemSave = (_product: Product, quantity: number, addons: Addon[], instructions: string) => {
@@ -1183,6 +1186,10 @@ export default function POSPage() {
           currency={currency}
           onAdd={handleAddonAdd}
           onClose={() => setAddonProduct(null)}
+          // Confirming with Enter closes this modal and hands focus straight
+          // back to the search box, so the next product can be typed without
+          // touching the mouse.
+          onAdded={() => productSearchRef.current?.focus()}
         />
       )}
 

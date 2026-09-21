@@ -179,7 +179,12 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
           </div>
         ) : (
           <div className="space-y-2">
-            {cart.items.map((item) => (
+            {cart.items.map((item) => {
+              const addonTotal = (item.addons || []).reduce(
+                (sum, a) => sum + (Number(a.price) || 0) * (Number(a.quantity) || 1), 0,
+              );
+              const lineTotal = (Number(item.product.price) + addonTotal) * Number(item.quantity);
+              return (
               <div key={item.id} className="border-b border-border/60 pb-2 last:border-b-0 last:pb-0">
                 {/* Nombre, precio y controles en un solo renglón: apilarlos
                     gastaba el doble de alto para la misma información. Si el
@@ -235,6 +240,11 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
                         </button>
                       </>
                     )}
+                    {/* Cantidad × precio (+ adicionales), para no obligar al
+                        cajero a hacer la cuenta de cabeza. */}
+                    <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
+                      {fmt(lineTotal)}
+                    </span>
                     <button
                       onClick={() => cart.removeItem(item.id)}
                       className="touch-target -me-2 shrink-0 rounded-full text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500 active:bg-red-50"
@@ -257,7 +267,8 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
