@@ -84,7 +84,7 @@ const PRINT_LABELS: Record<PrintLabelLanguage, PrintLabelTable> = {
     'pos.orderTypeOnline': "Online",
     'pos.orderTypeTakeaway': "Takeaway",
     'pos.methodCash': "Cash",
-    'pos.methodCard': "Card",
+    'pos.methodCard': "Transfer",
     'pos.methodWallet': "Wallet",
   },
   "es": {
@@ -150,7 +150,7 @@ const PRINT_LABELS: Record<PrintLabelLanguage, PrintLabelTable> = {
     'pos.orderTypeOnline': "En línea",
     'pos.orderTypeTakeaway': "Para llevar",
     'pos.methodCash': "Efectivo",
-    'pos.methodCard': "Tarjeta",
+    'pos.methodCard': "Transferencia",
     'pos.methodWallet': "Billetera",
   },
   "de": {
@@ -216,7 +216,7 @@ const PRINT_LABELS: Record<PrintLabelLanguage, PrintLabelTable> = {
     'pos.orderTypeOnline': "Online",
     'pos.orderTypeTakeaway': "Zum Mitnehmen",
     'pos.methodCash': "Bargeld",
-    'pos.methodCard': "Karte",
+    'pos.methodCard': "Überweisung",
     'pos.methodWallet': "Guthaben / Wallet",
   },
   "tr": {
@@ -282,7 +282,7 @@ const PRINT_LABELS: Record<PrintLabelLanguage, PrintLabelTable> = {
     'pos.orderTypeOnline': "Çevrimiçi Sipariş",
     'pos.orderTypeTakeaway': "Gel-Al",
     'pos.methodCash': "Nakit",
-    'pos.methodCard': "Kart",
+    'pos.methodCard': "Havale",
     'pos.methodWallet': "Cüzdan",
   },
   "fil": {
@@ -348,7 +348,7 @@ const PRINT_LABELS: Record<PrintLabelLanguage, PrintLabelTable> = {
     'pos.orderTypeOnline': "Online",
     'pos.orderTypeTakeaway': "Takeaway",
     'pos.methodCash': "Cash",
-    'pos.methodCard': "Card",
+    'pos.methodCard': "Paglilipat",
     'pos.methodWallet': "Wallet",
   },
   "fr": {
@@ -414,7 +414,7 @@ const PRINT_LABELS: Record<PrintLabelLanguage, PrintLabelTable> = {
     'pos.orderTypeOnline': "En ligne",
     'pos.orderTypeTakeaway': "À emporter",
     'pos.methodCash': "Espèces",
-    'pos.methodCard': "Carte",
+    'pos.methodCard': "Virement",
     'pos.methodWallet': "Portefeuille",
   },
   "pt": {
@@ -480,7 +480,7 @@ const PRINT_LABELS: Record<PrintLabelLanguage, PrintLabelTable> = {
     'pos.orderTypeOnline': "Online",
     'pos.orderTypeTakeaway': "Retirada",
     'pos.methodCash': "Dinheiro",
-    'pos.methodCard': "Cartão",
+    'pos.methodCard': "Transferência",
     'pos.methodWallet': "Carteira",
   },
   "fa": {
@@ -546,7 +546,7 @@ const PRINT_LABELS: Record<PrintLabelLanguage, PrintLabelTable> = {
     'pos.orderTypeOnline': "آنلاین",
     'pos.orderTypeTakeaway': "بیرون‌بر",
     'pos.methodCash': "نقدی",
-    'pos.methodCard': "کارت",
+    'pos.methodCard': "حواله بانکی",
     'pos.methodWallet': "کیف",
   },
 };

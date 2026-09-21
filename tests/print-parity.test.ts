@@ -334,7 +334,7 @@ function run(): void {
     instructions: ['Less sugar'],
     discount: 120,
     total: 1117,
-    payments: ['Cash', 'Card'],
+    payments: ['Cash', 'Transfer'],
     businessName: 'Flo Parity Cafe',
     truncationMarker: true,
   };
@@ -609,7 +609,7 @@ function run(): void {
       ['receipt.grandTotal', 'Grand Total'],
       ['receipt.payments', 'Payments'],
       ['pos.methodCash', 'Cash'],
-      ['pos.methodCard', 'Card'],
+      ['pos.methodCard', 'Transfer'],
       ['receipt.thankYou', 'Thank you for your visit!'],
     ] as const) {
       warn(html.includes(expected), `browser semantic label ${concept} renders as ${expected}`);

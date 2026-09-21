@@ -18,9 +18,13 @@ import { usePosSettingsStore } from '@/store/pos-settings';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { useFormatDate } from '@/hooks/useFormatDate';
 import { getCurrencyMinorUnitFactor } from '@/lib/countries';
+import ProductGrid from '@/components/pos/ProductGrid';
+import type { Category, Product } from '@/lib/types';
 
 interface Supplier { id: string; name: string; document: string | null; phone: string | null; is_active: number }
-interface ProductOption { id: string; name: string; sale_unit: string; track_inventory: number; cost: number | null }
+// The same catalogue the till shows, so buying can reuse its grid; the
+// combobox only ever needed a few of these fields.
+type ProductOption = Product;
 
 interface PurchaseItem {
   id: number; product_id: string | null; description: string;
@@ -227,6 +231,9 @@ export default function PurchasesPage() {
   const [stats, setStats] = useState<MonthStats | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [gridSearch, setGridSearch] = useState('');
+  const [gridCategory, setGridCategory] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -258,16 +265,18 @@ export default function PurchasesPage() {
   const loading = !!moduleOn && !loaded;
 
   const load = useCallback(async () => {
-    const [p, s, pr] = await Promise.all([
+    const [p, s, pr, c] = await Promise.all([
       api.get('/purchases', { params: { limit: 100 } }),
       api.get('/suppliers'),
       api.get('/products', { params: { limit: 500 } }),
+      api.get('/categories', { params: { active: 1 } }),
     ]);
     return {
       purchases: (p.data.purchases || []) as PurchaseRow[],
       stats: (p.data.stats || null) as MonthStats | null,
       suppliers: (s.data.suppliers || []) as Supplier[],
       products: (pr.data.data || pr.data.products || []) as ProductOption[],
+      categories: (c.data.data || c.data.categories || []) as Category[],
     };
   }, []);
 
@@ -281,6 +290,7 @@ export default function PurchasesPage() {
         setStats(data.stats);
         setSuppliers(data.suppliers);
         setProducts(data.products);
+        setCategories(data.categories);
       })
       .catch(() => { if (active) toast.error(t('loadFailed')); })
       .finally(() => { if (active) setLoaded(true); });
@@ -350,10 +360,50 @@ export default function PurchasesPage() {
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
   };
 
+  /**
+   * Picking a product from the grid, the way the till adds to a cart: the
+   * first tap starts a line at one unit with the product's registered cost
+   * already filled in, and each further tap adds another unit. Both are
+   * still editable in the table — a delivery rarely matches the list price.
+   */
+  const addProductFromGrid = (product: Product) => {
+    setLines((current) => {
+      const existing = current.find((line) => line.product_id === product.id);
+      if (existing) {
+        return current.map((line) => (line.key === existing.key
+          ? { ...line, quantity: String((Number(line.quantity) || 0) + 1) }
+          : line));
+      }
+      const filled = {
+        product_id: product.id,
+        quantity: '1',
+        unit_cost: product.cost !== null && product.cost !== undefined ? String(product.cost) : '',
+      };
+      // The form always keeps one empty line; fill that before growing.
+      const blank = current.find((line) => !line.product_id && !line.description.trim() && !line.quantity.trim());
+      if (blank) return current.map((line) => (line.key === blank.key ? { ...line, ...filled } : line));
+      setNextLineKey((key) => key + 1);
+      return [...current, { ...emptyLine(nextLineKey), ...filled }];
+    });
+  };
+
+  const gridQuantities = useMemo(() => {
+    const quantities = new Map<string, number>();
+    for (const line of lines) {
+      if (!line.product_id) continue;
+      const quantity = Number(line.quantity);
+      if (Number.isFinite(quantity) && quantity > 0) {
+        quantities.set(line.product_id, (quantities.get(line.product_id) || 0) + quantity);
+      }
+    }
+    return quantities;
+  }, [lines]);
+
   // Keyboard flow for the lines table: Enter on the last line adds a new one
   // and hands it focus; Enter on an earlier line just moves to the next —
   // same idea as tabbing through a spreadsheet row by row.
   const purchaseFormRef = useRef<HTMLFormElement>(null);
+  const productSearchRef = useRef<HTMLInputElement>(null);
   const lineInputRefs = useRef(new Map<number, HTMLInputElement>());
   const pendingFocusKeyRef = useRef<number | null>(null);
 
@@ -394,7 +444,10 @@ export default function PurchasesPage() {
     const key = e.key.toLowerCase();
     if (key === 'f') {
       e.preventDefault();
-      focusLastLineProductSearch();
+      // The grid's search is the fast way in when it is on screen; on a
+      // narrow window it is hidden, and the line combobox is all there is.
+      if (productSearchRef.current) productSearchRef.current.focus();
+      else focusLastLineProductSearch();
     } else if (key === 's') {
       e.preventDefault();
       purchaseFormRef.current?.requestSubmit();
@@ -537,7 +590,7 @@ export default function PurchasesPage() {
           </div>
         </div>
 
-        <div className="mx-auto max-w-5xl space-y-6">
+        <div className="mx-auto max-w-[1700px] space-y-4">
           <div className="rounded-xl border border-border bg-card p-5">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <label className="block">
@@ -578,7 +631,30 @@ export default function PurchasesPage() {
             </div>
           </div>
 
-          <div>
+          {/* Same picker as the till, for the same reason: finding a product
+              among hundreds is quicker by sight than by typing its name.
+              Cost replaces the sale price, and stock badges are dropped —
+              an empty shelf is what you are here to refill, not a warning. */}
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(560px,46%)]">
+            <div className="hidden min-h-125 xl:flex xl:flex-col">
+              <ProductGrid
+                categories={categories}
+                products={products}
+                selectedCategory={gridCategory}
+                setSelectedCategory={setGridCategory}
+                search={gridSearch}
+                setSearch={setGridSearch}
+                currency={currentTenant?.currency || 'INR'}
+                onProductClick={addProductFromGrid}
+                searchInputRef={productSearchRef}
+                priceField="cost"
+                quantities={gridQuantities}
+                showStockBadges={false}
+                showAddonHint={false}
+              />
+            </div>
+
+            <div className="min-w-0">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-medium uppercase text-muted-foreground">{t('lines')}</span>
               <Button type="button" variant="outline" size="sm" onClick={addLine}>
@@ -656,6 +732,7 @@ export default function PurchasesPage() {
                   })}
                 </TableBody>
               </Table>
+            </div>
             </div>
           </div>
 

@@ -210,7 +210,7 @@ function run(): void {
   {
     const bill = { ...buildBill(), payment_details: [{ method: 'card', amount: 250 }] };
     const faText = escPosToText(formatReceipt(buildOrder(), bill, buildBusiness(), 'compact', 48, false, false, undefined, [], true, 'fa'));
-    assert('card localizes in fa', faText.includes('کارت'));
+    assert('transfer localizes in fa', faText.includes('حواله'));
     const voucherBill = { ...buildBill(), payment_details: [{ method: 'voucher', amount: 250 }] };
     const text = escPosToText(formatReceipt(buildOrder(), voucherBill, buildBusiness(), 'compact', 48));
     assert('unknown method keeps capitalize fallback', text.includes('Voucher'));

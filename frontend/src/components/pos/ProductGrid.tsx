@@ -51,11 +51,25 @@ interface Props {
   sidebarOpen?: boolean;
   /** Permite al POS enfocar la búsqueda con Ctrl+F. */
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
+  /**
+   * Purchases reuses this grid to pick what is being bought, where the
+   * relevant figure is the cost and the running tally is the purchase's own
+   * lines — not the sale price and not the POS cart. Left unset, everything
+   * behaves exactly as the till always has.
+   */
+  priceField?: 'price' | 'cost';
+  /** Counter badge per product; defaults to what the POS cart holds. */
+  quantities?: Map<Product['id'], number>;
+  /** Stock and combo badges warn a cashier off; a buyer is restocking. */
+  showStockBadges?: boolean;
+  /** Add-ons belong to a sale, never to a purchase. */
+  showAddonHint?: boolean;
 }
 
 export default function ProductGrid({
   categories, products, selectedCategory, setSelectedCategory,
   search, setSearch, onProductClick, sidebarOpen = true, searchInputRef,
+  priceField = 'price', quantities, showStockBadges = true, showAddonHint = true,
 }: Props) {
   const cart = useCartStore();
   const { showProductImages } = usePosSettingsStore();
@@ -66,12 +80,13 @@ export default function ProductGrid({
   const unitLabel = (unit: string | undefined) =>
     tProducts(`saleUnit${String(unit).charAt(0).toUpperCase()}${String(unit).slice(1)}` as never);
   const cartQuantities = useMemo(() => {
-    const quantities = new Map<Product['id'], number>();
+    if (quantities) return quantities;
+    const fromCart = new Map<Product['id'], number>();
     for (const item of cart.items) {
-      quantities.set(item.product.id, (quantities.get(item.product.id) || 0) + item.quantity);
+      fromCart.set(item.product.id, (fromCart.get(item.product.id) || 0) + item.quantity);
     }
-    return quantities;
-  }, [cart.items]);
+    return fromCart;
+  }, [cart.items, quantities]);
 
   const filtered = products.filter((p) => {
     const matchCat = !selectedCategory || p.category_id === selectedCategory;
@@ -97,7 +112,10 @@ export default function ProductGrid({
               if (!trimmed) return;
               const match = resolveScannedProduct(trimmed, products);
               if (match) {
-                if (match.scaleBarcode) cart.addItem(match.product, match.quantity);
+                // A scale barcode carries its own weight, which only the cart
+                // can hold as-is; anywhere else the caller decides what a
+                // scanned product means.
+                if (match.scaleBarcode && priceField === 'price') cart.addItem(match.product, match.quantity);
                 else onProductClick(match.product);
                 setSearch('');
               }
@@ -166,7 +184,7 @@ export default function ProductGrid({
               >
                 {/* Un combo no tiene existencias propias: lo que se muestra es
                     para cuántos alcanzan sus componentes. */}
-                {product.is_combo && product.available_units !== null && product.available_units !== undefined && (
+                {showStockBadges && product.is_combo && product.available_units !== null && product.available_units !== undefined && (
                   <span className={`absolute top-2 start-2 text-[10px] font-bold px-2 py-0.5 rounded-full z-10 shadow-sm border pointer-events-none ${
                     product.available_units <= 0
                       ? 'bg-red-100 text-red-700 border-red-200'
@@ -177,7 +195,7 @@ export default function ProductGrid({
                     {product.available_units <= 0 ? t('outOfStock') : `${tProducts('comboBadge')} · ${product.available_units}`}
                   </span>
                 )}
-                {!!product.track_inventory && !product.is_combo && (
+                {showStockBadges && !!product.track_inventory && !product.is_combo && (
                   <>
                     {product.stock_quantity <= 0 ? (
                       <span className="absolute top-2 start-2 bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full z-10 shadow-sm border border-red-200 pointer-events-none">
@@ -235,13 +253,15 @@ export default function ProductGrid({
                 <h3 className="font-medium text-foreground text-sm line-clamp-2 leading-snug">{product.name}</h3>
                 <div className="flex items-center justify-between mt-1">
                   <p className="text-brand font-bold">
-                    {fmt(Number(product.price))}
+                    {priceField === 'cost' && (product.cost === null || product.cost === undefined)
+                      ? <span className="text-muted-foreground font-normal">—</span>
+                      : fmt(Number(priceField === 'cost' ? product.cost : product.price))}
                   </p>
                   <div className="flex items-center gap-1 shrink-0">
                     {!showProductImages && product.tags && product.tags.length > 0 && (
                       <TagBadge tag={product.tags[0]} />
                     )}
-                    {product.addon_groups && product.addon_groups.length > 0 && (
+                    {showAddonHint && product.addon_groups && product.addon_groups.length > 0 && (
                       <span
                         className="touch-target -me-2 -my-2 rounded-lg text-gray-400"
                         title={t('customisable')}
