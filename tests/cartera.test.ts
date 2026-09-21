@@ -136,16 +136,52 @@ async function main() {
   const findAccount = async (name: string) => (await accountsNow()).find((a: any) => a.name === name);
 
   try {
-    // ── 1. The drawer exists from the start ──────────────────────────────
-    console.log('\n1. The cash account');
+    // ── 1. The drawer and the bank exist from the start ──────────────────
+    // Both places money can arrive are seeded, so neither cash nor transfers
+    // land nowhere: a transfer with no bank account would leave its amount
+    // out of every balance.
+    console.log('\n1. The seeded accounts');
     const initial = await accountsNow();
-    assertEqual(initial.length, 1, 'a fresh database has exactly one account');
-    assertEqual(initial[0].kind, 'cash', 'and it is the drawer');
-    assertEqual(initial[0].canonical_method, 'cash', 'bound to the cash payment method');
-    assertEqual(initial[0].balance_cents, 0, 'starting at zero with no register history');
+    assertEqual(initial.length, 2, 'a fresh database has the drawer and the bank');
+    const seededCash = initial.find((a: any) => a.kind === 'cash');
+    const seededBank = initial.find((a: any) => a.kind === 'bank');
+    assert(!!seededCash, 'the drawer is there');
+    assertEqual(seededCash.canonical_method, 'cash', 'bound to the cash payment method');
+    assertEqual(seededCash.balance_cents, 0, 'starting at zero with no register history');
+    assert(!!seededBank, 'the bank account is there');
+    assertEqual(seededBank.canonical_method, 'card', 'bound to the transfer payment method');
+    assertEqual(seededBank.balance_cents, 0, 'starting at zero with nothing transferred yet');
 
     const secondCash = await call(baseUrl, 'POST', '/api/cartera/accounts', owner, { name: 'Otra caja', kind: 'cash' });
     assertEqual(secondCash.status, 400, 'a second cash account is refused — there is one physical drawer');
+
+    // ── 1b. A sale paid by transfer reaches the bank, not the drawer ─────
+    // The point of seeding the bank account: the money has somewhere to
+    // land, and it is not the cash drawer.
+    db.prepare(`INSERT INTO orders (id, order_number, status, subtotal, total, created_at, updated_at)
+                VALUES (90, 'ORD-90', 'completed', 200000, 200000, ?, ?)`).run(stamp, stamp);
+    db.prepare(`
+      INSERT INTO bills (id, bill_number, order_id, subtotal, total, paid_amount, balance, payment_status, payment_details, paid_at, created_at, updated_at)
+      VALUES (90, 'INV-90', 90, 200000, 200000, 200000, 0, 'paid', ?, ?, ?, ?)
+    `).run(JSON.stringify([{ method: 'card', amount: 200000, timestamp: stamp }]), stamp, stamp, stamp);
+
+    const bankAfterTransfer = await findAccount('Bancos');
+    assertEqual(bankAfterTransfer.balance_cents, 200000, 'the transfer lands in the bank account');
+    assertEqual(bankAfterTransfer.inflow_cents, 200000, 'counted as an inflow there');
+    const drawerAfterTransfer = await findAccount('Caja');
+    assertEqual(drawerAfterTransfer.balance_cents, 0, 'and never touches the cash drawer');
+
+    // An abono paid by transfer counts too, even though the bill it belongs
+    // to is still owing and therefore has no `paid_at` yet.
+    db.prepare(`INSERT INTO orders (id, order_number, status, subtotal, total, created_at, updated_at)
+                VALUES (91, 'ORD-91', 'completed', 100000, 100000, ?, ?)`).run(stamp, stamp);
+    db.prepare(`
+      INSERT INTO bills (id, bill_number, order_id, subtotal, total, paid_amount, balance, payment_status, payment_details, paid_at, created_at, updated_at)
+      VALUES (91, 'INV-91', 91, 100000, 100000, 30000, 70000, 'partial', ?, NULL, ?, ?)
+    `).run(JSON.stringify([{ method: 'card', amount: 30000, timestamp: stamp }]), stamp, stamp);
+
+    const bankAfterAbono = await findAccount('Bancos');
+    assertEqual(bankAfterAbono.balance_cents, 230000, 'a transfer on a bill still owing is in the bank all the same');
 
     // ── 2. A bank account and what lands in it ───────────────────────────
     console.log('\n2. A bank account');
@@ -309,7 +345,7 @@ async function main() {
     assert(types.has('expense'), 'manual expenses appear');
     assert(types.has('payable_payment'), 'payments against a payable appear');
     assert(types.has('transfer'), 'transfer legs appear');
-    const collection = movements.find((m: any) => m.type === 'collection');
+    const collection = movements.find((m: any) => m.type === 'collection' && m.account_name === 'Nequi');
     assertEqual(collection.account_name, 'Nequi', 'a collection is filed under the account its method feeds');
     assertEqual(collection.in_cents, 60000, 'with the amount off the bill');
 

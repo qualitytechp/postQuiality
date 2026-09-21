@@ -173,6 +173,12 @@ export interface DayAggregates {
   carteraCashInCents: number;
   carteraCashOutCents: number;
   /**
+   * Taken by transfer (or any non-cash, non-wallet method) in this window.
+   * Part of the day's takings, but it lands in the bank, not in the drawer —
+   * so it is reported on its own and stays out of expected cash.
+   */
+  bankCollectedCents: number;
+  /**
    * Billed in this window but left owing — an abono's remainder or a fiado in
    * full. Reported so a shift can explain selling more than it took in;
    * never part of expected cash, precisely because it never came in.
@@ -421,6 +427,17 @@ export function computeDayAggregates(
     LIMIT 20
   `).all(start, end) as StaffSalesRow[];
 
+  // What came in by transfer rather than across the counter. It is part of
+  // the day's takings but not of the drawer, so it is counted separately and
+  // never enters the expected-cash formula.
+  const bankRow = db.prepare(`
+    WITH payment_lines AS (${PAYMENT_LINES_SQL})
+    SELECT COALESCE(SUM(amount * ?), 0) AS bank_cents
+    FROM payment_lines
+    WHERE method != 'cash' AND method != 'wallet'
+      AND paid_time >= datetime(?) AND paid_time < datetime(?)
+  `).get(minorFactor, start, end) as { bank_cents: number };
+
   // Credit handed out during the window: what was billed but left owing,
   // whether as an abono's remainder or a fiado in full. Informational only —
   // it never touches expected cash, precisely because it did not come in.
@@ -466,6 +483,7 @@ export function computeDayAggregates(
     cashRefundsByCreatedAtCents: Number(cashDrawerRow.refunds_cents || 0),
     carteraCashInCents: carteraCash.inCents,
     carteraCashOutCents: carteraCash.outCents,
+    bankCollectedCents: Math.round(Number(bankRow.bank_cents || 0)),
     creditGrantedCents: Math.round(Number(creditRow.credit_granted || 0) * minorFactor),
     paymentMethods: paymentMethodsRows.map((row) => ({
       method: row.method,

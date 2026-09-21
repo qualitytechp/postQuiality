@@ -745,6 +745,8 @@ router.get('/x-report', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
         // Sold on credit in this window and still owing. Shown so the shift
         // can explain billing more than it collected; never part of the cash.
         creditGrantedCents: aggregates.creditGrantedCents,
+        // Taken by transfer: part of the takings, but it went to the bank.
+        bankCollectedCents: aggregates.bankCollectedCents,
         // F3: server-resolved prior close; null fields when no prior close
         // exists. The frontend only shows the "no prior close" hint when
         // this is genuinely null (never on transport error).

@@ -104,7 +104,13 @@ function accountMatchClause(account: CarteraAccount): { clause: string; params: 
   return null;
 }
 
-/** Collections that landed in this account, from the bills themselves. */
+/**
+ * Collections that landed in this account, from the bills themselves.
+ *
+ * Each line counts from its own timestamp, not the bill's `paid_at`: that is
+ * only stamped once a bill is settled in full, so an abono paid by transfer
+ * would otherwise stay invisible to the bank account until the rest is paid.
+ */
 function collectionsCents(db: Database.Database, account: CarteraAccount, sinceDate: string): number {
   const match = accountMatchClause(account);
   if (!match) return 0;
@@ -118,7 +124,11 @@ function collectionsCents(db: Database.Database, account: CarteraAccount, sinceD
         ELSE '[]'
       END
     ) je
-    WHERE b.paid_at IS NOT NULL AND DATE(b.paid_at) >= ?
+    WHERE COALESCE(
+        datetime(NULLIF(json_extract(je.value, '$.timestamp'), '')),
+        datetime(NULLIF(b.paid_at, '')),
+        datetime(NULLIF(b.created_at, ''))
+      ) >= datetime(?)
       AND json_type(je.value) = 'object'
       AND ${match.clause}
   `).get(minorFactor(), sinceDate, ...match.params) as { cents: number };

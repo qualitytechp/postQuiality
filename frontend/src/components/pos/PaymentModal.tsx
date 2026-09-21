@@ -133,6 +133,9 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
   const [replacePending, setReplacePending] = useState(true);
   const cashInputRef = useRef<HTMLInputElement>(null);
   const autoFocusedCashRef = useRef(false);
+  // Which split amounts the cashier typed, as opposed to ones the modal
+  // pre-filled or a method button assigned.
+  const typedAmountsRef = useRef<Set<number>>(new Set());
   const selectAmountTarget = (target: Exclude<AmountTarget, null>) => {
     setAmountTarget(target);
     setReplacePending(true);
@@ -218,15 +221,35 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
   const updatePaymentAmount = (idx: number, value: string) => {
     setPaymentsTouched(true);
     setReplacePending(false);
+    typedAmountsRef.current.add(idx);
     setPayments((current) => current.map((payment, index) => index === idx ? { ...payment, amount: value } : payment));
   };
 
+  /**
+   * Tapping a method charges the whole outstanding balance to it.
+   *
+   * Cash arrives pre-filled with the total, so without this, choosing
+   * transfer would offer nothing left to allocate and the cashier would have
+   * to clear cash by hand first. Only amounts actually typed are protected —
+   * those are a deliberate split, and tapping another method tops it up
+   * rather than wiping it.
+   */
   const allocateRemainingTo = (idx: number) => {
-    const allocatedElsewhere = payments.reduce((sum, payment, index) => index === idx ? sum : sum + toStoredUnit(parseFloat(payment.amount) || 0), walletAmt);
+    const typed = typedAmountsRef.current;
+    const allocatedElsewhere = payments.reduce(
+      (sum, payment, index) => (index === idx || !typed.has(index))
+        ? sum
+        : sum + toStoredUnit(parseFloat(payment.amount) || 0),
+      walletAmt,
+    );
     const dueStored = Math.max(0, remaining - allocatedElsewhere);
     const dueDisplay = toDisplayUnit(dueStored);
     setPaymentsTouched(true);
-    setPayments(payments.map((payment, index) => index === idx ? { ...payment, amount: dueDisplay > 0 ? String(dueDisplay) : '' } : payment));
+    setPayments(payments.map((payment, index) => {
+      if (index === idx) return { ...payment, amount: dueDisplay > 0 ? String(dueDisplay) : '' };
+      return typed.has(index) ? payment : { ...payment, amount: '' };
+    }));
+    typed.delete(idx);
   };
 
   // Sin campo elegido, el teclado apunta al efectivo: es lo que se cobra casi siempre.

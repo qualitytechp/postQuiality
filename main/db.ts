@@ -4543,6 +4543,26 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       }
     },
   },
+  {
+    version: 94,
+    name: 'seed_bank_cartera_account',
+    up: () => {
+      // Cobrar por transferencia ya movía plata, pero no tenía dónde caer: la
+      // única cuenta sembrada era la caja, así que ese dinero no figuraba en
+      // ningún saldo. La cuenta se ata al método canónico y Cartera hace el
+      // resto — `collectionsCents` ya sabe sumar los cobros por método.
+      //
+      // `opening_as_of` arranca en el origen del tiempo a propósito: los
+      // cobros por transferencia anteriores a esta migración son igual de
+      // reales, y dejarlos fuera mostraría un saldo de bancos que no cuadra
+      // con lo que el negocio efectivamente recibió.
+      db.prepare(`
+        INSERT OR IGNORE INTO cartera_accounts
+          (name, kind, canonical_method, opening_balance_cents, opening_as_of, sort_order)
+        VALUES ('Bancos', 'bank', 'card', 0, '1970-01-01', 1)
+      `).run();
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {
