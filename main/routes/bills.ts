@@ -1902,6 +1902,14 @@ function preparePaymentBatch(
     return { payment: line.payment, amountCents: applied, tenderedCents: line.requestedCents, changeCents: line.requestedCents - applied, amountOmitted: line.amountOmitted };
   }).filter((line) => line.amountCents > 0);
 
+  // A partial payment (abono) leaves a debt on the bill. Without a customer
+  // attached, that debt would never surface in Cartera/receivables, since
+  // those are filtered by customer_id — so require one up front.
+  const appliedCents = prepared.reduce((sum, line) => sum + line.amountCents, 0);
+  if (appliedCents > 0 && appliedCents < remainingCents && !effectiveCustomerId) {
+    throw Object.assign(new Error('A customer is required to record a partial payment'), { statusCode: 400 });
+  }
+
   if (prepared.some((line) => line.payment.method === 'wallet')) {
     if (!effectiveCustomerId) throw Object.assign(new Error('Customer association is required for wallet payment'), { statusCode: 400 });
     const credits = db.prepare(`SELECT COALESCE(SUM(amount), 0) as total FROM loyalty_ledger WHERE customer_id = ? AND type = 'credit' AND (expires_at IS NULL OR expires_at > datetime('now'))`).get(effectiveCustomerId) as { total: number };
@@ -1911,6 +1919,25 @@ function preparePaymentBatch(
     if (walletPoints < pointsRequired) throw Object.assign(new Error(`Insufficient wallet balance. Available: ${walletPoints} points, Required: ${pointsRequired}`), { statusCode: 400 });
   }
   return { bill, prepared, existingPayments, effectiveCustomerId };
+}
+
+/**
+ * A counter sale is done once it has been through the till, whether it was
+ * settled in full, left with an abono, or handed over entirely on credit —
+ * what is still owed is collected from Cartera, not from the order queue. A
+ * table is different: its order stays open until settled, because more items
+ * can still be added to it.
+ */
+function closeOrderIfDone(db: ReturnType<typeof getDatabase>, bill: any, billFullyPaid: boolean, changedAt: string) {
+  const order = db.prepare('SELECT table_id FROM orders WHERE id = ?').get(bill.order_id) as { table_id?: string | null } | undefined;
+  const servedAtTable = !!order?.table_id;
+  if (!billFullyPaid && servedAtTable) return;
+  const pendingSibling = servedAtTable
+    ? db.prepare(`SELECT 1 FROM bills WHERE order_id = ? AND id != ? AND payment_status != 'paid' LIMIT 1`).get(bill.order_id, bill.id)
+    : db.prepare(`SELECT 1 FROM bills WHERE order_id = ? AND id != ? AND payment_status = 'unpaid' LIMIT 1`).get(bill.order_id, bill.id);
+  if (pendingSibling) return;
+  db.prepare("UPDATE orders SET status = 'completed', completed_at = ?, updated_at = ? WHERE id = ?").run(changedAt, changedAt, bill.order_id);
+  if (servedAtTable) db.prepare("UPDATE tables SET status = 'available', updated_at = ? WHERE id = ?").run(changedAt, order!.table_id);
 }
 
 function calculateCashback(db: ReturnType<typeof getDatabase>, bill: any, customerId: string | null): number {
@@ -2002,14 +2029,8 @@ function applyPaymentBatch(
   if (!bill.customer_id && effectiveCustomerId) db.prepare('UPDATE bills SET customer_id = ?, updated_at = ? WHERE id = ?').run(effectiveCustomerId, changedAt, billId);
   db.prepare(`UPDATE bills SET paid_amount = ?, balance = ?, payment_status = ?, payment_details = ?, paid_at = CASE WHEN ? = 'paid' THEN ? ELSE paid_at END, updated_at = ? WHERE id = ?`).run(newPaidCents / minorFactor, newBalanceCents / minorFactor, paymentStatus, JSON.stringify(allPayments), paymentStatus, paymentStatus === 'paid' ? changedAt : null, changedAt, billId);
   let loyaltyPointsEarned = 0;
+  closeOrderIfDone(db, bill, paymentStatus === 'paid', changedAt);
   if (paymentStatus === 'paid') {
-    const unpaidSibling = db.prepare(`SELECT 1 FROM bills WHERE order_id = ? AND id != ? AND payment_status != 'paid' LIMIT 1`).get(bill.order_id, bill.id);
-    const orderFullyPaid = !unpaidSibling;
-    if (orderFullyPaid) {
-      db.prepare("UPDATE orders SET status = 'completed', completed_at = ?, updated_at = ? WHERE id = ?").run(changedAt, changedAt, bill.order_id);
-      const order = db.prepare('SELECT table_id FROM orders WHERE id = ?').get(bill.order_id) as any;
-      if (order?.table_id) db.prepare("UPDATE tables SET status = 'available', updated_at = ? WHERE id = ?").run(changedAt, order.table_id);
-    }
     const cashback = calculateCashback(db, bill, effectiveCustomerId);
     const alreadyCredited = db.prepare(`SELECT id FROM loyalty_ledger WHERE bill_id = ? AND type = 'credit'`).get(bill.id);
     if (cashback > 0 && !alreadyCredited) {
@@ -2029,6 +2050,14 @@ function applyPaymentBatch(
   return result;
 }
 
+// An order that closed leaves the kitchen screen, whether it was settled in
+// full or left a balance in Cartera. Anything still open is a list refresh.
+function notifyAfterPayment(db: ReturnType<typeof getDatabase>, bill: any) {
+  const order = db.prepare('SELECT status FROM orders WHERE id = ?').get(bill?.order_id) as { status?: string } | undefined;
+  if (bill?.payment_status === 'paid' || order?.status === 'completed') notifyKdsUpdate();
+  else notifyOrderUpdated();
+}
+
 router.post('/:id/payment', requireRole(...ROLE_ACCESS.ownerManagerCashier), (req: Request, res: Response) => {
   try {
     const payment = req.body;
@@ -2042,9 +2071,7 @@ router.post('/:id/payment', requireRole(...ROLE_ACCESS.ownerManagerCashier), (re
       paymentIdempotencyKey(req), requestHash, String((req as any).user.userId),
     ));
 
-    const billStatus = (result.bill as any)?.payment_status;
-    if (billStatus === 'paid') notifyKdsUpdate();
-    else notifyOrderUpdated();
+    notifyAfterPayment(db, result.bill);
 
     res.json(result);
   } catch (error: any) {
@@ -2073,15 +2100,59 @@ router.post('/:id/payments', requireRole(...ROLE_ACCESS.ownerManagerCashier), (r
       paymentIdempotencyKey(req), requestHash, String((req as any).user.userId),
     ));
 
-    const billStatus = (result.bill as any)?.payment_status;
-    if (billStatus === 'paid') notifyKdsUpdate();
-    else notifyOrderUpdated();
+    notifyAfterPayment(db, result.bill);
 
     res.json(result);
   } catch (error: any) {
     const statusCode = error.statusCode || 500;
     console.error('[API] Batch bill payment failed:', error);
     res.status(statusCode).json({ error: statusCode >= 500 ? 'Bill payment failed' : error.message });
+  }
+});
+
+// Hand a bill over entirely on credit (fiado): nothing is collected now and
+// the whole balance becomes the customer's debt in Cartera. No money moves,
+// so there is no payment line to record — the bill stays unpaid, and what
+// changes is who owes it and that the sale is done at the counter.
+router.post('/:id/credit', requireRole(...ROLE_ACCESS.ownerManagerCashier), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const billId = req.params.id as string;
+    const bodyCustomerId = req.body?.customer_id === undefined || req.body?.customer_id === null || req.body?.customer_id === ''
+      ? null
+      : String(req.body.customer_id);
+
+    const result = withTxn(() => {
+      const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(billId) as any;
+      if (!bill) throw Object.assign(new Error('Bill not found'), { statusCode: 404 });
+      if (bill.payment_status === 'paid') throw Object.assign(new Error('Bill is already paid'), { statusCode: 400 });
+
+      const order = db.prepare('SELECT customer_id FROM orders WHERE id = ?').get(bill.order_id) as { customer_id?: string | null } | undefined;
+      const associatedCustomerId = bill.customer_id || order?.customer_id || null;
+      if (bodyCustomerId && associatedCustomerId && String(associatedCustomerId) !== bodyCustomerId) {
+        throw Object.assign(new Error('Credit customer does not match the bill customer'), { statusCode: 400 });
+      }
+      const customerId = associatedCustomerId ? String(associatedCustomerId) : bodyCustomerId;
+      if (!customerId) throw Object.assign(new Error('A customer is required to record a credit sale'), { statusCode: 400 });
+      if (!db.prepare('SELECT id FROM customers WHERE id = ?').get(customerId)) {
+        throw Object.assign(new Error('Customer not found'), { statusCode: 400 });
+      }
+
+      const changedAt = now();
+      if (!bill.customer_id) {
+        db.prepare('UPDATE bills SET customer_id = ?, updated_at = ? WHERE id = ?').run(customerId, changedAt, billId);
+      }
+      closeOrderIfDone(db, bill, false, changedAt);
+      return { bill: parseRowJson(db.prepare('SELECT * FROM bills WHERE id = ?').get(billId)) };
+    });
+
+    notifyAfterPayment(db, result.bill);
+
+    res.json(result);
+  } catch (error: any) {
+    const statusCode = error.statusCode || 500;
+    console.error('[API] Credit sale failed:', error);
+    res.status(statusCode).json({ error: statusCode >= 500 ? 'Credit sale failed' : error.message });
   }
 });
 

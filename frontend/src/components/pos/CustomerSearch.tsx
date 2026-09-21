@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import api from '@/lib/api';
 import { useCartStore } from '@/store/cart';
 import { X, Pencil, Gift, Search, UserPlus, User } from 'lucide-react';
@@ -61,7 +61,9 @@ export default function CustomerSearch({ inputRef }: Props = {}) {
 
   const customer = cart.customer;
   const trimmedQuery = query.trim();
-  const listboxId = 'pos-customer-results';
+  // Two instances can be mounted at once (the topbar plus a payment modal's
+  // inline picker), so the id must not collide across them.
+  const listboxId = `pos-customer-results-${useId()}`;
 
   // Reset stale points synchronously during render when customer changes
   // to avoid flashing previous customer's loyalty balance.

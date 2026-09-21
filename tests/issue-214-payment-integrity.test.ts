@@ -117,7 +117,7 @@ async function main() {
     assertEqual(full.status, 200, 'single payment amount=null remains full-payment compatible');
     assertEqual(full.data.bill.payment_status, 'paid', 'null amount settles the remaining balance');
 
-    const repeatedLegacy = await newBill();
+    const repeatedLegacy = await newBill('cust-214');
     const firstRepeated = await api(baseUrl, `/api/bills/${repeatedLegacy.id}/payment`, {
       method: 'POST', body: { method: 'cash', amount: 10 }, headers: authHeader,
     });
@@ -169,7 +169,7 @@ async function main() {
     }
 
     // A new batch must not rewrite an independently recorded earlier payment.
-    const partial = await newBill();
+    const partial = await newBill('cust-214');
     const prior = await api(baseUrl, `/api/bills/${partial.id}/payment`, {
       method: 'POST', body: { method: 'cash', amount: 10 }, headers: authHeader,
     });

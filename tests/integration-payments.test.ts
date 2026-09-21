@@ -63,7 +63,7 @@ async function main() {
     // Create order
     const orderA = await api(baseUrl, '/api/orders', {
       method: 'POST',
-      body: { type: 'takeaway', items: [{ product_id: 'prod-pay-1', quantity: 2 }] },
+      body: { type: 'takeaway', customer_id: 'cust-wallet', items: [{ product_id: 'prod-pay-1', quantity: 2 }] },
       headers: authHeader,
     });
     assertEqual(orderA.status, 201, 'order A created');

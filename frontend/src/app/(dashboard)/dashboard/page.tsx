@@ -62,6 +62,7 @@ interface FinancialSummary {
   grossCollected: number;
   refunded: number;
   netCollected: number;
+  sold: number;
   billCount: number;
   refundCount: number;
   averageOrderValue: number;
@@ -69,9 +70,18 @@ interface FinancialSummary {
   refunds: RefundActivity[];
 }
 
+// Exhaustive map, so no key is built from a template literal at runtime.
+const SALE_UNIT_LABEL_KEYS = {
+  each: 'saleUnitEach',
+  kg: 'saleUnitKg',
+  g: 'saleUnitG',
+  lb: 'saleUnitLb',
+} as const satisfies Record<string, keyof AppConfig['Messages']['products']>;
+
 interface TopProduct {
   product_id: number;
   product_name: string;
+  sale_unit: string | null;
   total_quantity: number;
   total_revenue: number;
   order_count: number;
@@ -98,7 +108,7 @@ interface TopStaff {
 interface TopCategory {
   category_id: string | null;
   name: string;
-  quantity: number;
+  quantities: { unit: string; quantity: number }[];
   revenue: number;
 }
 
@@ -175,6 +185,7 @@ export default function DashboardPage() {
   const tCommon = useTranslations('common');
   const tPos = useTranslations('pos');
   const tOrders = useTranslations('orders');
+  const tProducts = useTranslations('products');
   const router = useRouter();
   const [stats, setStats] = useState<DailyStats | null>(null);
   const [daySummary, setDaySummary] = useState<DaySummary | null>(null);
@@ -186,6 +197,15 @@ export default function DashboardPage() {
 
   const isOwner = hasRole(currentTenant?.role, ROLE_ACCESS.owner);
   const fmt = useFormatCurrency();
+  // A quantity means nothing without its unit: 14 of something sold by
+  // weight is 14 kg, and rendering it bare reads as 14 items. Weighed
+  // amounts are decimal, so they are also rounded to stay legible.
+  const quantityWithUnit = (quantity: number, unit: string | null) => {
+    const key = SALE_UNIT_LABEL_KEYS[(unit ?? 'each') as keyof typeof SALE_UNIT_LABEL_KEYS];
+    if (!key) return String(quantity);
+    const rounded = Number.isInteger(quantity) ? quantity : Math.round(quantity * 1000) / 1000;
+    return `${rounded.toLocaleString(locale, { maximumFractionDigits: 3 })} ${tProducts(key)}`;
+  };
   const { formatDateTime } = useFormatDate();
   const locale = useLocale();
   const timeZone = currentTenant?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -386,7 +406,10 @@ export default function DashboardPage() {
   const tiles = [
     {
       label: periodMode === 'month' ? t('netCollections') : isToday ? t('todaySales') : t('sales'),
-      value: fmt(financialSummary?.netCollected ?? 0),
+      value: fmt(financialSummary?.sold ?? 0),
+      // What was sold and what came in are different numbers as soon as
+      // anything is sold on credit; showing only one of them hides the gap.
+      subValue: t('collectedOfSold', { amount: fmt(financialSummary?.netCollected ?? 0) }),
       icon: Banknote,
       color: 'bg-green-50 border-green-200',
       iconColor: 'text-green-600',
@@ -525,6 +548,9 @@ export default function DashboardPage() {
                 <p className="text-3xl font-bold text-gray-900">
                   {tile.value}
                 </p>
+                {'subValue' in tile && tile.subValue ? (
+                  <p className="mt-1 text-xs text-muted-foreground">{tile.subValue}</p>
+                ) : null}
               </Link>
             ))}
           </div>
@@ -590,7 +616,7 @@ export default function DashboardPage() {
                     <div key={product.product_id} className="flex items-center justify-between px-4 py-2.5">
                       <div className="min-w-0">
                         <span className="text-sm font-medium text-foreground">{product.product_name}</span>
-                        <p className="text-xs text-gray-400">{t('productSoldOrders', { quantity: product.total_quantity, orders: product.order_count })}</p>
+                        <p className="text-xs text-gray-400">{t('productSoldOrders', { quantity: quantityWithUnit(Number(product.total_quantity), product.sale_unit), orders: product.order_count })}</p>
                       </div>
                       <span className="text-sm font-semibold text-foreground shrink-0">
                         {fmt(Number(product.total_revenue))}
@@ -649,7 +675,14 @@ export default function DashboardPage() {
                     <div key={category.category_id ?? category.name} className="flex items-center justify-between px-4 py-2.5">
                       <div className="min-w-0">
                         <span className="text-sm font-medium text-foreground">{category.name}</span>
-                        <p className="text-xs text-gray-400">{t('categoryQuantitySold', { quantity: category.quantity })}</p>
+                        <p className="text-xs text-gray-400">
+                          {t('categoryQuantitySold', {
+                            quantity: category.quantities
+                              .filter((entry) => entry.quantity > 0)
+                              .map((entry) => quantityWithUnit(entry.quantity, entry.unit))
+                              .join(' · '),
+                          })}
+                        </p>
                       </div>
                       <span className="text-sm font-semibold text-foreground shrink-0">
                         {fmt(Number(category.revenue))}

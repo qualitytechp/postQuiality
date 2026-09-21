@@ -12,6 +12,15 @@
  *   · A bill with no customer is not a receivable: there is no one to collect
  *     from.
  *   · A partial payment lowers the balance without erasing the receivable.
+ *   · A partial payment is refused without a customer attached — otherwise
+ *     the debt it leaves behind would never surface here. A full payment
+ *     never needs one, since nothing is left owing.
+ *   · An abono closes a counter sale (its balance is collected from here
+ *     instead), but leaves a table's order open, where items can still be
+ *     added until it is settled.
+ *   · A fiado total — nothing paid, the whole sale on credit — records no
+ *     payment at all: the bill stays unpaid, the debt is attached to the
+ *     customer, and it is collected later through the same payment route.
  *
  * Usage: node tests/run-electron-node-test.cjs tests/receivables.test.ts
  */
@@ -126,12 +135,12 @@ async function main() {
   let nextBillId = 1;
   const seedBill = (opts: {
     customerId: string | null; total: number; paidAmount?: number;
-    status?: 'unpaid' | 'partial' | 'paid'; createdAt?: string;
+    status?: 'unpaid' | 'partial' | 'paid'; createdAt?: string; tableId?: string;
   }) => {
     const orderId = nextOrderId++;
-    db.prepare(`INSERT INTO orders (id, order_number, status, subtotal, total, created_at, updated_at)
-                VALUES (?, ?, 'active', ?, ?, ?, ?)`)
-      .run(orderId, `ORD-${orderId}`, opts.total, opts.total, opts.createdAt ?? stamp, opts.createdAt ?? stamp);
+    db.prepare(`INSERT INTO orders (id, order_number, status, table_id, subtotal, total, created_at, updated_at)
+                VALUES (?, ?, 'active', ?, ?, ?, ?, ?)`)
+      .run(orderId, `ORD-${orderId}`, opts.tableId ?? null, opts.total, opts.total, opts.createdAt ?? stamp, opts.createdAt ?? stamp);
     const billId = nextBillId++;
     const paid = opts.paidAmount ?? 0;
     db.prepare(`
@@ -244,6 +253,108 @@ async function main() {
     const afterFull = await call(baseUrl, 'GET', '/api/receivables', owner);
     assert(!afterFull.data.receivables.some((r: any) => r.bill_id === oldBillId), 'a paid bill disappears from receivables on its own — no separate deletion needed');
     assertEqual(afterFull.data.receivables.length, 1, 'only the still-open fiado remains');
+
+    // ── 7. A partial payment (abono) requires a customer ──────────────────
+    // Otherwise the resulting debt would never surface here — this list is
+    // filtered by customer_id, so an anonymous partial payment would be an
+    // invisible, uncollectable debt.
+    console.log('\n7. Partial payment requires a customer');
+    const anonymousBillId = seedBill({ customerId: null, total: 30000 });
+    const rejectedAbono = await call(baseUrl, 'POST', `/api/bills/${anonymousBillId}/payment`, cashier, { method: 'cash', amount: '10000' });
+    assertEqual(rejectedAbono.status, 400, 'an anonymous partial payment is refused');
+    assertEqual(rejectedAbono.data.error, 'A customer is required to record a partial payment', 'the error explains why');
+    const untouchedBill = db.prepare('SELECT payment_status, paid_amount FROM bills WHERE id = ?').get(anonymousBillId) as any;
+    assertEqual(untouchedBill.payment_status, 'unpaid', 'the refused attempt left the bill unpaid');
+    assertEqual(untouchedBill.paid_amount, 0, 'and nothing was recorded as paid');
+
+    const abonoWithCustomer = await call(baseUrl, 'POST', `/api/bills/${anonymousBillId}/payment`, cashier, { method: 'cash', amount: '10000', customer_id: 'c-julian' });
+    assertEqual(abonoWithCustomer.status, 200, 'the same partial payment succeeds once a customer is supplied');
+    assertEqual(abonoWithCustomer.data.bill.payment_status, 'partial', 'the bill moves to partial');
+    const nowAReceivable = await call(baseUrl, 'GET', '/api/receivables', owner);
+    assert(nowAReceivable.data.receivables.some((r: any) => r.bill_id === anonymousBillId), 'it now shows up as a receivable, since it has a customer');
+
+    // A full payment (amount omitted → pays the whole balance) never needs one.
+    const anonymousFullBillId = seedBill({ customerId: null, total: 15000 });
+    const fullNoCustomer = await call(baseUrl, 'POST', `/api/bills/${anonymousFullBillId}/payment`, cashier, { method: 'cash' });
+    assertEqual(fullNoCustomer.status, 200, 'a full payment with no customer is still allowed — nothing is left owing');
+    assertEqual(fullNoCustomer.data.bill.payment_status, 'paid', 'and the bill settles completely');
+
+    // ── 8. An abono at the counter closes the order; at a table it does not ──
+    console.log('\n8. What the abono does to the order');
+    const counterBillId = seedBill({ customerId: 'c-julian', total: 20000 });
+    const counterOrderId = (db.prepare('SELECT order_id FROM bills WHERE id = ?').get(counterBillId) as any).order_id;
+    await call(baseUrl, 'POST', `/api/bills/${counterBillId}/payment`, cashier, { method: 'cash', amount: '5000' });
+    assertEqual(
+      (db.prepare('SELECT status FROM orders WHERE id = ?').get(counterOrderId) as any).status, 'completed',
+      'a counter sale closes once the abono is taken — the balance is collected from Cartera, not from the order queue',
+    );
+    assert(
+      (await call(baseUrl, 'GET', '/api/receivables', owner)).data.receivables.some((r: any) => r.bill_id === counterBillId),
+      'and the balance it left behind is a receivable',
+    );
+
+    db.prepare(`INSERT INTO tables (id, number, capacity, status, created_at, updated_at)
+                VALUES ('t-rc', '4', 4, 'occupied', ?, ?)`).run(stamp, stamp);
+    const tableBillId = seedBill({ customerId: 'c-julian', total: 30000, tableId: 't-rc' });
+    const tableOrderId = (db.prepare('SELECT order_id FROM bills WHERE id = ?').get(tableBillId) as any).order_id;
+    await call(baseUrl, 'POST', `/api/bills/${tableBillId}/payment`, cashier, { method: 'cash', amount: '5000' });
+    assertEqual(
+      (db.prepare('SELECT status FROM orders WHERE id = ?').get(tableOrderId) as any).status, 'active',
+      'a table keeps its order open after an abono — more items can still be added',
+    );
+    assertEqual(
+      (db.prepare('SELECT status FROM tables WHERE id = ?').get('t-rc') as any).status, 'occupied',
+      'and the table stays occupied until the bill is settled',
+    );
+    await call(baseUrl, 'POST', `/api/bills/${tableBillId}/payment`, cashier, { method: 'cash' });
+    assertEqual(
+      (db.prepare('SELECT status FROM orders WHERE id = ?').get(tableOrderId) as any).status, 'completed',
+      'paying the rest closes the table order',
+    );
+    assertEqual(
+      (db.prepare('SELECT status FROM tables WHERE id = ?').get('t-rc') as any).status, 'available',
+      'and frees the table',
+    );
+
+    // ── 9. Fiado total: nothing is paid, the whole sale is on credit ──────
+    console.log('\n9. Credit sale (nothing paid)');
+    const creditBillId = seedBill({ customerId: null, total: 45000 });
+    const creditOrderId = (db.prepare('SELECT order_id FROM bills WHERE id = ?').get(creditBillId) as any).order_id;
+
+    const creditNoCustomer = await call(baseUrl, 'POST', `/api/bills/${creditBillId}/credit`, cashier, {});
+    assertEqual(creditNoCustomer.status, 400, 'a credit sale with no customer is refused');
+    assertEqual(creditNoCustomer.data.error, 'A customer is required to record a credit sale', 'the error explains why');
+    assertEqual(
+      (db.prepare('SELECT status FROM orders WHERE id = ?').get(creditOrderId) as any).status, 'active',
+      'the refused attempt left the order open',
+    );
+
+    const credited = await call(baseUrl, 'POST', `/api/bills/${creditBillId}/credit`, cashier, { customer_id: 'c-daniela' });
+    assertEqual(credited.status, 200, 'handing the whole sale over on credit succeeds');
+    assertEqual(credited.data.bill.payment_status, 'unpaid', 'nothing was paid, so the bill stays unpaid');
+    assertClose(Number(credited.data.bill.balance), 45000, 'and the entire total is owed');
+    assertEqual(String(credited.data.bill.customer_id), 'c-daniela', 'the debt is attached to the customer');
+    assertEqual(
+      (db.prepare('SELECT status FROM orders WHERE id = ?').get(creditOrderId) as any).status, 'completed',
+      'the counter sale closes — it is collected from Cartera, not from the order queue',
+    );
+
+    const creditListed = await call(baseUrl, 'GET', '/api/receivables', owner);
+    const creditRow = creditListed.data.receivables.find((r: any) => r.bill_id === creditBillId);
+    assert(!!creditRow, 'the credit sale shows up as a receivable');
+    assertClose(creditRow.balance, 45000, 'for the full amount');
+
+    // Collecting it later is the same payment route as any other fiado.
+    const collected = await call(baseUrl, 'POST', `/api/bills/${creditBillId}/payment`, cashier, { method: 'cash' });
+    assertEqual(collected.status, 200, 'the credit sale can be collected later through the payment route');
+    assertEqual(collected.data.bill.payment_status, 'paid', 'and settles completely');
+    assert(
+      !(await call(baseUrl, 'GET', '/api/receivables', owner)).data.receivables.some((r: any) => r.bill_id === creditBillId),
+      'once settled it leaves Cartera',
+    );
+
+    const paidAlready = await call(baseUrl, 'POST', `/api/bills/${creditBillId}/credit`, cashier, { customer_id: 'c-daniela' });
+    assertEqual(paidAlready.status, 400, 'a bill that is already paid cannot be turned into a credit sale');
 
     console.log('\n' + '='.repeat(60));
     console.log(`Results: ${passed}/${passed + failed} passed, ${failed} failed`);

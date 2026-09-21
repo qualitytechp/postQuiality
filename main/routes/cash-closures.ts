@@ -172,22 +172,61 @@ export interface DayAggregates {
    */
   carteraCashInCents: number;
   carteraCashOutCents: number;
+  /**
+   * Billed in this window but left owing — an abono's remainder or a fiado in
+   * full. Reported so a shift can explain selling more than it took in;
+   * never part of expected cash, precisely because it never came in.
+   */
+  creditGrantedCents: number;
   paymentMethods: { method: string; count: number; total_cents: number }[];
   staffSales: { user_id: string; name: string; role: string; revenue_cents: number; orderCount: number }[];
   taxComponents: DisplayTaxComponent[];
 }
 
 /**
+ * Every payment line, dated by when the money actually crossed the counter.
+ *
+ * A bill's `paid_at` is only stamped once it is settled in full, so keying
+ * cash off it hides an abono taken today and then lands the whole bill —
+ * instalments from earlier days included — on the day it is finally
+ * cancelled. The drawer does not work that way: a shift holds the money
+ * taken during it, which is what each line's own `timestamp` records.
+ */
+export const PAYMENT_LINES_SQL = `
+  SELECT
+    b.id AS bill_id,
+    b.order_id AS order_id,
+    COALESCE(NULLIF(json_extract(je.value, '$.method'), ''), 'unknown') AS method,
+    CASE
+      WHEN typeof(json_extract(je.value, '$.amount')) IN ('integer', 'real')
+        THEN CAST(json_extract(je.value, '$.amount') AS REAL)
+      ELSE 0
+    END AS amount,
+    COALESCE(
+      datetime(NULLIF(json_extract(je.value, '$.timestamp'), '')),
+      datetime(NULLIF(b.paid_at, '')),
+      datetime(NULLIF(b.created_at, ''))
+    ) AS paid_time
+  FROM bills b
+  JOIN json_each(CASE
+    WHEN json_valid(b.payment_details) AND json_type(b.payment_details) = 'array'
+      THEN b.payment_details
+    WHEN json_valid(b.payment_details)
+      THEN json_array(b.payment_details)
+    ELSE '[]'
+  END) je
+  WHERE b.payment_details IS NOT NULL
+    AND json_type(je.value) = 'object'
+`;
+
+/**
  * Shared by financial-summary (reports.ts, called with paidOnly/attributeRefundsToBillDate=true)
  * and cash-closure snapshots; defaults false/false/false.
  *
- * `keyByPaidAt` is true only for the day-close snapshot: a bill paid in
- * installments carries one `timestamp` per payment line, so keying lines
- * by their own timestamp would scatter one bill's cash across several
- * business days while gross/staff/tax (all keyed by `b.paid_at`) land on
- * the settlement day. Keying by `paid_at` keeps every Z section on the
- * same day so the immutable snapshot reconciles with itself. Live reports
- * keep the default: a partial payment belongs to the day it was taken.
+ * `keyByPaidAt` dates lines by the bill's settlement instead of their own
+ * timestamp. It is kept for callers that need settlement-day attribution,
+ * but the cash-closure snapshot no longer uses it: money is counted on the
+ * day it was taken, so an abono belongs to that shift's drawer.
  */
 export function paymentMethodBreakdown(
   db: ReturnType<typeof getDatabase>,
@@ -266,15 +305,17 @@ export function computeDayAggregates(
 ): DayAggregates {
   const [start, end] = bounds ?? dayBoundsInTimezone(businessDate, tenantTimezone());
 
-  // Display gross — `SUM(paid_amount)` over the paid_at day window (NOT
-  // SUM(total) over created_at). This matches financial-summary so display
-  // totals reconcile with the existing report endpoint for the same day.
+  // Display gross — the payment lines taken inside the window, NOT
+  // `SUM(paid_amount)` over `paid_at`: a bill settled in instalments must
+  // report each one on the day it was collected, and a bill still owing
+  // must report what has been collected so far rather than nothing.
   const billRow = db.prepare(`
+    WITH payment_lines AS (${PAYMENT_LINES_SQL})
     SELECT
-      COUNT(*) AS bill_count,
-      COALESCE(SUM(b.paid_amount), 0) AS gross_collected
-    FROM bills b
-    WHERE b.paid_at >= ? AND b.paid_at < ?
+      COUNT(DISTINCT bill_id) AS bill_count,
+      COALESCE(SUM(amount), 0) AS gross_collected
+    FROM payment_lines
+    WHERE paid_time >= datetime(?) AND paid_time < datetime(?)
   `).get(start, end) as { bill_count: number; gross_collected: number };
 
   // Display refunds — paid_at attribution, same as financial-summary.
@@ -301,21 +342,11 @@ export function computeDayAggregates(
   // JPY factor 1) round-trip exactly.
   const minorFactor = getCurrencyMinorUnitFactor(getTenantCurrency(db));
   const cashDrawerRow = db.prepare(`
-    WITH cash_sales AS (
-      SELECT COALESCE(SUM(CAST(json_extract(je.value, '$.amount') AS REAL) * ?), 0) AS sales_cents
-      FROM bills b
-      JOIN json_each(
-        CASE
-          WHEN json_valid(b.payment_details) AND json_type(b.payment_details) = 'array'
-            THEN b.payment_details
-          WHEN json_valid(b.payment_details)
-            THEN json_array(b.payment_details)
-          ELSE '[]'
-        END
-      ) je
-      WHERE b.paid_at >= ? AND b.paid_at < ?
-        AND json_type(je.value) = 'object'
-        AND COALESCE(NULLIF(json_extract(je.value, '$.method'), ''), '') = 'cash'
+    WITH payment_lines AS (${PAYMENT_LINES_SQL}), cash_sales AS (
+      SELECT COALESCE(SUM(amount * ?), 0) AS sales_cents
+      FROM payment_lines
+      WHERE method = 'cash'
+        AND paid_time >= datetime(?) AND paid_time < datetime(?)
     ), cash_refunds AS (
       SELECT COALESCE(SUM(amount_cents), 0) AS refunds_cents
       FROM refunds
@@ -369,35 +400,44 @@ export function computeDayAggregates(
       + Number(carteraCashRow.payables_out_cents || 0),
   };
 
-  // Display payment-method totals — reuse paymentMethodBreakdown so display
-  // numbers reconcile with the live financial-summary endpoint for the same day.
-  // Keyed by paid_at (not per-line timestamps) so installment payments
-  // land on the settlement day alongside gross/staff/tax (see B1 above).
-  const paymentMethodsRows = paymentMethodBreakdown(db, businessDate, businessDate, true, true, true);
+  // Display payment-method totals — reuse paymentMethodBreakdown, keyed by
+  // each line's own timestamp (like gross and expected cash above) so an
+  // abono shows under the method it was taken with, on the day it was taken.
+  const paymentMethodsRows = paymentMethodBreakdown(db, businessDate, businessDate, false, true, false);
 
-  // Per-staff sales — same window as the bill count, keyed by paid_at so a
-  // cross-midnight bill (created day-1, paid day-2) rolls into day-2's Z
-  // (matches the gross/payment/expected windows above; cancels the prior
-  // creation-time key, which produced a non-reconciling Z with respect to
-  // the rest of the snapshot). Unpaid orders drop out: uncollected money
-  // is not staff revenue for the day it was created.
+  // Per-staff sales — what each cashier actually collected in the window,
+  // summed from their payment lines for the same reason as the gross above.
   const staffSalesRows = db.prepare(`
+    WITH payment_lines AS (${PAYMENT_LINES_SQL})
     SELECT u.id AS user_id, u.name AS name, u.role AS role,
-      COALESCE(SUM(b.paid_amount), 0) AS revenue,
-      COUNT(b.id) AS orderCount
-    FROM bills b
-    JOIN orders o ON o.id = b.order_id
+      COALESCE(SUM(pl.amount), 0) AS revenue,
+      COUNT(DISTINCT pl.bill_id) AS orderCount
+    FROM payment_lines pl
+    JOIN orders o ON o.id = pl.order_id
     JOIN users u ON u.id = o.user_id
-    WHERE b.paid_at >= ? AND b.paid_at < ?
+    WHERE pl.paid_time >= datetime(?) AND pl.paid_time < datetime(?)
     GROUP BY u.id
     ORDER BY revenue DESC
     LIMIT 20
   `).all(start, end) as StaffSalesRow[];
 
-  // Tax components — keyed by paid_at window to stay reconciled with the
-  // rest of the Z. Bills are hydrated with their order items and then
-  // aggregated via the existing `aggregateTaxComponents` pipeline, unchanged.
-  // Unpaid bills drop out by the same logic as the staff query above.
+  // Credit handed out during the window: what was billed but left owing,
+  // whether as an abono's remainder or a fiado in full. Informational only —
+  // it never touches expected cash, precisely because it did not come in.
+  const creditRow = db.prepare(`
+    SELECT COALESCE(SUM(b.balance), 0) AS credit_granted
+    FROM bills b
+    WHERE b.created_at >= ? AND b.created_at < ?
+      AND b.payment_status != 'paid'
+      AND b.customer_id IS NOT NULL
+  `).get(start, end) as { credit_granted: number };
+
+  // Tax components — still keyed by `paid_at`, deliberately: tax belongs to
+  // the sale, not to the instalment that happens to pay it off, and splitting
+  // it across abonos would mean prorating each component. So this section
+  // reports the tax of the bills settled in the window, while the cash
+  // figures above report the money taken in it. Bills are hydrated with their
+  // order items and aggregated via `aggregateTaxComponents`, unchanged.
   const bills = db.prepare(`
     SELECT b.*
     FROM bills b
@@ -426,6 +466,7 @@ export function computeDayAggregates(
     cashRefundsByCreatedAtCents: Number(cashDrawerRow.refunds_cents || 0),
     carteraCashInCents: carteraCash.inCents,
     carteraCashOutCents: carteraCash.outCents,
+    creditGrantedCents: Math.round(Number(creditRow.credit_granted || 0) * minorFactor),
     paymentMethods: paymentMethodsRows.map((row) => ({
       method: row.method,
       count: Number(row.count || 0),

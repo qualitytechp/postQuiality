@@ -812,28 +812,41 @@ export default function POSPage() {
         savePrepaidAttempt({ ...attempt, order: orderData.order, bill: generatedBill.bill });
       }
 
-      // Record every split in one atomic request. The persisted bill/key pair
-      // makes a lost response safe to retry without creating a second order.
-      const paymentResponse = await api.post(
-        `/bills/${billData.bill.id}/payments`,
-        { payments: paymentLines, customer_id: cart.customerId },
-        { headers: { 'Idempotency-Key': attempt.paymentIdempotencyKey } },
-      );
+      // No payment lines at all means the sale is handed over on credit: no
+      // money moves, so there is nothing to settle — only the debt to record.
+      // Otherwise every split goes in one atomic request; the persisted
+      // bill/key pair makes a lost response safe to retry without creating a
+      // second order.
+      const paymentResponse = paymentLines.length === 0
+        ? await api.post(`/bills/${billData.bill.id}/credit`, { customer_id: cart.customerId })
+        : await api.post(
+          `/bills/${billData.bill.id}/payments`,
+          { payments: paymentLines, customer_id: cart.customerId },
+          { headers: { 'Idempotency-Key': attempt.paymentIdempotencyKey } },
+        );
       const paidBill: Bill = paymentResponse.data?.bill || billData.bill;
       const pointsEarned = paymentResponse.data?.loyaltyPointsEarned > 0
         ? paymentResponse.data.loyaltyPointsEarned
         : 0;
 
-      if (paidBill.payment_status !== 'paid') {
+      if (paymentLines.length > 0 && paidBill.payment_status === 'unpaid') {
         toast.error(t('paymentIncomplete', {
           amount: currencyFmt(Number(paidBill.balance) || 0),
         }));
         return;
       }
 
-      const successMsg = pointsEarned > 0
-        ? t('orderPaidWithPoints', { number: orderData.order.order_number, points: pointsEarned })
-        : t('orderPaid', { number: orderData.order.order_number });
+      // 'partial' and 'unpaid' here are deliberate: PrepaidCheckoutModal only
+      // lets the cashier settle for less than the total once a customer is
+      // attached, so the balance is already tracked in Cartera/Por Cobrar.
+      const balanceOwed = currencyFmt(Number(paidBill.balance) || 0);
+      const successMsg = paidBill.payment_status === 'unpaid'
+        ? t('orderOnCredit', { number: orderData.order.order_number, amount: balanceOwed })
+        : paidBill.payment_status === 'partial'
+          ? t('orderPartiallyPaid', { number: orderData.order.order_number, amount: balanceOwed })
+          : pointsEarned > 0
+            ? t('orderPaidWithPoints', { number: orderData.order.order_number, points: pointsEarned })
+            : t('orderPaid', { number: orderData.order.order_number });
       toast.success(successMsg);
       if (cart.tableId) {
         try {

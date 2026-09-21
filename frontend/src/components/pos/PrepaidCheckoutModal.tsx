@@ -17,6 +17,7 @@ import { useCurrencyUnitAdapter } from '@/hooks/useCurrencyUnitAdapter';
 import { getCountryByCode, getCurrencyMinorUnitFactor } from '@/lib/countries';
 import { getDiscountInputStep, normalizeFixedDiscountValue } from '@/lib/currency-input';
 import { CurrencyTouchNumberPad } from '@/components/pos/TouchNumberPad';
+import CustomerSearch from '@/components/pos/CustomerSearch';
 import {
   defaultDiscountTypeForMode,
   isDiscountTypeAllowed,
@@ -361,8 +362,11 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
       toast.error(t('paymentAboveBalance'));
       return;
     }
-    if (totalPaymentMinor < remainingMinor) {
-      toast.error(t('paymentBelowBalance'));
+    // Nothing entered at all is a fiado: the whole total is handed over on
+    // credit. Anything short of it leaves the rest owing. Either way the debt
+    // needs a customer, or it could never be collected.
+    if (totalPaymentMinor < remainingMinor && !cart.customerId) {
+      toast.error(t('partialPaymentCustomerRequired'));
       return;
     }
     if (walletAmt > 0 && walletBalance === null) {
@@ -412,7 +416,8 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
     const target = e.target as HTMLElement;
     if (target.tagName === 'BUTTON' || target.tagName === 'TEXTAREA') return;
     e.preventDefault();
-    if (processing || taxLoading || (!preview && !hasInvalidFixedDiscount) || totalPaymentMinor < remainingMinor) return;
+    if (processing || taxLoading || (!preview && !hasInvalidFixedDiscount)) return;
+    if (totalPaymentMinor < remainingMinor && !cart.customerId) return;
     handleConfirm();
   };
 
@@ -664,6 +669,23 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
             />
           )}
 
+          {/* Partial payment (abono): reactive remaining balance, plus a customer
+              picker inline when one isn't attached yet — required so the debt
+              surfaces in Cartera/Por Cobrar instead of being untraceable. */}
+          {preview && totalPaymentMinor < remainingMinor && (
+            <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <span className="text-sm font-semibold text-amber-800">
+                {t('partialPaymentBalance', { amount: currencyFmt((remainingMinor - totalPaymentMinor) / minorFactor) })}
+              </span>
+              {!cart.customerId && (
+                <div className="space-y-1">
+                  <p className="text-xs text-amber-700">{t('partialPaymentCustomerRequired')}</p>
+                  <CustomerSearch />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Change stays at the bottom of all payment controls. */}
           {hasCash && (
             <div className={`rounded-xl px-4 py-2.5 flex items-center justify-between border transition-all duration-200 ${
@@ -699,11 +721,22 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
         <div className="shrink-0 border-t border-border px-5 pb-6 pt-3">
           <Button
             onClick={handleConfirm}
-            disabled={processing || taxLoading || (!preview && !hasInvalidFixedDiscount) || totalPaymentMinor < remainingMinor}
+            disabled={
+              processing || taxLoading || (!preview && !hasInvalidFixedDiscount)
+              || (totalPaymentMinor < remainingMinor && !cart.customerId)
+            }
             className="w-full h-12 text-base font-semibold rounded-xl"
             size="lg"
           >
-            {taxLoading ? t('calculatingTax') : processing ? t('processingPayment') : t('confirmPaymentAmount', { amount: currencyFmt(remaining) })}
+            {taxLoading
+              ? t('calculatingTax')
+              : processing
+                ? t('processingPayment')
+                : totalPaymentMinor === 0
+                  ? t('confirmCreditSale', { amount: currencyFmt(remaining) })
+                  : totalPaymentMinor < remainingMinor
+                    ? t('confirmPartialPayment', { amount: currencyFmt(totalPaymentMinor / minorFactor) })
+                    : t('confirmPaymentAmount', { amount: currencyFmt(remaining) })}
           </Button>
         </div>
       </div>

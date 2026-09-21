@@ -21,6 +21,7 @@ import { useWhatsAppReady } from '@/hooks/useWhatsAppReady';
 import { sendBillViaFlo, shareBillViaWhatsApp } from '@/lib/whatsapp-share';
 import { useAuthStore } from '@/store/auth';
 import { CurrencyTouchNumberPad } from '@/components/pos/TouchNumberPad';
+import CustomerSearch from '@/components/pos/CustomerSearch';
 import {
   defaultDiscountTypeForMode,
   isDiscountTypeAllowed,
@@ -374,8 +375,28 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
       toast.error(t('paymentAboveBalance'));
       return;
     }
-    if (totalPaymentMinor < remainingMinor) {
-      toast.error(t('paymentBelowBalance'));
+    // Nothing entered at all is a fiado: the whole balance is handed over on
+    // credit. Anything short of the balance leaves the rest owing. Either way
+    // the debt needs a customer, or it could never be collected.
+    const isCredit = totalPaymentMinor === 0;
+    const isPartial = totalPaymentMinor > 0 && totalPaymentMinor < remainingMinor;
+    if ((isCredit || isPartial) && !effectiveCustomerId) {
+      toast.error(t('partialPaymentCustomerRequired'));
+      return;
+    }
+    if (isCredit) {
+      setProcessing(true);
+      try {
+        const res = await api.post(`/bills/${bill.id}/credit`, { customer_id: effectiveCustomerId });
+        const creditBill = res.data?.bill as Bill | undefined;
+        if (creditBill && onBillUpdate) onBillUpdate(creditBill);
+        toast.success(t('creditSaleRecorded', { amount: currencyFmt(Number(creditBill?.balance) || remaining) }));
+        setJustPaid(true);
+      } catch {
+        toast.error(t('creditSaleFailed'));
+      } finally {
+        setProcessing(false);
+      }
       return;
     }
     // Validate wallet amount against available balance (convert currency to points for comparison)
@@ -416,6 +437,13 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
         // new request and must not reuse the completed request's hash.
         if (updatedBill) idempotencyKeyRef.current = null;
         if (updatedBill && onBillUpdate) onBillUpdate(updatedBill);
+        if (isPartial && updatedBill?.payment_status === 'partial') {
+          // The cashier deliberately entered less than the balance (an abono),
+          // and it was recorded as intended — this is success, not a failure.
+          toast.success(t('partialPaymentRecorded', { amount: currencyFmt(Number(updatedBill.balance) || 0) }));
+          setJustPaid(true);
+          return;
+        }
         toast.error(t('paymentIncomplete', {
           amount: currencyFmt(Number(updatedBill?.balance) || 0),
         }));
@@ -479,7 +507,8 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
     const target = e.target as HTMLElement;
     if (target.tagName === 'BUTTON' || target.tagName === 'TEXTAREA') return;
     e.preventDefault();
-    if (processing || totalPaymentMinor < remainingMinor) return;
+    if (processing) return;
+    if (totalPaymentMinor < remainingMinor && !effectiveCustomerId) return;
     void handlePay();
   };
 
@@ -753,6 +782,23 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
             />
           )}
 
+          {/* Partial payment (abono): reactive remaining balance, plus a customer
+              picker inline when one isn't attached yet — required so the debt
+              surfaces in Cartera/Por Cobrar instead of being untraceable. */}
+          {totalPaymentMinor < remainingMinor && (
+            <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <span className="text-sm font-semibold text-amber-800">
+                {t('partialPaymentBalance', { amount: currencyFmt((remainingMinor - totalPaymentMinor) / minorFactor) })}
+              </span>
+              {!effectiveCustomerId && (
+                <div className="space-y-1">
+                  <p className="text-xs text-amber-700">{t('partialPaymentCustomerRequired')}</p>
+                  <CustomerSearch />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Change Returned */}
           {hasCash && (
             <div className={`rounded-xl px-4 py-2.5 flex items-center justify-between border transition-all duration-200 ${
@@ -816,8 +862,19 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
               </Button>
             </>
           ) : (
-            <Button onClick={handlePay} disabled={processing || totalPaymentMinor < remainingMinor} className="w-full h-12 text-base font-semibold rounded-xl" size="lg">
-              {processing ? t('processingPayment') : t('confirmPaymentAmount', { amount: currencyFmt(remaining) })}
+            <Button
+              onClick={handlePay}
+              disabled={processing || (totalPaymentMinor < remainingMinor && !effectiveCustomerId)}
+              className="w-full h-12 text-base font-semibold rounded-xl"
+              size="lg"
+            >
+              {processing
+                ? t('processingPayment')
+                : totalPaymentMinor === 0
+                  ? t('confirmCreditSale', { amount: currencyFmt(remaining) })
+                  : totalPaymentMinor < remainingMinor
+                    ? t('confirmPartialPayment', { amount: currencyFmt(totalPaymentMinor / minorFactor) })
+                    : t('confirmPaymentAmount', { amount: currencyFmt(remaining) })}
             </Button>
           )}
         </div>

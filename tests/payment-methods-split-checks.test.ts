@@ -9,7 +9,7 @@ Module._load = function (request: string, parent: unknown, isMain: boolean) {
   return originalLoad.apply(this, arguments as any);
 };
 
-const { initTestDb, createApp, startServer, seedOwnerUser, seedManagerUser, seedCategory, seedProduct, installAndActivateTestTaxPack, api, assert, assertEqual, getResults, closeDatabase, now } = require('./helpers/test-setup');
+const { initTestDb, createApp, startServer, seedOwnerUser, seedManagerUser, seedCategory, seedProduct, seedCustomer, installAndActivateTestTaxPack, api, assert, assertEqual, getResults, closeDatabase, now } = require('./helpers/test-setup');
 const { orderRoutes } = require('../main/routes/orders');
 const { billRoutes, allocateSignedMinorUnits, allocateTaxSnapshots } = require('../main/routes/bills');
 const { paymentMethodRoutes } = require('../main/routes/payment-methods');
@@ -106,7 +106,8 @@ async function main() {
     assertEqual(secondPay.status, 200, 'second guest check paid with custom method');
     assertEqual((db.prepare('SELECT status FROM orders WHERE id = ?').get(order.id) as any).status, 'completed', 'order completes only after every check is paid');
 
-    const paidSiblingOrderRes = await api(baseUrl, '/api/orders', { method: 'POST', body: { type: 'dine_in', guest_count: 2, items: [{ product_id: 'split-coffee', quantity: 2 }] }, headers: authHeader });
+    seedCustomer(db, 'split-customer', 'Split customer', '8888888888');
+    const paidSiblingOrderRes = await api(baseUrl, '/api/orders', { method: 'POST', body: { type: 'dine_in', guest_count: 2, customer_id: 'split-customer', items: [{ product_id: 'split-coffee', quantity: 2 }] }, headers: authHeader });
     const paidSiblingItem = paidSiblingOrderRes.data.order.items[0];
     const paidSiblingBillRes = await api(baseUrl, '/api/bills/generate', { method: 'POST', body: { order_id: paidSiblingOrderRes.data.order.id }, headers: authHeader });
     const paidSiblingSplit = await api(baseUrl, `/api/bills/${paidSiblingBillRes.data.bill.id}/split-check`, { method: 'POST', body: { checks: [

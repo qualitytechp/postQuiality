@@ -85,6 +85,7 @@ export function CashRegisterReport() {
 
   const [session, setSession] = useState<OpenSession | null>(null);
   const [expectedCents, setExpectedCents] = useState(0);
+  const [creditGrantedCents, setCreditGrantedCents] = useState(0);
   const [bills, setBills] = useState<BillDetail[]>([]);
   const [expandedBillId, setExpandedBillId] = useState<number | null>(null);
   const [closures, setClosures] = useState<Closure[]>([]);
@@ -108,6 +109,7 @@ export function CashRegisterReport() {
         setSession(x?.openSession ?? null);
         // El X ya devuelve el efectivo esperado de la ventana abierta.
         setExpectedCents(Number(x?.expectedCashCents ?? 0) + Number(x?.openSession?.openingFloatCents ?? 0));
+        setCreditGrantedCents(Number(x?.creditGrantedCents ?? 0));
       })
       .catch(() => setSession(null));
     // Misma ventana que el X de arriba (turno abierto, o el día completo si
@@ -173,6 +175,11 @@ export function CashRegisterReport() {
               <Figure label={t('salesSinceOpen')} value={money(soldCents)} />
               <Figure label={t('expectedNow')} value={money(expectedCents)} strong />
             </div>
+            {creditGrantedCents > 0 && (
+              <p className="mt-2 text-sm text-amber-700">
+                {t('creditGranted', { amount: money(creditGrantedCents) })}
+              </p>
+            )}
           </>
         ) : (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">

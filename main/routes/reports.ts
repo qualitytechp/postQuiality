@@ -7,7 +7,7 @@ import { getOrdersWithItemsForBills } from './bills';
 import { aggregateTaxComponents } from '../services/tax-components';
 import { getTenantCurrency } from '../services/refund';
 import { getCurrencyMinorUnitFactor } from '../countries';
-import { computeDayAggregates, paymentMethodBreakdown } from './cash-closures';
+import { computeDayAggregates, paymentMethodBreakdown, PAYMENT_LINES_SQL } from './cash-closures';
 import { getOpenCashSession } from './cash-sessions';
 
 const router = Router();
@@ -79,11 +79,24 @@ router.get('/daily-stats', requireRole(...ROLE_ACCESS.ownerManager), (req: Reque
     const minorFactor = getCurrencyMinorUnitFactor(getTenantCurrency(db));
     const today = reportToday();
     const [start, end] = reportDayBounds(today);
-    const salesToday = db.prepare(`
+    // Two different questions, two different numbers. `sold` is what was
+    // billed today, credit included — the day's trade. `collected` is the
+    // money that actually came in, counting each payment on the day it was
+    // taken (a bill's `paid_at` is only stamped on final settlement, so
+    // keying off it would drop today's abonos and double up later).
+    const soldToday = db.prepare(`
+      SELECT COALESCE(SUM(total), 0) AS sold
+      FROM bills WHERE created_at >= ? AND created_at < ?
+    `).get(start, end) as { sold: number };
+    const collectedToday = db.prepare(`
+      WITH payment_lines AS (${PAYMENT_LINES_SQL})
       SELECT
-        COALESCE((SELECT SUM(paid_amount) FROM bills WHERE paid_at >= ? AND paid_at < ?), 0)
-        - COALESCE((SELECT SUM(CAST(amount_cents AS REAL)) / ? FROM refunds WHERE created_at >= ? AND created_at < ?), 0) AS sales
-    `).get(start, end, minorFactor, start, end) as { sales: number };
+        COALESCE((
+          SELECT SUM(amount) FROM payment_lines
+          WHERE paid_time >= datetime(?) AND paid_time < datetime(?)
+        ), 0)
+        - COALESCE((SELECT SUM(CAST(amount_cents AS REAL)) / ? FROM refunds WHERE created_at >= ? AND created_at < ?), 0) AS collected
+    `).get(start, end, minorFactor, start, end) as { collected: number };
     const paymentMethodsToday = paymentMethodBreakdown(db, today) as { total: number }[];
 
     const runningOrders = db.prepare(`
@@ -118,7 +131,11 @@ router.get('/daily-stats', requireRole(...ROLE_ACCESS.ownerManager), (req: Reque
     `).get() as { avgMinutes: number | null; sampleSize: number };
 
     res.json({
-      sales: salesToday.sales,
+      // `sales` keeps its long-standing meaning — money collected, net of
+      // refunds — so existing consumers are unaffected; what changed is that
+      // it is now dated per payment line. `sold` is the new, separate figure.
+      sales: collectedToday.collected,
+      sold: soldToday.sold,
       runningOrders: runningOrders.count,
       pendingOrders: pendingOrders.count,
       tablesOccupied: tablesOccupied.count,
@@ -146,9 +163,16 @@ router.get('/summary', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, 
       FROM orders WHERE created_at >= ? AND created_at < ?
     `).get(start, end) as { count: number; total: number };
 
+    // `total` is what was billed in the window; `collected` is the money
+    // taken in it, dated per payment line so an abono counts on its own day
+    // rather than waiting for the bill to be settled in full.
     const billsToday = db.prepare(`
+      WITH payment_lines AS (${PAYMENT_LINES_SQL})
       SELECT COUNT(*) as count, COALESCE(SUM(total), 0) as total,
-        COALESCE((SELECT SUM(paid_amount) FROM bills WHERE paid_at >= ? AND paid_at < ?), 0)
+        COALESCE((
+          SELECT SUM(amount) FROM payment_lines
+          WHERE paid_time >= datetime(?) AND paid_time < datetime(?)
+        ), 0)
         - COALESCE((SELECT SUM(CAST(amount_cents AS REAL)) / ? FROM refunds WHERE created_at >= ? AND created_at < ?), 0) as collected
       FROM bills WHERE created_at >= ? AND created_at < ?
     `).get(start, end, minorFactor, start, end, start, end) as { count: number; total: number; collected: number };
@@ -194,10 +218,21 @@ router.get('/financial-summary', requireRole(...ROLE_ACCESS.owner), (req: Reques
     const [, end] = reportDayBounds(endDate);
     const db = getDatabase();
     const minorFactor = getCurrencyMinorUnitFactor(getTenantCurrency(db));
+    // Collected is counted per payment line, on the day each one was taken:
+    // `paid_at` is only stamped on final settlement, so keying off it drops
+    // the abonos of a bill still owing and then lands them all at once.
     const collections = db.prepare(`
-      SELECT COUNT(*) AS bill_count, COALESCE(SUM(paid_amount), 0) AS gross_collected
-      FROM bills WHERE paid_at >= ? AND paid_at < ?
+      WITH payment_lines AS (${PAYMENT_LINES_SQL})
+      SELECT COUNT(DISTINCT bill_id) AS bill_count, COALESCE(SUM(amount), 0) AS gross_collected
+      FROM payment_lines
+      WHERE paid_time >= datetime(?) AND paid_time < datetime(?)
     `).get(start, end) as { bill_count: number; gross_collected: number };
+    // What was billed in the window, credit included — the trade done, as
+    // opposed to the money that came in for it.
+    const sold = db.prepare(`
+      SELECT COALESCE(SUM(total), 0) AS sold
+      FROM bills WHERE created_at >= ? AND created_at < ?
+    `).get(start, end) as { sold: number };
     const refundTotals = db.prepare(`
       SELECT COUNT(*) AS refund_count, COALESCE(SUM(CAST(r.amount_cents AS REAL)) / ?, 0) AS refunded
       FROM refunds r JOIN bills b ON b.id = r.bill_id
@@ -226,10 +261,11 @@ router.get('/financial-summary', requireRole(...ROLE_ACCESS.owner), (req: Reques
         grossCollected,
         refunded,
         netCollected: grossCollected - refunded,
+        sold: Number(sold.sold || 0),
         billCount: Number(collections.bill_count || 0),
         refundCount: Number(refundTotals.refund_count || 0),
         averageOrderValue: collections.bill_count ? (grossCollected - refunded) / collections.bill_count : 0,
-        paymentMethods: paymentMethodBreakdown(db, startDate, endDate, true, true),
+        paymentMethods: paymentMethodBreakdown(db, startDate, endDate, false, true),
         refunds,
       },
     });
@@ -362,13 +398,17 @@ router.get('/topProducts', requireRole(...ROLE_ACCESS.ownerManager), (req: Reque
     const windowStart = reportDayBounds(startDate)[0];
     const windowEnd = reportDayBounds(endDate)[1];
 
+    // `sale_unit` travels with the quantity: 14 of a product sold by weight
+    // is 14 kg, not 14 items, and the two cannot be read the same way.
     const topProducts = db.prepare(`
       SELECT oi.product_id, oi.product_name,
+        COALESCE(p.sale_unit, 'each') as sale_unit,
         SUM(oi.quantity) as total_quantity,
         SUM(oi.subtotal) as total_revenue,
         COUNT(DISTINCT oi.order_id) as order_count
       FROM order_items oi
       JOIN orders o ON oi.order_id = o.id
+      LEFT JOIN products p ON p.id = oi.product_id
       WHERE o.created_at >= ? AND o.created_at < ?
       GROUP BY oi.product_id
       ORDER BY total_quantity DESC
@@ -547,9 +587,12 @@ router.get('/insights', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
       LIMIT 5
     `).all(windowStart);
 
-    // Top categories by revenue.
-    const topCategories = db.prepare(`
+    // Top categories by revenue. Quantities are grouped per sale unit and
+    // kept apart: a category mixing loose items with weighed produce cannot
+    // add them into one figure without inventing a meaningless number.
+    const categoryRows = db.prepare(`
       SELECT c.id as category_id, COALESCE(c.name, 'Uncategorized') as name,
+        COALESCE(p.sale_unit, 'each') as sale_unit,
         COALESCE(SUM(oi.quantity), 0) as quantity,
         COALESCE(SUM(oi.subtotal), 0) as revenue
       FROM order_items oi
@@ -557,10 +600,25 @@ router.get('/insights', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
       JOIN products p ON p.id = oi.product_id
       LEFT JOIN categories c ON c.id = p.category_id
       WHERE o.created_at >= ? AND oi.status != 'cancelled'
-      GROUP BY c.id
-      ORDER BY revenue DESC
-      LIMIT 5
-    `).all(windowStart);
+      GROUP BY c.id, COALESCE(p.sale_unit, 'each')
+    `).all(windowStart) as {
+      category_id: number | null; name: string; sale_unit: string; quantity: number; revenue: number;
+    }[];
+    const categoriesById = new Map<string, {
+      category_id: number | null; name: string; revenue: number;
+      quantities: { unit: string; quantity: number }[];
+    }>();
+    for (const row of categoryRows) {
+      const key = String(row.category_id ?? 'none');
+      const entry = categoriesById.get(key)
+        ?? { category_id: row.category_id, name: row.name, revenue: 0, quantities: [] };
+      entry.revenue += Number(row.revenue) || 0;
+      entry.quantities.push({ unit: row.sale_unit, quantity: Number(row.quantity) || 0 });
+      categoriesById.set(key, entry);
+    }
+    const topCategories = [...categoriesById.values()]
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
 
     // Busiest/idlest hour & day-of-week, bucketed in the tenant's local timezone.
     const orderTimestamps = (db.prepare(
@@ -684,6 +742,9 @@ router.get('/x-report', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
         // on top: what the drawer took in and paid out during the window.
         expectedCashCents: aggregates.cashSalesCents - aggregates.cashRefundsByCreatedAtCents
           + aggregates.carteraCashInCents - aggregates.carteraCashOutCents,
+        // Sold on credit in this window and still owing. Shown so the shift
+        // can explain billing more than it collected; never part of the cash.
+        creditGrantedCents: aggregates.creditGrantedCents,
         // F3: server-resolved prior close; null fields when no prior close
         // exists. The frontend only shows the "no prior close" hint when
         // this is genuinely null (never on transport error).

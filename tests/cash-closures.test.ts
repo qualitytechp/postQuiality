@@ -718,18 +718,17 @@ async function main() {
       assertEqual(npReport.priorClosedCashCents, null, 'xReport.priorClosedCashCents is null when no prior close exists');
     }
 
-    console.log('\n7b. Installments: a bill partially paid day A and settled day B lands WHOLE on day B (#649 / review B1)');
+    console.log('\n7b. Installments: each payment lands on the day it was taken, not on the settlement day');
     {
       // (Placed after section 9: section 9 probes day-100 asserting no
       // prior close ever, so these closes must run after that probe.)
       // `applyPaymentBatch` (main/routes/bills.ts) appends one payment line
       // per tender, each stamped `timestamp: now()`, and sets `b.paid_at`
-      // only on final settlement — so a cross-day installment bill carries
-      // per-line timestamps on different days than its paid_at. The close
-      // keys payment lines by paid_at (keyByPaidAt), so both lines must
-      // land on the settlement day alongside gross/staff/tax. Keying by
-      // per-line timestamp would leak day A's line into day A's Z while
-      // gross stays 0 there: an internally inconsistent immutable row.
+      // only on final settlement. The close keys money by each line's own
+      // timestamp: the drawer holds what was taken during the shift, so an
+      // abono has to be counted the day it came in. Keying by `paid_at`
+      // instead (as this did before partial payments became a feature) hid
+      // day A's cash and then billed day B for money it never received.
       const dayABase = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000);
       const dayA = dayABase.toISOString().slice(0, 10);
       const dayB = new Date(dayABase.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -750,30 +749,74 @@ async function main() {
       );
 
       const closeA = await request(app).post('/api/cash-closures').set('Authorization', `Bearer ${ownerToken}`).send({
-        business_date: dayA, opening_float_cents: 0, counted_cash_cents: 0,
+        business_date: dayA, opening_float_cents: 0, counted_cash_cents: 40000,
       });
       assertEqual(closeA.status, 201, `installment day A close returns 201 (got ${closeA.status})`);
       const zA = closeA.body?.zReport;
-      assertEqual(zA.bill_count, 0, 'day A: unpaid-at-close bill not counted');
-      assertEqual(zA.gross_collected_cents, 0, 'day A: gross = 0');
-      assertEqual(zA.expected_cash_cents, 0, 'day A: expected = 0');
-      // The regression pin: day A's 400 line must NOT appear in day A's
-      // payment_methods (nothing else is seeded on these dates, so the
-      // array must be empty — not just missing cash).
-      assertEqual(JSON.stringify(zA.payment_methods), '[]', 'day A: payment_methods is empty (400 line stays with its paid day)');
+      assertEqual(zA.bill_count, 1, 'day A: the bill it collected from is counted');
+      assertEqual(zA.gross_collected_cents, 40000, 'day A: gross = the 400 taken that day');
+      assertEqual(zA.expected_cash_cents, 40000, 'day A: the drawer should hold the 400 it received');
+      assertEqual(zA.variance_cents, 0, 'day A: counting those 400 reconciles exactly');
+      const cashA = (zA.payment_methods as any[]).find((m) => m.method === 'cash');
+      assertEqual(cashA?.total_cents, 40000, `day A: cash shows the instalment taken that day (got ${JSON.stringify(cashA)})`);
 
       const closeB = await request(app).post('/api/cash-closures').set('Authorization', `Bearer ${ownerToken}`).send({
-        business_date: dayB, opening_float_cents: 0, counted_cash_cents: 100000,
+        business_date: dayB, opening_float_cents: 0, counted_cash_cents: 60000,
       });
       assertEqual(closeB.status, 201, `installment day B close returns 201 (got ${closeB.status}, body=${JSON.stringify(closeB.body)})`);
       const zB = closeB.body?.zReport;
       assertEqual(zB.bill_count, 1, 'day B: settled bill counted exactly once');
-      assertEqual(zB.gross_collected_cents, 100000, 'day B: gross = 1000 INR in cents');
-      assertEqual(zB.expected_cash_cents, 100000, 'day B: expected = 0 + 400 + 600 cash');
+      assertEqual(zB.gross_collected_cents, 60000, 'day B: gross = only the 600 that settled it, not the whole bill');
+      assertEqual(zB.expected_cash_cents, 60000, 'day B: the drawer is never charged for day A money');
+      assertEqual(zB.variance_cents, 0, 'day B: counting those 600 reconciles exactly');
       const cashB = (zB.payment_methods as any[]).find((m) => m.method === 'cash');
-      assertEqual(cashB?.total_cents, 100000, `day B: cash total_cents = 400 + 600 whole on settlement day (got ${JSON.stringify(cashB)})`);
+      assertEqual(cashB?.total_cents, 60000, `day B: cash shows only its own instalment (got ${JSON.stringify(cashB)})`);
       const pmSumB = (zB.payment_methods as any[]).reduce((s, m) => s + (Number(m.total_cents) || 0), 0);
       assertEqual(pmSumB, zB.gross_collected_cents, `day B: Σ payment_methods.total_cents == gross (got ${pmSumB} vs ${zB.gross_collected_cents})`);
+      // The invariant that matters across the split: neither day invents nor
+      // loses money, and together they add up to the bill.
+      assertEqual(
+        zA.gross_collected_cents + zB.gross_collected_cents, 100000,
+        'the two days together add up to the 1000 the bill was worth',
+      );
+    }
+
+    console.log('\n7c. A bill still owing: the drawer holds the abono, not the sale');
+    {
+      // The case the whole change exists for: sell 1000, take 500 now, leave
+      // 500 owing. The drawer must be charged for 500 — not 1000 (money that
+      // never arrived), and not 0 (which is what keying off `paid_at` gave,
+      // since an unsettled bill has none). The 500 still owed is reported
+      // separately as credit granted, so the shift can explain the gap.
+      const owingDay = new Date(Date.now() - 97 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const owingTs = dbTimestamp(new Date(`${owingDay}T11:00:00Z`));
+      db.prepare(`INSERT INTO customers (id, name, phone, created_at, updated_at) VALUES ('cust-owing', 'Cliente fiado', '3001234567', ?, ?)`)
+        .run(owingTs, owingTs);
+      db.prepare(`
+        INSERT INTO orders (order_number, user_id, type, status, subtotal, total, created_at, updated_at)
+        VALUES (?, ?, 'takeaway', 'completed', 1000, 1000, ?, ?)
+      `).run('ORD-OWING-1', cashierId, owingTs, owingTs);
+      const owingOrderId = Number(db.prepare('SELECT id FROM orders WHERE order_number = ?').get('ORD-OWING-1').id);
+      db.prepare(`
+        INSERT INTO bills (bill_number, order_id, customer_id, subtotal, total, paid_amount, balance, payment_status, payment_details, paid_at, created_at, updated_at)
+        VALUES (?, ?, ?, 1000, 1000, 500, 500, 'partial', ?, NULL, ?, ?)
+      `).run(
+        'B-OWING-1', owingOrderId, 'cust-owing',
+        JSON.stringify([{ method: 'cash', amount: 500, timestamp: owingTs }]),
+        owingTs, owingTs,
+      );
+
+      const x = await request(app).get(`/api/reports/x-report?date=${owingDay}`).set('Authorization', `Bearer ${ownerToken}`);
+      assertEqual(x.status, 200, `x-report for the owing day returns 200 (got ${x.status})`);
+      assertEqual(x.body?.xReport?.expectedCashCents, 50000, 'the drawer is charged the 500 taken, not the 1000 sold');
+      assertEqual(x.body?.xReport?.creditGrantedCents, 50000, 'and the 500 left owing is reported as credit granted');
+
+      const closeOwing = await request(app).post('/api/cash-closures').set('Authorization', `Bearer ${ownerToken}`).send({
+        business_date: owingDay, opening_float_cents: 0, counted_cash_cents: 50000,
+      });
+      assertEqual(closeOwing.status, 201, `owing-day close returns 201 (got ${closeOwing.status})`);
+      assertEqual(closeOwing.body?.zReport?.gross_collected_cents, 50000, 'the Z reports the 500 collected');
+      assertEqual(closeOwing.body?.zReport?.variance_cents, 0, 'counting exactly the 500 reconciles — no phantom shortfall');
     }
 
     console.log('\n10. GET /api/reports/x-report — an unclosed day shows alreadyClosed=false');
