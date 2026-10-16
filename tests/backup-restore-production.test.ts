@@ -264,6 +264,33 @@ async function run() {
     assert.equal(direct.success, true, 'same-schema direct restore still succeeds');
     assertNoRestoreAttachment();
 
+    // An install upgraded step by step can store a schema object with a
+    // different definition than a fresh install at the same version (e.g.
+    // customers.document appended by v85 instead of inline). A backup taken on
+    // a fresh install must still restore onto such a drifted live database.
+    getDatabase().exec(`
+      DROP INDEX idx_customers_document_digits;
+      create index idx_customers_document_digits on customers(document_digits)
+        where document_digits is not null and document_digits != '';
+    `);
+    const driftedLive = restoreBackup(sameSchemaBackup, true);
+    assert.equal(driftedLive.success, true, 'canonical backup restores onto a drifted same-version live database');
+    assert.match(
+      (getDatabase().prepare("SELECT sql FROM sqlite_master WHERE name = 'idx_customers_document_digits'").get() as { sql: string }).sql,
+      /^CREATE INDEX/,
+      'restored database carries the canonical definition',
+    );
+
+    // Accepting the canonical schema must not widen what a backup may carry.
+    const extraObjectBackup = path.join(testDir, 'extra-object.db');
+    copyAndStamp(sameSchemaBackup, extraObjectBackup, currentVersion);
+    const extraObjectDb = new Database(extraObjectBackup);
+    extraObjectDb.exec('CREATE INDEX restore_test_unapproved ON products(name)');
+    extraObjectDb.close();
+    const extraObject = restoreBackup(extraObjectBackup, true);
+    assert.equal(extraObject.success, false, 'direct restore rejects a backup with an unapproved schema object');
+    assert.match(extraObject.error || '', /unapproved schema object index:restore_test_unapproved/);
+
     const interruptedRecoverySource = (await createBackup()).path;
     const recoveryMarker = path.join(testDir, 'backups', 'flo-restore-recovery-test.db');
     const recoveryJournal = path.join(testDir, 'backups', 'flo-restore-recovery-test.json');

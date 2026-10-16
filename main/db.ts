@@ -1317,19 +1317,36 @@ function validateDirectBackup(backupPath: string, currentDb: Database.Database, 
       }
     }
 
-    const currentSchema = getSchemaDefinitions(currentDb);
     const backupSchema = getSchemaDefinitions(backupDb);
-    for (const [key, definition] of currentSchema) {
-      if (backupSchema.get(key) !== definition) {
-        return `Backup schema object ${key} is missing or differs from the current definition`;
+    const schemaMismatch = (reference: Map<string, string>): string | null => {
+      for (const [key, definition] of reference) {
+        if (backupSchema.get(key) !== definition) {
+          return `Backup schema object ${key} is missing or differs from the current definition`;
+        }
       }
-    }
-    for (const key of backupSchema.keys()) {
-      if (!currentSchema.has(key)) {
-        return `Backup contains unapproved schema object ${key}`;
+      for (const key of backupSchema.keys()) {
+        if (!reference.has(key)) {
+          return `Backup contains unapproved schema object ${key}`;
+        }
       }
+      return null;
+    };
+    // The same schema version can have two physical layouts: a fresh install
+    // gets customers.document inline from createSchema(), while an install
+    // upgraded through v85 got it appended by ALTER TABLE. Comparing only
+    // against the live file rejects a healthy backup taken on the other kind
+    // of install, so a backup matching this build's canonical schema is
+    // accepted too. The live file is replaced wholesale, so its layout does
+    // not survive the restore.
+    const liveMismatch = schemaMismatch(getSchemaDefinitions(currentDb));
+    if (!liveMismatch) return null;
+    const idealDb = buildIdealSchemaDb();
+    try {
+      if (!schemaMismatch(getSchemaDefinitions(idealDb))) return null;
+    } finally {
+      idealDb.close();
     }
-    return null;
+    return liveMismatch;
   } catch (error: any) {
     return `Backup validation failed: ${error?.message || 'unknown error'}`;
   } finally {
