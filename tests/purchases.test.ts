@@ -295,6 +295,20 @@ async function main() {
     assert(!!listed.data.stats, 'the list also brings the month figures');
     assert(listed.data.stats.spent_cents > 0, 'which count what was bought this month');
 
+    // A business-date range narrows both the rows and the count, inclusively.
+    const day = String(creditRow.business_date);
+    const sameDay = await call(baseUrl, 'GET', `/api/purchases?from=${day}&to=${day}`, owner);
+    assertEqual(sameDay.status, 200, 'a day filter is accepted');
+    assertEqual(sameDay.data.purchases.length, listed.data.purchases.length, 'the purchase day returns every purchase made that day');
+    assertEqual(sameDay.data.total, sameDay.data.purchases.length, 'and its count matches the filtered rows');
+    const nextDay = new Date(`${day}T00:00:00Z`);
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+    const later = await call(baseUrl, 'GET', `/api/purchases?from=${nextDay.toISOString().slice(0, 10)}`, owner);
+    assertEqual(later.data.purchases.length, 0, 'a range after the purchases returns none');
+    assertEqual(later.data.total, 0, 'and counts none');
+    const impossible = await call(baseUrl, 'GET', '/api/purchases?from=2026-02-30', owner);
+    assertEqual(impossible.status, 400, 'an impossible date is refused');
+
     setSetting.run(MODULE_SETTING_KEY.receivables, 'true', now());
 
     const noDueDate = await call(baseUrl, 'POST', '/api/purchases', owner, {

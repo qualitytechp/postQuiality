@@ -10,7 +10,8 @@ import { getDatabase, withTxn } from '../db';
 import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import {
-  CarteraError, accountsWithBalances, createEntry, createTransfer, listMovements, voidEntry,
+  CarteraError, accountsWithBalances, createEntry, createTransfer, listMovements, parseBusinessDateParam,
+  setOpeningBalance, voidEntry,
 } from '../services/cartera';
 import { carteraSummary } from '../services/cartera-summary';
 import { createGeneralPayable, listPayables, payPayable, voidGeneralPayable } from '../services/payables';
@@ -126,12 +127,37 @@ router.put('/accounts/:id', requireRole(...ROLE_ACCESS.ownerManager), (req: Requ
   }
 });
 
+// Owner-only and exceptional: once a year, or once when starting on the
+// system. setOpeningBalance enforces the rules; differences found later in
+// the year go through an adjustment movement instead.
+router.post('/accounts/:id/opening-balance', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const account = withTxn(() => setOpeningBalance(db, Number(req.params.id), {
+      amountCents: Number(req.body?.amount_cents),
+      asOf: String(req.body?.as_of || ''),
+    }));
+    res.json({ account });
+  } catch (error: any) {
+    handleError(res, error);
+  }
+});
+
 // ── Movements ────────────────────────────────────────────────────────────────
 
 router.get('/movements', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
   try {
-    const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
-    res.json({ movements: listMovements(getDatabase(), limit) });
+    // Optional business-date range (inclusive). A bounded period may return
+    // more rows so the screen can total a whole month instead of a page of it.
+    const from = parseBusinessDateParam(req.query.from);
+    const to = parseBusinessDateParam(req.query.to);
+    if (from === undefined || to === undefined) {
+      return res.status(400).json({ error: 'from and to must be YYYY-MM-DD dates' });
+    }
+    const bounded = from !== null || to !== null;
+    const limit = Math.min(Math.max(Number(req.query.limit) || (bounded ? 5000 : 200), 1), bounded ? 5000 : 500);
+    const movements = listMovements(getDatabase(), limit, { from, to });
+    res.json({ movements, from, to, limit, truncated: movements.length >= limit });
   } catch (error: any) {
     handleError(res, error);
   }

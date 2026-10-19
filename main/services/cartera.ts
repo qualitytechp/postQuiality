@@ -15,7 +15,7 @@
  *     than keeping a second one, so the drawer can never have two truths.
  */
 import type Database from 'better-sqlite3';
-import { getSettingValue, localDateInTimezone, now, parseDbTimestamp } from '../db';
+import { dayBoundsInTimezone, getSettingValue, localDateInTimezone, now, parseDbTimestamp } from '../db';
 import { getCurrencyMinorUnitFactor } from '../countries';
 
 export type AccountKind = 'cash' | 'bank' | 'digital';
@@ -53,6 +53,14 @@ export function tenantTimezone(): string {
 
 export function businessToday(): string {
   return localDateInTimezone(new Date(), tenantTimezone());
+}
+
+/** Query-string business date: null when absent, undefined when present but not a real YYYY-MM-DD. */
+export function parseBusinessDateParam(value: unknown): string | null | undefined {
+  if (value === undefined || value === '') return null;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value ? value : undefined;
 }
 
 export function minorFactor(): number {
@@ -111,7 +119,7 @@ function accountMatchClause(account: CarteraAccount): { clause: string; params: 
  * only stamped once a bill is settled in full, so an abono paid by transfer
  * would otherwise stay invisible to the bank account until the rest is paid.
  */
-function collectionsCents(db: Database.Database, account: CarteraAccount, sinceDate: string): number {
+function collectionsCents(db: Database.Database, account: CarteraAccount, sinceInstant: string): number {
   const match = accountMatchClause(account);
   if (!match) return 0;
   const row = db.prepare(`
@@ -131,42 +139,60 @@ function collectionsCents(db: Database.Database, account: CarteraAccount, sinceD
       ) >= datetime(?)
       AND json_type(je.value) = 'object'
       AND ${match.clause}
-  `).get(minorFactor(), sinceDate, ...match.params) as { cents: number };
+  `).get(minorFactor(), sinceInstant, ...match.params) as { cents: number };
   return Math.round(Number(row.cents) || 0);
 }
 
-function refundsCents(db: Database.Database, account: CarteraAccount, sinceDate: string): number {
+function refundsCents(db: Database.Database, account: CarteraAccount, sinceInstant: string): number {
   if (!account.canonical_method) return 0;
   const row = db.prepare(`
     SELECT COALESCE(SUM(amount_cents), 0) AS cents
-    FROM refunds WHERE method = ? AND DATE(created_at) >= ?
-  `).get(account.canonical_method, sinceDate) as { cents: number };
+    FROM refunds WHERE method = ? AND datetime(created_at) >= datetime(?)
+  `).get(account.canonical_method, sinceInstant) as { cents: number };
   return Number(row.cents) || 0;
 }
 
-function paidOutCents(db: Database.Database, accountId: number): number {
+/**
+ * Purchases pay suppliers by "transfer"; the till calls the same bank method
+ * "card" (shown to the cashier as Transferencia). Both mean the account bound
+ * to the canonical card method.
+ */
+export function canonicalPaymentMethod(method: string): string {
+  return method === 'transfer' ? 'card' : method;
+}
+
+// The opening balance already reflects everything before its cut-off date, so
+// every component of the balance starts counting on that business date —
+// counting earlier payments too would take them out of the bank twice.
+function paidOutCents(db: Database.Database, account: CarteraAccount, sinceDate: string): number {
+  // Supplier transfers recorded before purchases knew the alias above were
+  // stored with no account; the bank account still owns them by method.
+  const legacyTransfers = account.canonical_method === 'card'
+    ? ` OR (pp.account_id IS NULL AND pp.method IN ('transfer', 'card'))`
+    : '';
   const purchases = db.prepare(`
     SELECT COALESCE(SUM(pp.amount_cents), 0) AS cents
     FROM purchase_payments pp
     JOIN purchases p ON p.id = pp.purchase_id
-    WHERE pp.account_id = ? AND p.status != 'void'
-  `).get(accountId) as { cents: number };
+    WHERE (pp.account_id = ?${legacyTransfers}) AND p.status != 'void' AND pp.business_date >= ?
+  `).get(account.id, sinceDate) as { cents: number };
+  const accountId = account.id;
   const payables = db.prepare(`
     SELECT COALESCE(SUM(gpp.amount_cents), 0) AS cents
     FROM general_payable_payments gpp
     JOIN general_payables gp ON gp.id = gpp.payable_id
-    WHERE gpp.account_id = ? AND gp.status != 'void'
-  `).get(accountId) as { cents: number };
+    WHERE gpp.account_id = ? AND gp.status != 'void' AND gpp.business_date >= ?
+  `).get(accountId, sinceDate) as { cents: number };
   return Number(purchases.cents || 0) + Number(payables.cents || 0);
 }
 
-function entriesNetCents(db: Database.Database, accountId: number): { inflow: number; outflow: number } {
+function entriesNetCents(db: Database.Database, accountId: number, sinceDate: string): { inflow: number; outflow: number } {
   const row = db.prepare(`
     SELECT
       COALESCE(SUM(CASE WHEN direction = 'in' THEN amount_cents ELSE 0 END), 0) AS inflow,
       COALESCE(SUM(CASE WHEN direction = 'out' THEN amount_cents ELSE 0 END), 0) AS outflow
-    FROM cartera_entries WHERE account_id = ? AND voided_at IS NULL
-  `).get(accountId) as { inflow: number; outflow: number };
+    FROM cartera_entries WHERE account_id = ? AND voided_at IS NULL AND business_date >= ?
+  `).get(accountId, sinceDate) as { inflow: number; outflow: number };
   return { inflow: Number(row.inflow || 0), outflow: Number(row.outflow || 0) };
 }
 
@@ -278,10 +304,13 @@ export function accountBalance(db: Database.Database, account: CarteraAccount): 
     };
   }
 
-  const collections = collectionsCents(db, account, account.opening_as_of);
-  const refunds = refundsCents(db, account, account.opening_as_of);
-  const paidOut = paidOutCents(db, account.id);
-  const entries = entriesNetCents(db, account.id);
+  // opening_as_of is a local business date; bills and refunds only carry UTC
+  // instants, so they are compared against that day's local midnight.
+  const sinceInstant = dayBoundsInTimezone(account.opening_as_of, tenantTimezone())[0];
+  const collections = collectionsCents(db, account, sinceInstant);
+  const refunds = refundsCents(db, account, sinceInstant);
+  const paidOut = paidOutCents(db, account, account.opening_as_of);
+  const entries = entriesNetCents(db, account.id, account.opening_as_of);
   const inflow = collections + entries.inflow;
   const outflow = refunds + paidOut + entries.outflow;
   return {
@@ -294,6 +323,56 @@ export function accountBalance(db: Database.Database, account: CarteraAccount): 
 
 export function accountsWithBalances(db: Database.Database): AccountWithBalance[] {
   return listAccounts(db).map((account) => accountBalance(db, account));
+}
+
+/** The seed date accounts get before anyone declares a real opening balance. */
+export const OPENING_NOT_SET = '1970-01-01';
+
+/**
+ * Declares what a bank or digital account held at the start of a period.
+ *
+ * It is an exceptional, once-a-year act (or once, when the business starts on
+ * the system): after it is set, a new one is only accepted for a later year.
+ * A difference found during the year is a reconciliation adjustment, not a
+ * rewrite of the base — rewriting it would silently change every balance
+ * shown since.
+ *
+ * The cash account has no opening balance of its own: the register's
+ * open/close cycle is the drawer's only source of truth.
+ */
+export function setOpeningBalance(db: Database.Database, accountId: number, input: {
+  amountCents: number;
+  asOf: string;
+}): AccountWithBalance {
+  const account = db.prepare('SELECT * FROM cartera_accounts WHERE id = ?').get(accountId) as CarteraAccount | undefined;
+  if (!account) throw new CarteraError('Account not found', 404);
+  if (account.kind === 'cash') {
+    throw new CarteraError('The cash account takes its balance from the register cycle, not an opening balance');
+  }
+  if (!Number.isInteger(input.amountCents) || input.amountCents < 0) {
+    throw new CarteraError('amount_cents must be a whole, non-negative amount');
+  }
+  const parsed = new Date(`${input.asOf}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.asOf) || Number.isNaN(parsed.getTime())
+    || parsed.toISOString().slice(0, 10) !== input.asOf) {
+    throw new CarteraError('as_of must be a YYYY-MM-DD date');
+  }
+  if (input.asOf > businessToday()) throw new CarteraError('as_of cannot be in the future');
+  if (account.opening_as_of !== OPENING_NOT_SET
+    && Number(input.asOf.slice(0, 4)) <= Number(account.opening_as_of.slice(0, 4))) {
+    throw new CarteraError(
+      `An opening balance is already set for ${account.opening_as_of.slice(0, 4)}; a new one must be for a later year`,
+      409,
+    );
+  }
+
+  db.prepare(`
+    UPDATE cartera_accounts
+    SET opening_balance_cents = ?, opening_as_of = ?, updated_at = ?
+    WHERE id = ?
+  `).run(input.amountCents, input.asOf, now(), accountId);
+  const updated = db.prepare('SELECT * FROM cartera_accounts WHERE id = ?').get(accountId) as CarteraAccount;
+  return accountBalance(db, updated);
 }
 
 // ── Entries ──────────────────────────────────────────────────────────────────
@@ -430,8 +509,20 @@ export interface MovementRow {
  * them rather than copied here, which is why a payment can never appear twice
  * or drift from the bill it settled.
  */
-export function listMovements(db: Database.Database, limit = 200): MovementRow[] {
+export function listMovements(
+  db: Database.Database,
+  limit = 200,
+  range: { from?: string | null; to?: string | null } = {},
+): MovementRow[] {
   const factor = minorFactor();
+  // Business dates are inclusive. Rows that carry a business_date filter on
+  // it directly; collections only carry UTC instants, so they are bounded by
+  // the local day's [start, end) like the balance cut-off is.
+  const fromDate = range.from || '0000-01-01';
+  const toDate = range.to || '9999-12-31';
+  const bounded = Boolean(range.from || range.to);
+  const fromInstant = range.from ? dayBoundsInTimezone(range.from, tenantTimezone())[0] : '0000-01-01 00:00:00';
+  const toInstant = range.to ? dayBoundsInTimezone(range.to, tenantTimezone())[1] : OPEN_ENDED;
 
   const collections = db.prepare(`
     SELECT b.id AS bill_id, b.bill_number, b.paid_at, c.name AS customer_name,
@@ -449,9 +540,11 @@ export function listMovements(db: Database.Database, limit = 200): MovementRow[]
       END
     ) je
     WHERE json_type(je.value) = 'object' AND b.paid_at IS NOT NULL
+      ${bounded ? `AND datetime(COALESCE(NULLIF(json_extract(je.value, '$.timestamp'), ''), b.paid_at)) >= datetime(@fromInstant)
+      AND datetime(COALESCE(NULLIF(json_extract(je.value, '$.timestamp'), ''), b.paid_at)) < datetime(@toInstant)` : ''}
     ORDER BY b.paid_at DESC
-    LIMIT ?
-  `).all(limit) as any[];
+    LIMIT @limit
+  `).all(bounded ? { fromInstant, toInstant, limit } : { limit }) as any[];
 
   const accounts = listAccounts(db, true);
   const byCanonical = new Map(accounts.filter((a) => a.canonical_method).map((a) => [a.canonical_method, a]));
@@ -478,8 +571,9 @@ export function listMovements(db: Database.Database, limit = 200): MovementRow[]
   for (const entry of db.prepare(`
     SELECT e.*, a.name AS account_name FROM cartera_entries e
     JOIN cartera_accounts a ON a.id = e.account_id
+    WHERE e.business_date BETWEEN ? AND ?
     ORDER BY e.occurred_at DESC LIMIT ?
-  `).all(limit) as any[]) {
+  `).all(fromDate, toDate, limit) as any[]) {
     rows.push({
       id: `entry:${entry.id}`,
       occurred_at: entry.occurred_at,
@@ -496,20 +590,27 @@ export function listMovements(db: Database.Database, limit = 200): MovementRow[]
     });
   }
 
+  // Same ownership rule as paidOutCents: an unlinked supplier transfer belongs
+  // to the bank account, so it is listed under that account.
+  const bankAccount = db.prepare(
+    `SELECT id, name FROM cartera_accounts WHERE canonical_method = 'card'`,
+  ).get() as { id: number; name: string } | undefined;
   for (const payment of db.prepare(`
     SELECT pp.*, a.name AS account_name, p.purchase_number, p.status, s.name AS supplier_name
     FROM purchase_payments pp
     JOIN purchases p ON p.id = pp.purchase_id
     JOIN suppliers s ON s.id = p.supplier_id
     LEFT JOIN cartera_accounts a ON a.id = pp.account_id
+    WHERE pp.business_date BETWEEN ? AND ?
     ORDER BY pp.paid_at DESC LIMIT ?
-  `).all(limit) as any[]) {
+  `).all(fromDate, toDate, limit) as any[]) {
+    const ownedByBank = !payment.account_id && bankAccount && canonicalPaymentMethod(payment.method) === 'card';
     rows.push({
       id: `purchase:${payment.id}`,
       occurred_at: payment.paid_at,
       business_date: payment.business_date,
-      account_id: payment.account_id,
-      account_name: payment.account_name || payment.method,
+      account_id: payment.account_id ?? (ownedByBank ? bankAccount.id : null),
+      account_name: payment.account_name || (ownedByBank ? bankAccount.name : payment.method),
       type: 'supplier_payment',
       concept: payment.purchase_number,
       counterparty: payment.supplier_name,
@@ -525,8 +626,9 @@ export function listMovements(db: Database.Database, limit = 200): MovementRow[]
     FROM general_payable_payments gpp
     JOIN general_payables gp ON gp.id = gpp.payable_id
     JOIN cartera_accounts a ON a.id = gpp.account_id
+    WHERE gpp.business_date BETWEEN ? AND ?
     ORDER BY gpp.paid_at DESC LIMIT ?
-  `).all(limit) as any[]) {
+  `).all(fromDate, toDate, limit) as any[]) {
     rows.push({
       id: `payable:${payment.id}`,
       occurred_at: payment.paid_at,

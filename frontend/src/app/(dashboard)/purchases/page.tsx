@@ -240,6 +240,14 @@ export default function PurchasesPage() {
 
   const [filter, setFilter] = useState<'all' | 'unpaid' | 'paid'>('all');
   const [search, setSearch] = useState('');
+  // Same business-day notion the cash close uses: the tenant's timezone, not
+  // the browser's, so "today" matches purchases.business_date.
+  const timeZone = currentTenant?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const todayLocal = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const [period, setPeriod] = useState<'all' | 'day' | 'month'>('all');
+  const [periodDay, setPeriodDay] = useState(todayLocal);
+  const [periodMonth, setPeriodMonth] = useState(todayLocal.slice(0, 7));
+  const [totalInPeriod, setTotalInPeriod] = useState(0);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [menuFor, setMenuFor] = useState<number | null>(null);
 
@@ -264,21 +272,34 @@ export default function PurchasesPage() {
   const moduleOn = modules?.purchases;
   const loading = !!moduleOn && !loaded;
 
+  const periodRange = useMemo(() => {
+    if (period === 'day') return { from: periodDay, to: periodDay };
+    if (period === 'month') {
+      const [year, month] = periodMonth.split('-').map(Number);
+      const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      return { from: `${periodMonth}-01`, to: `${periodMonth}-${String(lastDay).padStart(2, '0')}` };
+    }
+    return null;
+  }, [period, periodDay, periodMonth]);
+
   const load = useCallback(async () => {
     const [p, s, pr, c] = await Promise.all([
-      api.get('/purchases', { params: { limit: 100 } }),
+      // A chosen day or month loads the whole period so the totals below
+      // cover all of it; without one, the most recent purchases as before.
+      api.get('/purchases', { params: periodRange ? { ...periodRange, limit: 1000 } : { limit: 100 } }),
       api.get('/suppliers'),
       api.get('/products', { params: { limit: 500 } }),
       api.get('/categories', { params: { active: 1 } }),
     ]);
     return {
       purchases: (p.data.purchases || []) as PurchaseRow[],
+      total: Number(p.data.total || 0),
       stats: (p.data.stats || null) as MonthStats | null,
       suppliers: (s.data.suppliers || []) as Supplier[],
       products: (pr.data.data || pr.data.products || []) as ProductOption[],
       categories: (c.data.data || c.data.categories || []) as Category[],
     };
-  }, []);
+  }, [periodRange]);
 
   useEffect(() => {
     if (!moduleOn) return;
@@ -287,6 +308,7 @@ export default function PurchasesPage() {
       .then((data) => {
         if (!active) return;
         setPurchases(data.purchases);
+        setTotalInPeriod(data.total);
         setStats(data.stats);
         setSuppliers(data.suppliers);
         setProducts(data.products);
@@ -326,6 +348,25 @@ export default function PurchasesPage() {
     return [row.supplier_name, row.invoice_ref, row.purchase_number, ...row.items.map((i) => i.description)]
       .some((value) => (value || '').toLowerCase().includes(needle));
   }), [purchases, filter, search]);
+
+  // Totals of exactly what is on screen: period, tab and search all apply.
+  // Void purchases are listed but add nothing — they never moved stock or money.
+  const visibleTotals = useMemo(() => {
+    const live = visible.filter((row) => row.settlement !== 'void');
+    const byMethod = (method: string) => live.reduce(
+      (sum, row) => sum + row.payments.filter((pay) => pay.method === method).reduce((s, pay) => s + pay.amount_cents, 0),
+      0,
+    );
+    return {
+      count: live.length,
+      voided: visible.length - live.length,
+      totalCents: live.reduce((sum, row) => sum + row.total_cents, 0),
+      paidCents: live.reduce((sum, row) => sum + row.paid_cents, 0),
+      pendingCents: live.reduce((sum, row) => sum + Math.max(row.balance_cents, 0), 0),
+      cashCents: byMethod('cash'),
+      transferCents: byMethod('transfer'),
+    };
+  }, [visible]);
 
   const openEdit = (row: PurchaseRow) => {
     setEditing(row);
@@ -841,6 +882,32 @@ export default function PurchasesPage() {
             </button>
           ))}
         </div>
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('periodFilter')}>
+          <div className="flex gap-1 bg-muted rounded-lg p-1">
+            {([
+              ['all', t('periodAll')],
+              ['day', t('periodDay')],
+              ['month', t('periodMonth')],
+            ] as const).map(([key, label]) => (
+              <button key={key} onClick={() => setPeriod(key)}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                  period === key ? 'bg-card text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'
+                }`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {period === 'day' && (
+            <input type="date" value={periodDay} max={todayLocal} aria-label={t('periodDay')}
+              onChange={(e) => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) setPeriodDay(e.target.value); }}
+              className="px-3 py-1.5 text-sm border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand" />
+          )}
+          {period === 'month' && (
+            <input type="month" value={periodMonth} max={todayLocal.slice(0, 7)} aria-label={t('periodMonth')}
+              onChange={(e) => { if (/^\d{4}-\d{2}$/.test(e.target.value)) setPeriodMonth(e.target.value); }}
+              className="px-3 py-1.5 text-sm border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand" />
+          )}
+        </div>
         <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('search')}
@@ -848,11 +915,43 @@ export default function PurchasesPage() {
         </div>
       </div>
 
+      {visible.length > 0 && (
+        <div className="bg-card border border-border rounded-xl p-4 mb-4">
+          <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+            {([
+              [t('totalsTotal'), visibleTotals.totalCents, 'text-foreground'],
+              [t('totalsPaid'), visibleTotals.paidCents, 'text-green-700'],
+              [t('totalsPending'), visibleTotals.pendingCents, 'text-amber-700'],
+              [t('totalsCash'), visibleTotals.cashCents, 'text-foreground'],
+              [t('totalsTransfer'), visibleTotals.transferCents, 'text-foreground'],
+            ] as const).map(([label, cents, color]) => (
+              <div key={label}>
+                <p className="text-xs uppercase text-muted-foreground">{label}</p>
+                <p className={`text-lg font-bold tabular-nums ${color}`}>{fmt(cents / factor)}</p>
+              </div>
+            ))}
+            <p className="text-sm text-muted-foreground ms-auto">
+              {t('totalsCount', { count: visibleTotals.count })}
+              {visibleTotals.voided > 0 && <> · {t('totalsVoidExcluded', { count: visibleTotals.voided })}</>}
+            </p>
+          </div>
+          {purchases.length < totalInPeriod && (
+            <p className="text-xs text-amber-700 mt-2">
+              {t('totalsTruncated', { shown: purchases.length, total: totalInPeriod })}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="space-y-3">
         {visible.length === 0 && !loading && (
           <div className="bg-card border border-border rounded-xl p-10 text-center">
-            <p className="font-medium text-foreground">{suppliers.length === 0 ? t('emptySuppliers') : t('empty')}</p>
-            <p className="text-sm text-muted-foreground">{suppliers.length === 0 ? t('emptySuppliersHint') : t('emptyHint')}</p>
+            <p className="font-medium text-foreground">
+              {suppliers.length === 0 ? t('emptySuppliers') : periodRange && purchases.length === 0 ? t('emptyPeriod') : t('empty')}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {suppliers.length === 0 ? t('emptySuppliersHint') : periodRange && purchases.length === 0 ? t('emptyPeriodHint') : t('emptyHint')}
+            </p>
           </div>
         )}
 

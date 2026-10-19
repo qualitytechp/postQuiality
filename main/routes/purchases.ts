@@ -14,7 +14,7 @@ import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { isModuleEnabled } from '../services/modules';
 import { createPurchase, payPurchase, updatePurchase, voidPurchase, PurchaseError } from '../services/purchases';
-import { businessToday } from '../services/cartera';
+import { businessToday, parseBusinessDateParam } from '../services/cartera';
 
 const supplierRouter = Router();
 const purchaseRouter = Router();
@@ -118,8 +118,22 @@ supplierRouter.put('/:id', requireRole(...ROLE_ACCESS.ownerManager), (req: Reque
 purchaseRouter.get('/', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
   try {
     const db = getDatabase();
-    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+    // Optional business-date range (inclusive). A bounded period may return
+    // more rows so the screen can total a whole month instead of a page of it.
+    const from = parseBusinessDateParam(req.query.from);
+    const to = parseBusinessDateParam(req.query.to);
+    if (from === undefined || to === undefined) {
+      return res.status(400).json({ error: 'from and to must be YYYY-MM-DD dates' });
+    }
+    const bounded = from !== null || to !== null;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), bounded ? 1000 : 200);
     const offset = Math.max(Number(req.query.offset) || 0, 0);
+    const where = [
+      from !== null ? 'p.business_date >= @from' : null,
+      to !== null ? 'p.business_date <= @to' : null,
+    ].filter(Boolean).join(' AND ');
+    const whereClause = where ? `WHERE ${where}` : '';
+    const range = { from, to };
 
     // The list carries its own lines and payments: the screen shows them as
     // soon as a row is opened, and a second round-trip per row would make
@@ -141,9 +155,10 @@ purchaseRouter.get('/', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
         SELECT purchase_id, COUNT(*) AS line_count, SUM(quantity) AS unit_count
         FROM purchase_items GROUP BY purchase_id
       ) items ON items.purchase_id = p.id
+      ${whereClause}
       ORDER BY p.id DESC
-      LIMIT ? OFFSET ?
-    `).all(limit, offset) as any[];
+      LIMIT @limit OFFSET @offset
+    `).all({ ...range, limit, offset }) as any[];
 
     const ids = rows.map((row) => row.id);
     const itemsByPurchase = new Map<number, any[]>();
@@ -176,8 +191,8 @@ purchaseRouter.get('/', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
       payments: paymentsByPurchase.get(row.id) || [],
     }));
 
-    const total = (db.prepare('SELECT COUNT(*) AS count FROM purchases').get() as any).count;
-    res.json({ purchases, total, limit, offset, stats: monthStats(db) });
+    const total = (db.prepare(`SELECT COUNT(*) AS count FROM purchases p ${whereClause}`).get(range) as any).count;
+    res.json({ purchases, total, limit, offset, from, to, stats: monthStats(db) });
   } catch (error: any) {
     handleError(res, error);
   }

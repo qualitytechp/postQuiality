@@ -217,7 +217,8 @@ async function run() {
     assert('Tax Details header shows Persian "جزئیات مالیات"', html.includes('<th colspan="2">جزئیات مالیات</th>'));
     assert('Grand Total row shows Persian "جمع کل"', html.includes('<strong>جمع کل</strong>'));
     assert('Payments section header shows Persian "پرداخت‌ها"', html.includes('<th colspan="2">پرداخت‌ها</th>'));
-    assert('Card payment method translated to "کارت"', html.includes('<td>کارت</td>'));
+    // The canonical "card" method is the bank transfer since dc31d34.
+    assert('Card payment method translated to "حواله بانکی"', html.includes('<td>حواله بانکی</td>'));
     assert('Footer preserves Persian thank you text', html.includes('از بازدید شما سپاسگزاریم!'));
     assert('Footer shows Persian tax notice', html.includes('مالیات در صورت اعمال، شامل شده است'));
     assert('Print button shows Persian "چاپ رسید"', html.includes('چاپ رسید</button>'));
@@ -390,7 +391,7 @@ async function run() {
       delivery: 'هزینه ارسال',
       total: 'جمع کل',
       payments: 'پرداخت‌ها',
-      card: 'کارت',
+      card: 'حواله بانکی',
       thankYou: 'از بازدید شما سپاسگزاریم!',
     };
     const faHtml = generateBillHtml(canonicalBill, canonicalTenant, { language: 'fa', showTaxBreakdown: false });

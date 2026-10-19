@@ -18,7 +18,7 @@ import type Database from 'better-sqlite3';
 import { generatePurchaseNumber, getSettingValue, localDateInTimezone, now } from '../db';
 import { getCurrencyMinorUnitFactor } from '../countries';
 import { applyStockMovement } from './inventory';
-import { cashAccount, cashOnHandCents, getAccount, listAccounts, openCashSession, type CarteraAccount } from './cartera';
+import { canonicalPaymentMethod, cashAccount, cashOnHandCents, getAccount, listAccounts, openCashSession, type CarteraAccount } from './cartera';
 
 export interface PurchaseLineInput {
   product_id?: string | null;
@@ -86,7 +86,13 @@ function resolvePaymentAccount(
   if (!method || method === 'cash') return cashAccount(db);
   const accounts = listAccounts(db, true);
   return accounts.find((a) => a.name.toLowerCase() === method.toLowerCase())
-    ?? accounts.find((a) => a.canonical_method === method);
+    ?? accounts.find((a) => a.canonical_method === canonicalPaymentMethod(method));
+}
+
+/** "transfer" stays as typed so the purchase still reads as a transfer. */
+function storedPaymentMethod(account: CarteraAccount | undefined, method: string | null): string {
+  if (method === 'transfer') return 'transfer';
+  return account?.canonical_method || account?.name || method || 'cash';
 }
 
 /**
@@ -255,7 +261,7 @@ export function createPurchase(db: Database.Database, input: CreatePurchaseInput
         (purchase_id, amount_cents, method, paid_at, business_date, cash_session_id, account_id, created_by, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      purchaseId, totalCents, account?.canonical_method || input.payment_method || 'cash',
+      purchaseId, totalCents, storedPaymentMethod(account, input.payment_method ?? null),
       timestamp, businessDate, sessionId, account?.id ?? null, input.userId, timestamp,
     );
   }
@@ -485,7 +491,7 @@ export function payPurchase(db: Database.Database, input: {
   if (amount > remaining) throw new PurchaseError('Payment is larger than the outstanding balance');
 
   const account = resolvePaymentAccount(db, input.accountId ?? null, input.method ?? null);
-  const method = account?.canonical_method || account?.name || input.method || 'cash';
+  const method = storedPaymentMethod(account, input.method ?? null);
 
   let sessionId: number | null = null;
   if (method === 'cash') {

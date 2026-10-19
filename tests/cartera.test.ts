@@ -368,6 +368,66 @@ async function main() {
       'net position is available plus owed to us minus what we owe',
     );
 
+    // ── 9. Supplier transfers and the bank's opening balance ─────────────
+    // Purchases pay by "transfer" while the till calls the bank method
+    // "card". A payment stored before that was reconciled has no account, but
+    // the bank still owns it: leaving it out showed the bank richer than it is.
+    console.log('\n9. Supplier transfers and the opening balance');
+    const yesterday = addDays(today, -1);
+    db.prepare(`INSERT INTO suppliers (id, name, is_active, created_at, updated_at) VALUES ('sup-ct', 'Proveedor', 1, ?, ?)`).run(stamp, stamp);
+    db.prepare(`
+      INSERT INTO purchases (id, purchase_number, supplier_id, subtotal_cents, tax_cents, total_cents, payment_terms, status, business_date, received_at, created_by, created_at)
+      VALUES (900, 'COM-CT-900', 'sup-ct', 50000, 0, 50000, 'cash', 'received', ?, ?, 'owner-ct', ?)
+    `).run(yesterday, stamp, stamp);
+    const bankBeforeLegacy = await findAccount('Bancos');
+    db.prepare(`
+      INSERT INTO purchase_payments (purchase_id, amount_cents, method, paid_at, business_date, account_id, created_by, created_at)
+      VALUES (900, 50000, 'transfer', ?, ?, NULL, 'owner-ct', ?)
+    `).run(stamp, yesterday, stamp);
+    const bankWithLegacy = await findAccount('Bancos');
+    assertEqual(bankWithLegacy.balance_cents, bankBeforeLegacy.balance_cents - 50000, 'an unlinked supplier transfer comes out of the bank');
+    const listed = (await call(baseUrl, 'GET', '/api/cartera/movements', owner)).data;
+    const legacyRow = (listed.movements || listed).find((row: any) => row.id === `purchase:${db.prepare('SELECT MAX(id) AS id FROM purchase_payments').get().id}`);
+    assertEqual(legacyRow?.account_name, 'Bancos', 'and is listed under the bank');
+
+    const cashOpening = await call(baseUrl, 'POST', `/api/cartera/accounts/${cash.id}/opening-balance`, owner, { amount_cents: 1000, as_of: today });
+    assertEqual(cashOpening.status, 400, 'the drawer takes no opening balance — the register cycle owns it');
+    const futureOpening = await call(baseUrl, 'POST', `/api/cartera/accounts/${bankWithLegacy.id}/opening-balance`, owner, { amount_cents: 1000, as_of: addDays(today, 1) });
+    assertEqual(futureOpening.status, 400, 'an opening balance cannot be dated in the future');
+    const cashierToken = jwt.sign({ userId: 'cashier-ct', email: 'cashier-ct@test.local', role: 'cashier' }, getJWTSecret(), { expiresIn: '1h' });
+    const byCashier = await call(baseUrl, 'POST', `/api/cartera/accounts/${bankWithLegacy.id}/opening-balance`, cashierToken, { amount_cents: 1000, as_of: today });
+    assertEqual(byCashier.status, 403, 'only the owner declares an opening balance');
+
+    // Declared as of today: yesterday's transfer is already inside that figure,
+    // so it must not be taken out a second time.
+    const opened = await call(baseUrl, 'POST', `/api/cartera/accounts/${bankWithLegacy.id}/opening-balance`, owner, { amount_cents: 1000000, as_of: today });
+    assertEqual(opened.status, 200, 'the owner declares the bank opening balance');
+    const bankOpened = await findAccount('Bancos');
+    assertEqual(bankOpened.balance_cents, 1000000 + bankWithLegacy.balance_cents + 50000, 'movements before the cut-off are left out, the rest add on top');
+
+    const again = await call(baseUrl, 'POST', `/api/cartera/accounts/${bankWithLegacy.id}/opening-balance`, owner, { amount_cents: 1, as_of: today });
+    assertEqual(again.status, 409, 'a second opening balance in the same year is refused — differences go through adjustments');
+    assertEqual((await findAccount('Bancos')).opening_balance_cents, 1000000, 'and the declared base is untouched');
+
+    // ── 10. Movements by business date ───────────────────────────────────
+    console.log('\n10. Movements filtered by period');
+    const legacyId = `purchase:${db.prepare('SELECT MAX(id) AS id FROM purchase_payments').get().id}`;
+    const onlyYesterday = await call(baseUrl, 'GET', `/api/cartera/movements?from=${yesterday}&to=${yesterday}`, owner);
+    assertEqual(onlyYesterday.status, 200, 'a day filter is accepted');
+    assert(onlyYesterday.data.movements.some((row: any) => row.id === legacyId), 'the day returns what happened that day');
+    assert(onlyYesterday.data.movements.every((row: any) => row.business_date === yesterday), 'and nothing from any other day');
+    const fromToday = await call(baseUrl, 'GET', `/api/cartera/movements?from=${today}&to=${today}`, owner);
+    assert(!fromToday.data.movements.some((row: any) => row.id === legacyId), 'a later day leaves it out');
+    assert(fromToday.data.movements.some((row: any) => row.type === 'collection'), 'and still lists that day\'s collections');
+    const everything = await call(baseUrl, 'GET', '/api/cartera/movements', owner);
+    assertEqual(
+      everything.data.movements.length,
+      onlyYesterday.data.movements.length + fromToday.data.movements.length,
+      'without a period the list is the two days together',
+    );
+    const badDate = await call(baseUrl, 'GET', '/api/cartera/movements?to=2026-13-01', owner);
+    assertEqual(badDate.status, 400, 'an impossible date is refused');
+
     console.log('\n' + '='.repeat(60));
     console.log(`Results: ${passed}/${passed + failed} passed, ${failed} failed`);
     server.close();

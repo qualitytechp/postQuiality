@@ -26,10 +26,15 @@ interface Account {
   kind: 'cash' | 'bank' | 'digital';
   canonical_method: string | null;
   payment_method_id: number | null;
+  opening_balance_cents: number;
+  opening_as_of: string;
   balance_cents: number;
   inflow_cents: number;
   outflow_cents: number;
 }
+
+/** Seed date an account carries until an opening balance is declared. */
+const OPENING_NOT_SET = '1970-01-01';
 
 interface ReceivableRow {
   bill_id: number; bill_number: string; customer_id: string; customer_name: string;
@@ -117,6 +122,29 @@ export default function CarteraPage() {
   const [payableForm, setPayableForm] = useState<{ payee_name: string; concept: string; amount: string; due_date: string; reference: string } | null>(null);
   const [voidTarget, setVoidTarget] = useState<MovementRow | null>(null);
   const [voidReason, setVoidReason] = useState('');
+  const [openingTarget, setOpeningTarget] = useState<Account | null>(null);
+  const [openingForm, setOpeningForm] = useState({ amount: '', as_of: '', confirmed: false });
+  const isOwner = currentTenant?.role === 'owner';
+  // A bare YYYY-MM-DD would be read as UTC midnight and shown as the previous
+  // day west of Greenwich; noon keeps it on the same calendar day.
+  const formatBusinessDate = (date: string) => formatDate(`${date} 12:00:00`);
+  const timeZone = currentTenant?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const todayLocal = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  // Movements only: the balance cards always show today, and what is owed
+  // stays visible whatever day it was born.
+  const [period, setPeriod] = useState<'all' | 'day' | 'month'>('all');
+  const [periodDay, setPeriodDay] = useState(todayLocal);
+  const [periodMonth, setPeriodMonth] = useState(todayLocal.slice(0, 7));
+  const [movementsTruncated, setMovementsTruncated] = useState(false);
+  const periodRange = useMemo(() => {
+    if (period === 'day') return { from: periodDay, to: periodDay };
+    if (period === 'month') {
+      const [year, month] = periodMonth.split('-').map(Number);
+      const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      return { from: `${periodMonth}-01`, to: `${periodMonth}-${String(lastDay).padStart(2, '0')}` };
+    }
+    return null;
+  }, [period, periodDay, periodMonth]);
 
   const moduleOn = modules?.receivables;
 
@@ -127,7 +155,7 @@ export default function CarteraPage() {
       api.get('/cartera/summary'),
       api.get('/receivables'),
       api.get('/cartera/payables'),
-      api.get('/cartera/movements'),
+      api.get('/cartera/movements', { params: periodRange ?? {} }),
       api.get('/cartera/accounts'),
     ]);
     return {
@@ -135,9 +163,10 @@ export default function CarteraPage() {
       receivables: (r.data.receivables || []) as ReceivableRow[],
       payables: (p.data.payables || []) as PayableRow[],
       movements: (m.data.movements || []) as MovementRow[],
+      movementsTruncated: Boolean(m.data.truncated),
       accounts: (a.data.accounts || []) as Account[],
     };
-  }, []);
+  }, [periodRange]);
 
   useEffect(() => {
     if (!moduleOn) return;
@@ -149,6 +178,7 @@ export default function CarteraPage() {
         setReceivables(data.receivables);
         setPayables(data.payables);
         setMovements(data.movements);
+        setMovementsTruncated(data.movementsTruncated);
         setAccounts(data.accounts);
       })
       .catch(() => { if (active) toast.error(t('loadFailed')); });
@@ -214,6 +244,19 @@ export default function CarteraPage() {
     const haystack = `${row.concept} ${row.counterparty || ''} ${row.reference || ''}`.toLowerCase();
     return haystack.includes(search.toLowerCase());
   });
+
+  // Totals of exactly what is listed. Voided rows add nothing. Across all
+  // accounts a transfer's two legs only move money between them, so they
+  // would inflate both columns by the same amount; within one account they
+  // are real money in or out of it and do count.
+  const countsTransfers = Boolean(accountFilter);
+  const totalledMovements = filteredMovements.filter((row) => !row.voided && (countsTransfers || row.type !== 'transfer'));
+  const movementTotals = {
+    count: totalledMovements.length,
+    inCents: totalledMovements.reduce((sum, row) => sum + row.in_cents, 0),
+    outCents: totalledMovements.reduce((sum, row) => sum + row.out_cents, 0),
+    hasExcludedTransfers: !countsTransfers && filteredMovements.some((row) => !row.voided && row.type === 'transfer'),
+  };
 
   if (!moduleOn) {
     return (
@@ -308,6 +351,22 @@ export default function CarteraPage() {
                   <span className="text-green-600">↑ {fmt(account.inflow_cents / factor)}</span>
                   <span className="text-red-500 ms-3">↓ {fmt(account.outflow_cents / factor)}</span>
                 </p>
+                {account.kind !== 'cash' && (
+                  <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {account.opening_as_of === OPENING_NOT_SET
+                        ? t('openingNotSet')
+                        : t('openingSet', { amount: fmt(account.opening_balance_cents / factor), date: formatBusinessDate(account.opening_as_of) })}
+                    </p>
+                    {isOwner && (
+                      <button type="button"
+                        onClick={() => { setOpeningTarget(account); setOpeningForm({ amount: '', as_of: '', confirmed: false }); }}
+                        className="text-xs font-medium text-brand hover:underline shrink-0">
+                        {t('openingAction')}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -438,7 +497,57 @@ export default function CarteraPage() {
               <option value="">{t('allTypes')}</option>
               {Object.entries(typeLabel).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
             </select>
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t('periodFilter')}>
+              <div className="flex gap-1 bg-muted rounded-lg p-1">
+                {([
+                  ['all', t('periodAll')],
+                  ['day', t('periodDay')],
+                  ['month', t('periodMonth')],
+                ] as const).map(([key, label]) => (
+                  <button key={key} type="button" onClick={() => setPeriod(key)}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                      period === key ? 'bg-card text-foreground shadow-sm font-medium' : 'text-muted-foreground hover:text-foreground'
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {period === 'day' && (
+                <input type="date" value={periodDay} max={todayLocal} aria-label={t('periodDay')}
+                  onChange={(e) => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) setPeriodDay(e.target.value); }}
+                  className="px-3 py-2 border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand" />
+              )}
+              {period === 'month' && (
+                <input type="month" value={periodMonth} max={todayLocal.slice(0, 7)} aria-label={t('periodMonth')}
+                  onChange={(e) => { if (/^\d{4}-\d{2}$/.test(e.target.value)) setPeriodMonth(e.target.value); }}
+                  className="px-3 py-2 border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand" />
+              )}
+            </div>
           </div>
+
+          {filteredMovements.length > 0 && (
+            <div className="bg-card border border-border rounded-xl p-4 mb-4">
+              <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+                {([
+                  [t('totalsIn'), movementTotals.inCents, 'text-green-700'],
+                  [t('totalsOut'), movementTotals.outCents, 'text-red-600'],
+                  [t('totalsNet'), movementTotals.inCents - movementTotals.outCents, 'text-foreground'],
+                ] as const).map(([label, value, color]) => (
+                  <div key={label}>
+                    <p className="text-xs uppercase text-muted-foreground">{label}</p>
+                    <p className={`text-lg font-bold tabular-nums ${color}`}>{fmt(value / factor)}</p>
+                  </div>
+                ))}
+                <p className="text-sm text-muted-foreground ms-auto">{t('totalsCount', { count: movementTotals.count })}</p>
+              </div>
+              {movementTotals.hasExcludedTransfers && (
+                <p className="text-xs text-muted-foreground mt-2">{t('totalsTransfersExcluded')}</p>
+              )}
+              {movementsTruncated && (
+                <p className="text-xs text-amber-700 mt-2">{period === 'all' ? t('totalsTruncatedAll') : t('totalsTruncatedPeriod')}</p>
+              )}
+            </div>
+          )}
 
           <div className="bg-card rounded-xl border border-border overflow-x-auto">
             <table className="w-full min-w-[880px]">
@@ -454,7 +563,9 @@ export default function CarteraPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {filteredMovements.length === 0 && (
-                  <tr><td colSpan={9} className="p-10 text-center text-muted-foreground">{t('emptyMovements')}</td></tr>
+                  <tr><td colSpan={9} className="p-10 text-center text-muted-foreground">
+                    {periodRange && movements.length === 0 ? t('emptyPeriodMovements') : t('emptyMovements')}
+                  </td></tr>
                 )}
                 {filteredMovements.map((row) => (
                   <tr key={row.id} className={`hover:bg-muted ${row.voided ? 'opacity-50 line-through' : ''}`}>
@@ -761,6 +872,69 @@ export default function CarteraPage() {
           </div>
         </div>
       )}
+
+      {openingTarget && (() => {
+        const registered = openingTarget.opening_as_of !== OPENING_NOT_SET;
+        // Once set, a new base is only accepted for a later year.
+        const minDate = registered ? `${Number(openingTarget.opening_as_of.slice(0, 4)) + 1}-01-01` : undefined;
+        const blocked = !!minDate && minDate > todayLocal;
+        const valid = openingForm.amount !== '' && Number(openingForm.amount) >= 0
+          && /^\d{4}-\d{2}-\d{2}$/.test(openingForm.as_of) && openingForm.as_of <= todayLocal
+          && (!minDate || openingForm.as_of >= minDate) && openingForm.confirmed;
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-2xl p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="text-lg font-bold">{t('openingTitle', { account: openingTarget.name })}</h2>
+                <button onClick={() => setOpeningTarget(null)}><X size={20} className="text-muted-foreground" /></button>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">{t('openingExplainer')}</p>
+              {registered && (
+                <p className="text-sm rounded-lg bg-muted px-3 py-2 mb-4 tabular-nums">
+                  {t('openingCurrent', { amount: fmt(openingTarget.opening_balance_cents / factor), date: formatBusinessDate(openingTarget.opening_as_of) })}
+                </p>
+              )}
+              {blocked ? (
+                <p className="text-sm rounded-lg border border-amber-300 bg-amber-50 text-amber-800 px-3 py-2">
+                  {t('openingBlocked', { year: Number(openingTarget.opening_as_of.slice(0, 4)) + 1 })}
+                </p>
+              ) : (
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!valid) return;
+                  void withSaving(async () => {
+                    await api.post(`/cartera/accounts/${openingTarget.id}/opening-balance`, {
+                      amount_cents: cents(openingForm.amount), as_of: openingForm.as_of,
+                    });
+                    toast.success(t('openingSaved'));
+                    setOpeningTarget(null);
+                  });
+                }} className="space-y-3">
+                  <label className="block">
+                    <span className="text-xs font-medium text-muted-foreground uppercase">{t('openingAmount')}</span>
+                    <input type="number" min="0" step="any" inputMode="decimal" value={openingForm.amount} required
+                      onChange={(e) => setOpeningForm({ ...openingForm, amount: e.target.value })}
+                      className="mt-1 w-full px-3 py-2 text-end border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand tabular-nums" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-muted-foreground uppercase">{t('openingDate')}</span>
+                    <input type="date" value={openingForm.as_of} required min={minDate} max={todayLocal}
+                      onChange={(e) => setOpeningForm({ ...openingForm, as_of: e.target.value })}
+                      className="mt-1 w-full px-3 py-2 border border-border rounded-lg bg-card outline-none focus:ring-2 focus:ring-brand" />
+                    <span className="block text-xs text-muted-foreground mt-1">{t('openingDateHint')}</span>
+                  </label>
+                  <label className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" checked={openingForm.confirmed} className="mt-1"
+                      onChange={(e) => setOpeningForm({ ...openingForm, confirmed: e.target.checked })} />
+                    <span>{t('openingConfirm')}</span>
+                  </label>
+                  <Button type="submit" className="w-full" disabled={saving || !valid}>{tCommon('save')}</Button>
+                </form>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {entryForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
